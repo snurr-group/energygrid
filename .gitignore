@@ -1,0 +1,14 @@
+*.pyc
+
+# Exclude all data files within dated directories, except for README.md
+# Can always manually git add important scripts, etc.
+Data/
+!README.md
+!notebook.md
+Test/*
+.RData
+.Rhistory
+.Rproj.user
+.idea/
+.codelite/
+
