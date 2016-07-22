@@ -11,4 +11,5 @@ Test/*
 .Rproj.user
 .idea/
 .codelite/
-
+Python/gridcalc/CIF_FILES/
+Python/gridcalc/Metric.txt

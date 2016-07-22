@@ -2,9 +2,15 @@
 # number and also output the grid energy values for every mof in a set
 
 from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
-import pymatgen as mg # For crystallography operations -- Advanced module need to be installed
+
+#import pymatgen as mg # For crystallography operations -- Advanced module need to be installed
+try:
+	from pymatgen.io.cifio import CifParser
+except ImportError:
+	from aprdf.mgcompat import CifParser  # Alternative to pymatgen for importing CIFs
+# Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
 import numpy as np  # Numerical calculations -- Basi module
-import os           # Sytem operations -- Basic module
+import os           # System operations -- Basic module
 
 
 # Define LJ Potential
@@ -59,7 +65,7 @@ for name_index in range(len(cif_list)):
 	
 	
 	# Read the coordinates from the cif file using pymatgen
-	f1=mg.io.cifio.CifParser(cif_file_name)
+	f1=CifParser(cif_file_name)
 	struct=f1.get_structures()[0]
 	
 	
@@ -130,11 +136,14 @@ for name_index in range(len(cif_list)):
 	for k in range(nz):
 		for j in range(ny):
 			for i in range(nx):
-				#print i,j,k
 				grid_point = [x_grid[i],y_grid[j],z_grid[k]] # fractional grid coordinater unit box
 				grid_point = np.dot(A , grid_point) # Cartesian coordinates
+				# I am very suspicious of this conversion to Cartesian coordinates.  Shouldn't it be done after applying PBC?
+				# I guess using the expanded grid instead of the original isn't a bug,
+				# because we're calculating an invariant (histogram) of the unit cell
 				
 				for atm_index in range(Number_Of_Atoms):
+					#print coord[atm_index]
 					rxij= grid_point[0] - coord[atm_index][0]
 					ryij= grid_point[1] - coord[atm_index][1]
 					rzij= grid_point[2] - coord[atm_index][2]
@@ -147,7 +156,7 @@ for name_index in range(len(cif_list)):
 					r_act = np.dot(A , [rxij, ryij,rzij])
 					rsq=r_act[0]**2+r_act[1]**2+r_act[2]**2
 					
-					# Lorentz Berthelot          
+					# Lorentz Berthelot
 					sig2 =  float(ff_file[int(mof_atm_indices[atm_index][0])].split()[3])  # Get sigma 
 					eps2 =  float(ff_file[int(mof_atm_indices[atm_index][0])].split()[2])  # get epsilon
 					
@@ -211,7 +220,7 @@ for name_index in range(len(cif_list)):
 	
 	
 	#Print the fraction of the attractive zone
-	f2=open('../Metric.txt','a')
+	f2=open('../../Metric.txt','a')
 	f2.write('The attraction zone for '+cif_file_name+':\t')
 	f2.write(str(float(sum((e_vals < 0) & (e_vals>min(e_vals)))[0])/N_grid_total))
 	f2.close()
