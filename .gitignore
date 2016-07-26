@@ -13,3 +13,4 @@ Test/*
 .codelite/
 Python/gridcalc/CIF_FILES/
 Python/gridcalc/Metric.txt
+Python/gridcalc/Profiling/

@@ -3,13 +3,12 @@
 
 from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
 
-#import pymatgen as mg # For crystallography operations -- Advanced module need to be installed
 try:
-	from pymatgen.io.cifio import CifParser
+	from pymatgen.io.cifio import CifParser  # try to use Pymatgen, if installed
 except ImportError:
 	from aprdf.mgcompat import CifParser  # Alternative to pymatgen for importing CIFs
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
-import numpy as np  # Numerical calculations -- Basi module
+import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
 
 
@@ -168,6 +167,7 @@ for name_index in range(len(cif_list)):
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
 	#-------------------------------------------------------------------------------------------------------------
+
 	N_grid_total = nx *ny *nz
 	
 	#Write the VTK file

@@ -34,7 +34,6 @@ class CifParser(CifData):
 		# Make a MOF supercell based on the integer multiplications provided
 
 		# Get the counts before/after for bookkeeping
-		print cell_array
 		mx = int(cell_array[0])
 		my = int(cell_array[1])
 		mz = int(cell_array[2])
