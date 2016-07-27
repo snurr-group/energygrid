@@ -51,6 +51,7 @@ ff_file = open('./forcefield/'+force_field+'/force_field_mixing_rules.def').read
 # --------------------------------------------------------------------------------------------------------------------
 # Prepare dir structure
 # ---------------------------------------------
+path_orig = os.getcwd()
 os.chdir('CIF_FILES')
 path_files=os.getcwd()
 cif_list=os.listdir('.')
@@ -95,11 +96,11 @@ for name_index in range(len(cif_list)):
 	
 	
 	struct.make_supercell([nx_cells,ny_cells,nz_cells])
-	coord = struct.frac_coords  # The whole thing scaled to [0,1] in all D's
+	coord = np.array(struct.frac_coords)  # The whole thing scaled to [0,1] in all D's
 	Number_Of_Atoms = struct.num_sites
 	
 	
-	# Redefine the box matrix
+	# Redefine the box matrix since we made a supercell
 	lx = struct.lattice.a
 	ly = struct.lattice.b
 	lz = struct.lattice.c
@@ -132,37 +133,31 @@ for name_index in range(len(cif_list)):
 	pot=np.zeros((nx,ny,nz))
 	
 	#Calculate LJ interaction energy
-	for k in range(nz):
-		for j in range(ny):
-			for i in range(nx):
-				grid_point = [x_grid[i],y_grid[j],z_grid[k]] # fractional grid coordinater unit box
-				grid_point = np.dot(A , grid_point) # Cartesian coordinates
-				# I am very suspicious of this conversion to Cartesian coordinates.  Shouldn't it be done after applying PBC?
-				# I guess using the expanded grid instead of the original isn't a bug,
-				# because we're calculating an invariant (histogram) of the unit cell
-				
-				for atm_index in range(Number_Of_Atoms):
-					#print coord[atm_index]
-					rxij= grid_point[0] - coord[atm_index][0]
-					ryij= grid_point[1] - coord[atm_index][1]
-					rzij= grid_point[2] - coord[atm_index][2]
-					#Apply PBC
-					rxij=rxij-round(rxij) 
-					ryij=ryij-round(ryij) 
-					rzij=rzij-round(rzij)
-					
+	for atm_index in range(Number_Of_Atoms):
+		# Lorentz Berthelot
+		sig2 = float(ff_file[int(mof_atm_indices[atm_index][0])].split()[3])  # Get sigma
+		eps2 = float(ff_file[int(mof_atm_indices[atm_index][0])].split()[2])  # get epsilon
+
+		sig = (sig1 + sig2) / 2
+		eps = np.sqrt(eps1 * eps2)
+		for k in range(nz):
+			for j in range(ny):
+				for i in range(nx):
+					grid_point = np.array([x_grid[i],y_grid[j],z_grid[k]]) # fractional grid coordinater unit box
+					# Don't convert back to Cartesian coordinates until we apply PBC.  Work in fractional coords
+					# grid_point = np.dot(A , grid_point) # Cartesian coordinates
+
+					drij = grid_point - coord[atm_index]
+					# Apply PBC
+					drij -= drij.round()
+					# Minor detail: python's round appears to round towards +/- inf; numpy is round to nearest even
+
 					#Transform back to find the actual distance
-					r_act = np.dot(A , [rxij, ryij,rzij])
+					r_act = np.dot(A , drij)
 					rsq=r_act[0]**2+r_act[1]**2+r_act[2]**2
-					
-					# Lorentz Berthelot
-					sig2 =  float(ff_file[int(mof_atm_indices[atm_index][0])].split()[3])  # Get sigma 
-					eps2 =  float(ff_file[int(mof_atm_indices[atm_index][0])].split()[2])  # get epsilon
-					
-					sig=(sig1+sig2)/2
-					eps=np.sqrt(eps1*eps2)
+
 					if np.sqrt(rsq) <= rcut:
-						pot[i][j][k]= pot[i][j][k] + lj(eps,sig,rsq)
+						pot[i][j][k] += lj(eps,sig,rsq)
 	
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
@@ -222,7 +217,7 @@ for name_index in range(len(cif_list)):
 	#Print the fraction of the attractive zone
 	f2=open('../../Metric.txt','a')
 	f2.write('The attraction zone for '+cif_file_name+':\t')
-	f2.write(str(float(sum((e_vals < 0) & (e_vals>min(e_vals)))[0])/N_grid_total))
+	f2.write(str(float(sum((e_vals < 0) & (e_vals>min(e_vals)))[0])/N_grid_total) + '\n')
 	f2.close()
 	
 	# write the raw grid data into text file straight array
@@ -233,3 +228,4 @@ for name_index in range(len(cif_list)):
 	f4.close()
 	
 	os.chdir(path_files)
+os.chdir(path_orig)
