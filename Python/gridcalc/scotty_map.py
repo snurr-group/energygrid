@@ -150,7 +150,6 @@ for name_index in range(len(cif_list)):
 					drij = grid_point - coord[atm_index]
 					# Apply PBC
 					drij -= drij.round()
-					# Minor detail: python's round appears to round towards +/- inf; numpy is round to nearest even
 
 					#Transform back to find the actual distance
 					r_act = np.dot(A , drij)
@@ -183,10 +182,10 @@ for name_index in range(len(cif_list)):
 				y[i,j,k] = Y[j] 
 				z[i,j,k] = Z[k]
 	
-		for k in range(nz): 
-			for j in range(ny):
-				for i in range(nx): 
-					[x[i,j,k], y[i,j,k],z[i,j,k]] = np.dot(A,[x[i,j,k], y[i,j,k],z[i,j,k]])
+	for k in range(nz):
+		for j in range(ny):
+			for i in range(nx):
+				[x[i,j,k], y[i,j,k],z[i,j,k]] = np.dot(A,[x[i,j,k], y[i,j,k],z[i,j,k]])
 	
 	# Write pot into .vts file
 	gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot})             
