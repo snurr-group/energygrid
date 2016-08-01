@@ -28,7 +28,6 @@ def permutations(combo_array):
 
 
 # Section with some new utility functions for increased robustness
-# TODO: also raise an Exception unless the unit cell is P1
 def wrap_uc(dfpos):
 	# Apply PBC except in (0,1) instead of (-0.5, 0.5)
 	# Python modulo of negatives/floating point is not unexpected

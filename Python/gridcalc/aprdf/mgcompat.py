@@ -3,6 +3,51 @@ from cifparse import CifData, CifBox, CifAtoms
 from cifparse import clean_uc, clean_float
 import numpy as np
 
+# Needed for gcd:
+import fractions
+import copy
+
+
+def gcd(list_of_ints):
+	"""Calculate the greatest common denominator/factor of a list"""
+	if len(list_of_ints) == 0:
+		return None
+	elif len(list_of_ints) == 1:
+		return list_of_ints[0]
+	values = copy.deepcopy(list_of_ints)
+	# Start with one factor, which will have a gcf of itself
+	gcf = values.pop()
+
+	for coeff in values:
+		# Calculate the gcf of the current gcf and next value
+		gcf = fractions.gcd(coeff, gcf)
+	return gcf
+
+def _calc_empirical_formula(molec_formula):
+	# Derived from aprdf:elements.py
+	gcf = gcd(molec_formula.values())
+	empirical_formula = dict.fromkeys(molec_formula)
+	for element in molec_formula:
+		# gcf will be a factor of each element (by definition), so integer division is fine
+		empirical_formula[element] = molec_formula[element] / gcf
+	return empirical_formula
+
+def _formula_to_str(generic_formula_dict, sep = None, hide_ones = False):
+	if sep is None:
+		sep = ""
+	elements = sorted(generic_formula_dict.keys())  # Pymatgen uses a different ordering, but this is otherwise consistent
+	out = ""
+	first_element = True
+	for element in elements:
+		if not first_element:  # use sep to delimit element entries
+			out += sep
+		out += element
+		count = generic_formula_dict[element]
+		if not(hide_ones and count == 1):
+			out += str(count)
+		first_element = False
+	return out
+
 def repeat(array, times=1):
 	# Repeats elements of a list a specified number of times in the same order as the list
 	# repeat([1,2,3], 3) yields [1,1,1,2,2,2,3,3,3]
@@ -11,6 +56,7 @@ def repeat(array, times=1):
 		#out_array.extend(times * [element])
 		out_array.extend([element for x in xrange(times)])
 	return out_array
+
 
 class CifParser(CifData):
 	# Derived class from my cifparse.py utility
@@ -25,6 +71,7 @@ class CifParser(CifData):
 		self.frac_coords = self.atoms.fpos  # pymatgen also returns an Nx3 numpy array
 		self.num_sites = self.atoms.count
 		self.species = self.atoms.element
+		self._calculate_formulas()
 
 	def get_structures(self):
 		# WARNING: The base cifparse.py class by default only reads the first structure in the CIF file
@@ -94,4 +141,45 @@ class CifParser(CifData):
 		self.box = CifBox(self.data)
 		self.atoms = CifAtoms(self.data)
 		self.set_aliases()
+
+	def _calculate_formulas(self):
+		# Calculates the molecular and empirical formulas for the CIF
+		# Derived from aprdf:elements.py
+		self.molecular_formula = dict()
+		for item in self.atoms.element:
+			if item in self.molecular_formula:
+				self.molecular_formula[item] += 1
+			else:
+				self.molecular_formula[item] = 1
+		# Check that all atoms are accounted for.  Print out mismatch if this assertion fails
+		assert self.atoms.count == sum(self.molecular_formula.values()), str(self.atoms.count) + " != " + str(
+			sum(self.molecular_formula.values()))
+
+		# Get list of atom types
+		self.atom_types = self.molecular_formula.keys()
+		# Calculate the empirical formula (simplest integer representation of molecular formula)
+		self.empirical_formula = _calc_empirical_formula(self.molecular_formula)
+		return self
+
+	def __str__(self):
+		# Returns an imitation of Pymatgen's string representation.
+		# Used for Structure_Information.dat, etc.
+		summary = "Structure Summary "
+		summary += "(" + _formula_to_str(self.molecular_formula, " ", False) + ")\n"
+		summary += "Reduced Formula: " + _formula_to_str(self.empirical_formula, "", True) + "\n"
+
+		summary += "abc   :  %9.6f %9.6f %9.6f\n" % (self.lattice.a, self.lattice.b, self.lattice.c)
+		summary += "angles:  %9.6f %9.6f %9.6f\n" % (self.lattice.alpha, self.lattice.beta, self.lattice.gamma)
+
+		summary += "Sites (" + str(self.atoms.count) + ")\n"
+		for site in xrange(self.atoms.count):
+			summary += str(site + 1) + " "
+			summary += self.atoms.element[site] + 5 * " "
+			summary += "%.6f" % self.atoms.fx[site] + 5 * " "
+			summary += "%.6f" % self.atoms.fy[site] + 5 * " "
+			summary += "%.6f" % self.atoms.fz[site] + "\n"
+
+		return summary
+
+
 
