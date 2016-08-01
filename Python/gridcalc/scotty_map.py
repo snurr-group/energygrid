@@ -10,13 +10,36 @@ except ImportError:
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
 import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
-
+#from numba import jit
 
 # Define LJ Potential
+#@jit
 def lj(eps,sig,rsq):
 	E = (4*eps) * (((sig)**12/(rsq)**6) - ((sig)**6/(rsq)**3)) 
 	return E
 
+#@jit
+def add_atom_lj_to_grid(potential_grid, cell_transform, atm_coord, xgrid, ygrid, zgrid):
+	xlen = xgrid.size  # nx renamed for this function
+	ylen = ygrid.size
+	zlen = zgrid.size
+	for k in range(zlen):
+		for j in range(ylen):
+			for i in range(xlen):
+				grid_point = np.array([xgrid[i], ygrid[j], zgrid[k]])  # fractional grid coordinater unit box
+				# Don't convert back to Cartesian coordinates until we apply PBC.  Work in fractional coords
+				# grid_point = np.dot(A , grid_point) # Cartesian coordinates
+
+				drij = grid_point - atm_coord
+				# Apply PBC
+				drij -= drij.round()
+
+				# Transform back to find the actual distance
+				r_act = np.dot(cell_transform, drij)
+				rsq = r_act[0] ** 2 + r_act[1] ** 2 + r_act[2] ** 2
+
+				if np.sqrt(rsq) <= rcut:
+					potential_grid[i][j][k] += lj(eps, sig, rsq)
 
 
 #-------------------------------------------------------------------------------------------------------------
@@ -140,23 +163,7 @@ for name_index in range(len(cif_list)):
 
 		sig = (sig1 + sig2) / 2
 		eps = np.sqrt(eps1 * eps2)
-		for k in range(nz):
-			for j in range(ny):
-				for i in range(nx):
-					grid_point = np.array([x_grid[i],y_grid[j],z_grid[k]]) # fractional grid coordinater unit box
-					# Don't convert back to Cartesian coordinates until we apply PBC.  Work in fractional coords
-					# grid_point = np.dot(A , grid_point) # Cartesian coordinates
-
-					drij = grid_point - coord[atm_index]
-					# Apply PBC
-					drij -= drij.round()
-
-					#Transform back to find the actual distance
-					r_act = np.dot(A , drij)
-					rsq=r_act[0]**2+r_act[1]**2+r_act[2]**2
-
-					if np.sqrt(rsq) <= rcut:
-						pot[i][j][k] += lj(eps,sig,rsq)
+		add_atom_lj_to_grid(pot, A, coord[atm_index], x_grid, y_grid, z_grid)
 	
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
