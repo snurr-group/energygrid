@@ -8,7 +8,8 @@ def repeat(array, times=1):
 	# repeat([1,2,3], 3) yields [1,1,1,2,2,2,3,3,3]
 	out_array = []
 	for element in array:
-		out_array.extend(times * [element])
+		#out_array.extend(times * [element])
+		out_array.extend([element for x in xrange(times)])
 	return out_array
 
 class CifParser(CifData):
@@ -65,13 +66,16 @@ class CifParser(CifData):
 					index += 1
 		transforms = transforms.T
 
-		dx = transforms[0].repeat(num_atoms)
-		dy = transforms[1].repeat(num_atoms)
-		dz = transforms[2].repeat(num_atoms)
+		# We want to do the transforms n times for each atom, e.g.
+		# [0, 1, 2] -> [0, 1, 2, 0, 1, 2]
+		# This is the opposite convention as the `repeat` command
+		dx = np.tile(transforms[0], num_atoms)
+		dy = np.tile(transforms[1], num_atoms)
+		dz = np.tile(transforms[2], num_atoms)
 
 		# Apply changes to copies of atoms, and scale UC appropriately
 		new_data['_atom_site_fract_x'] = (new_data['_atom_site_fract_x'] + dx) / mx
-		new_data['_atom_site_fract_y'] = (new_data['_atom_site_fract_x'] + dy) / my
+		new_data['_atom_site_fract_y'] = (new_data['_atom_site_fract_y'] + dy) / my
 		new_data['_atom_site_fract_z'] = (new_data['_atom_site_fract_z'] + dz) / mz
 		new_data['_cell_length_a'] = clean_float(self.data['_cell_length_a']) * mx
 		new_data['_cell_length_b'] = clean_float(self.data['_cell_length_b']) * my
@@ -80,6 +84,12 @@ class CifParser(CifData):
 			new_data[key] = self.data[key]
 
 		# Apply changes back to the class, which will require reinitialization
+		if False:  # Old debugging commands to figure out the transform
+			import sys
+			np.set_printoptions(threshold=sys.maxint)
+			print cell_array
+			print transforms[0], transforms[1], transforms[2]
+			print new_data
 		self.data = new_data
 		self.box = CifBox(self.data)
 		self.atoms = CifAtoms(self.data)
