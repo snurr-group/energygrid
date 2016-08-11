@@ -10,7 +10,9 @@ except ImportError:
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
 import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
+import imp
 
+xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
 
 # Define LJ Potential
 def lj(eps,sig,rsq):
@@ -26,19 +28,12 @@ def lj(eps,sig,rsq):
 # Define the probe LJ parameters (H2 for the time being--change here)
 eps1  = 11.25 # in kelvin
 sig1  = 2.68  # in angstrom
-rcut = 14     # Maximum range under consideration for the LJ interactions
+rcut = 12     # Maximum range under consideration for the LJ interactions
 
 
-# Define grid points in a unit box (Non adaptive grid)
-# Number of grid points
-nx=20
-ny=20
-nz=20
+# Grid spacing
+grid_spacing = 2.0  # One grid point per angstrom approximately
 
-# Intially the grids are defined on a unit box
-x_grid = np.linspace(0,1,nx)
-y_grid = np.linspace(0,1,ny)
-z_grid = np.linspace(0,1,nz)
 
 # Read the forcefield information from RASPA force field directory
 # I made some changes there to make life easy
@@ -47,6 +42,10 @@ force_field = 'GenericMOFs'
 #NumberOfPseudoAtoms = int(pa_file.[1].split()[0])
 
 ff_file = open('./forcefield/'+force_field+'/force_field_mixing_rules.def').readlines()
+
+# Set the cut offs for defining the energy metric
+e_low=-960.0 # in kelvin units
+e_high=-120.0 
 
 # --------------------------------------------------------------------------------------------------------------------
 # Prepare dir structure
@@ -113,6 +112,18 @@ for name_index in range(len(cif_list)):
 	A = np.array(A).T
 	A_inv = np.linalg.inv(A)
 	
+	# Define grid points in a unit box (Non adaptive grid)
+	# Number of grid points
+	nx = int(lx/grid_spacing)
+	ny = int(ly/grid_spacing)
+	nz = int(lz/grid_spacing)
+
+	# Intially the grids are defined on a unit box
+	x_grid = np.linspace(0,1,nx)
+	y_grid = np.linspace(0,1,ny)
+	z_grid = np.linspace(0,1,nz)
+
+
 	
 	# Read the corresponding forcefield parameters (pseudo atoms information)
 	# for the atoms in the MOF
@@ -182,9 +193,9 @@ for name_index in range(len(cif_list)):
 				y[i,j,k] = Y[j] 
 				z[i,j,k] = Z[k]
 	
-	for k in range(nz):
+	for k in range(nz): 
 		for j in range(ny):
-			for i in range(nx):
+			for i in range(nx): 
 				[x[i,j,k], y[i,j,k],z[i,j,k]] = np.dot(A,[x[i,j,k], y[i,j,k],z[i,j,k]])
 	
 	# Write pot into .vts file
@@ -216,14 +227,18 @@ for name_index in range(len(cif_list)):
 	#Print the fraction of the attractive zone
 	f2=open('../../Metric.txt','a')
 	f2.write('The attraction zone for '+cif_file_name+':\t')
-	f2.write(str(float(sum((e_vals < 0) & (e_vals>min(e_vals)))[0])/N_grid_total) + '\n')
+	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low)[0]))/N_grid_total) + '\n')
 	f2.close()
-	
+
 	# write the raw grid data into text file straight array
 	# Write the corresponding xyz coordinates
-	# Write the corresponding MOF coordinates to .xyz file using pymatgen
-	f4=open('Structure_Information.dat','w')
-	f4.write(str(struct))
+	# Write the corresponding MOF coordinates to .xyz file using xyz.py
+	f4=open(cif_list[name_index]+'.xyz','w')
+	coord = np.array(struct.frac_coords)
+	out_coord = np.zeros((np.shape(coord)))
+	for i in range(len(coord)):
+	  out_coord[i]=np.dot(A,coord[i])
+	xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
 	f4.close()
 	
 	os.chdir(path_files)
