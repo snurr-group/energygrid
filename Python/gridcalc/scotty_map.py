@@ -251,7 +251,7 @@ for name_index in range(len(cif_list)):
 	#Print the fraction of the attractive zone
 	f2=open('../../Metric.txt','a')
 	f2.write('The attraction zone for '+cif_file_name+':\t')
-	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low)[0]))/N_grid_total) + '\n')
+	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
 	f2.close()
 
 	# write the raw grid data into text file straight array
