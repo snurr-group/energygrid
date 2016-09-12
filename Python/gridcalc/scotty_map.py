@@ -226,16 +226,8 @@ for name_index in range(len(cif_list)):
 	gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})             
 	
 	
-	# Histogram into bins (predefined?)
+	#Write the raw energy values  
 	e_vals = np.reshape(pot_repeat,(N_grid_total,1))  # Reshape into linear array
-	bins1 = np.linspace(min(e_vals),0,31)
-	e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'false') # Histogram
-	bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
-	data = np.vstack((bincenters, e_hist) )
-	np.savetxt('histogram.txt',data) # Write histogram data
-	 
-	 
-	#Write the raw energy values        
 	f3=open('Details.txt','w')
 	f3.write(str(nx_total)+'\t'+str(ny_total)+'\t'+str(nz_total)+'\n')
 	f3.write(str(nx_cells)+'\t'+str(ny_cells)+'\t'+str(nz_cells)+'\n')
@@ -253,7 +245,19 @@ for name_index in range(len(cif_list)):
 	f2.write('The attraction zone for '+cif_file_name+':\t')
 	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
 	f2.close()
-
+	
+	
+	# Histogram into bins (predefined?)
+	if min(e_vals) < 0:  # Some MOFs have no attractive region
+		bins1 = np.linspace(min(e_vals),0,31)
+		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'false') # Histogram
+		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
+		data = np.vstack((bincenters, e_hist) )
+		np.savetxt('histogram.txt',data) # Write histogram data
+	else:
+		open('no_histogram.txt', 'a').close()  # Write a blank file indicating no histogram
+	
+	
 	# write the raw grid data into text file straight array
 	# Write the corresponding xyz coordinates
 	# Write the corresponding MOF coordinates to .xyz file using xyz.py
