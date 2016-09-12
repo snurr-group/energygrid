@@ -14,6 +14,7 @@ except ImportError:
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
 import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
+import time         # Time operations -- Basic module
 #from numba import jit
 import imp
 xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
@@ -86,6 +87,7 @@ cif_list=os.listdir('.')
 # The heart of the code
 #-------------------------------------------------------------------------------------------------------------
 for name_index in range(len(cif_list)):
+	timer_start = time.time()
 	os.chdir(cif_list[name_index])
 	cif_file_name = cif_list[name_index] + '.cif'
 	
@@ -268,6 +270,14 @@ for name_index in range(len(cif_list)):
 	  out_coord[i]=np.dot(A,coord[i])
 	xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
 	f4.close()
+	
+	
+	# Write an approximate elapsed time (seconds) from analyzing this CIF file
+	timer_end = time.time()
+	elapsed_seconds = timer_end - timer_start
+	f5=open('../../timer.txt','a')
+	f5.write(cif_file_name + '\t' + str(elapsed_seconds) + '\n')
+	f5.close()
 	
 	os.chdir(path_files)
 os.chdir(path_orig)
