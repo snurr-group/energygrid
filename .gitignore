@@ -3,6 +3,7 @@
 # Exclude all data files within dated directories, except for README.md
 # Can always manually git add important scripts, etc.
 Data/
+BigData/
 !README.md
 !notebook.md
 Test/*
