@@ -4,6 +4,9 @@ library(stringr)
 library(R.utils)
 
 E_CUTOFF <- 15 * 77  # K
+ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
+QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
+
 
 k_to_kj_mol <- function(energy)  {
   kb <- 1.38064853e-23  # J/K from Wikipedia
@@ -13,7 +16,9 @@ k_to_kj_mol <- function(energy)  {
 
 energy_stats <- function(data_dir, stats_fcn, df_prototype) {
   dirs <- list.files(data_dir)
-  dirs <- dirs[1:100]  # Debugging trick to only run the first 100 folders
+  if (QUICK_TEST) {
+    dirs <- dirs[1:100]  # Debugging trick to only run the first 100 folders
+  }
   num_cifs <- length(dirs)
   
   # Preallocate a df using an R.utils function: http://r.789695.n4.nabble.com/idiom-for-constructing-data-frame-td4705353.html
@@ -32,7 +37,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype) {
   }
   close(pb)
   
-  ids <- str_sub(dirs, 2, -1)  # strip off leading "h" for hMOF designation
+  ids <- as.integer(str_sub(dirs, 2, -1))  # strip off leading "h" for hMOF designation
   all_stats$id <- ids
   all_stats
 }
@@ -78,22 +83,17 @@ bin_labels <- function(bin_width = 77, min_max = c(-15, 15)) {
                     )
 }
 
-
-all_stats_1 <- energy_summary("BigData/10k-hMOFs/part1/CIF_FILES")
-all_stats_2 <- energy_summary("BigData/10k-hMOFs/part2/CIF_FILES")
-all_stats_combined <- rbind(all_stats_1, all_stats_2)
-temp_hists_1 <- energy_hists("BigData/10k-hMOFs/part1/CIF_FILES")
-temp_hists_2 <- energy_hists("BigData/10k-hMOFs/part2/CIF_FILES")
-hist_stats <- rbind(temp_hists_1, temp_hists_2)
-
-
-to_delete <- function(x) {
-  bins <- seq(from=-15*77, to=16*77, by=77)
-  energy[energy>15*77] <- 15.5*77
-  
-  # Preallocate array: https://www.r-bloggers.com/pitfall-did-you-really-mean-to-use-matrixnrow-ncol/
-  new_hist <- data.frame(matrix(NA_integer_, nrow=134, ncol=31))
-  new_hist[2,] <- hist(energy, breaks=bins, plot=FALSE)$counts
+run_energy_stat <- function(dirs, stat_fcn) {
+  # Runs the stat function over multiple directories to reduce copy-paste
+  all_stats <- stat_fcn(dirs[1])
+  if (length(dirs) > 1) {
+    for (x in dirs[2:length(dirs)]) {
+      all_stats <- rbind(all_stats, stat_fcn(x))
+    }
+  }
+  all_stats
 }
 
+hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
+hist_vals <- run_energy_stat(ANALYSIS_DIRS, energy_hists)
 
