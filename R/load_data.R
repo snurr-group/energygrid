@@ -44,12 +44,22 @@ load_metric <- function(filename) {
   metric_data
 }
 
+load_agnostic <- function(filename) {
+  agnostic_data <- read.delim(filename,
+                              header = TRUE,
+                              colClasses = c("integer", "numeric", "numeric", "numeric"),
+                              col.names = c("id", "ag.geo.VF", "ag.bind.frac", "ag.sparse.frac")
+                              )
+  agnostic_data
+}
+
 # TODO: clean up the bottom of this, probably putting it in another script, notebook, etc.
 gcmc_data <- load_gcmc(paste0(base_dir, "condensed-master-list.tsv.gz"))
 timing_data <- load_timing(paste0(base_dir, "timer.txt"))
 metric_data <- load_metric(paste0(base_dir, "Metric.txt"))
+agnostic_data <- load_agnostic(paste0(base_dir, "10k-hMOFs-agnosticscreening.txt"))
 # <- right_join(gcmc_data, metric_data, by = c("ID"="id")) %>%
-scotty_data <- right_join(gcmc_data, metric_data) %>% right_join(timing_data)
+scotty_data <- right_join(gcmc_data, metric_data) %>% right_join(timing_data) %>% left_join(agnostic_data)
 # ggplot(scotty_data, aes(hv, metric)) + geom_point() + theme_bw(16)
 scotty_no_na_data <- na.omit(scotty_data)
 scotty_na_data <- scotty_data[attr(scotty_no_na_data, "na.action"),]
