@@ -3,7 +3,8 @@ library(tidyverse)
 library(stringr)
 library(R.utils)
 
-E_CUTOFF <- 15 * 77  # K
+TEMPERATURE = 77  # K
+E_CUTOFF <- 15 * TEMPERATURE  # K
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
 QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
 
@@ -55,7 +56,20 @@ energy_summary <- function(data_dir, upper_cutoff = E_CUTOFF) {
   energy_stats(data_dir, energy_summary_fcn, output_prototype)
 }
 
-energy_hists <- function(data_dir, bin_width = 77, min_max = c(-15, 15)) {
+energy_metric <- function(data_dir, lower_bound = -200, upper_bound = 0) {
+  # Computes the "LJ metric" based on upper and lower cutoffs
+  # DEMO function.  Ideally, this should be rapidly done via integrating the histograms
+  energy_metric_fcn <- function(energy) {
+    filtered_energy <- energy[energy > lower_bound & energy < upper_bound]
+    energy_row <- length(filtered_energy) / length(energy)
+  }
+  output_prototype <- c("numeric")
+  names(output_prototype) <- c("LJ.metric")
+  
+  energy_stats(data_dir, energy_metric_fcn, output_prototype)
+}
+
+energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)) {
   # Retrieve the histograms from the energy directories
   # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
   bins <- seq(from = bin_width * min_max[1],
@@ -74,7 +88,7 @@ energy_hists <- function(data_dir, bin_width = 77, min_max = c(-15, 15)) {
   energy_stats(data_dir, hists_fcn, output_prototype)
 }
 
-bin_labels <- function(bin_width = 77, min_max = c(-15, 15)) {
+bin_labels <- function(bin_width = TEMPERATURE, min_max = c(-15, 15)) {
   # Get the lower boundaries of the histogram "breaks"
   # Uses the same parameters as energy_hists
   lower_bins <- seq(from = bin_width * min_max[1],
@@ -96,4 +110,5 @@ run_energy_stat <- function(dirs, stat_fcn) {
 
 hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
 hist_vals <- run_energy_stat(ANALYSIS_DIRS, energy_hists)
+hist_metric <- run_energy_stat(ANALYSIS_DIRS, energy_metric)
 
