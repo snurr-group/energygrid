@@ -2,6 +2,7 @@
 library(tidyverse)
 library(stringr)
 library(R.utils)
+library(manipulate)
 
 # deprecated cutoff parameters
 TEMPERATURE = 77  # K
@@ -170,4 +171,20 @@ run_energy_stat <- function(dirs, stat_fcn) {
 hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists)
 #hist_metric <- run_energy_stat(ANALYSIS_DIRS, energy_metric)
 hist_metric <- metric_from_hists(hist_vals)
+
+run_interactive_lj_plot <- function() {
+  # Requires that gcmc_data is already loaded into the workspace
+  # As shown by the [Rstudio documentation](https://support.rstudio.com/hc/en-us/articles/200551906-Interactive-Plotting-with-Manipulate)
+  # manipulate is an easy package to use in this IDE.
+  # Could probably be more efficient (fast), but honestly it's impressive it works as well as it does
+  print("Click on the gear to play with the upper and lower bounds!")
+  manipulate(
+    hist_vals %>% 
+      metric_from_hists(lower=lower_bound, upper=upper_bound) %>%
+      left_join(gcmc_data, by="id") %>%
+      ggplot(aes(metric, g.L)) + geom_point(),
+    lower_bound = slider(-900, 100, initial=-200, step=10),
+    upper_bound = slider(-900, 100, initial=-10, step=10)
+    )
+}
 
