@@ -3,10 +3,12 @@ library(tidyverse)
 library(stringr)
 library(R.utils)
 
+# deprecated cutoff parameters
 TEMPERATURE = 77  # K
 E_CUTOFF <- 15 * TEMPERATURE  # K
+
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
-QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
+QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
 
 
 k_to_kj_mol <- function(energy)  {
@@ -37,7 +39,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
     end_row <- current_row + num_rows - 1
     all_stats[current_row:end_row, ] <- stats_fcn(energy)
     current_row = current_row + num_rows
-    setTxtProgressBar(pb, current_row)
+    setTxtProgressBar(pb, (current_row-1)/num_rows)
   }
   close(pb)
   
@@ -73,6 +75,26 @@ energy_metric <- function(data_dir, lower_bound = -200, upper_bound = 0) {
   energy_stats(data_dir, energy_metric_fcn, output_prototype)
 }
 
+metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0) {
+  # Compute the "LJ metric" based on given cutoffs
+  # Set a bound to NA for open intervals (e.g., energy > -200, but no upper bound)
+  # TODO: NA code
+  if (!(lower_bound %in% hist_df$lower & upper_bound %in% hist_df$upper)) {
+    warning("Metric bounds do not exactly line up with a histogram bin")
+  }
+  
+  good_counts <- hist_df %>%
+    filter(lower >= lower_bound) %>% filter(upper <= upper_bound) %>% 
+    group_by(id) %>% summarize(good = sum(counts))
+  
+  total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))
+  
+  lj_metric <- total_counts %>%
+    inner_join(good_counts, by="id") %>% 
+    mutate(metric = good / total) %>% 
+    select(id, metric)
+}
+
 
 row_energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)) {
   # Retrieve the histograms from the energy directories
@@ -91,7 +113,7 @@ row_energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15,
   # It's encouraging that the file reading and IO appears like the most compute-heavy part of this work
   
   energy_stats(data_dir, hists_fcn, output_prototype)
-  # Redo this in a tidy frame????  Then, you can just use the group by commands (or similar in dplyr) to get the sum of relevant columns
+  # Also redone in a tidy format, which will facilitate energy scans
 }
 
 
@@ -108,17 +130,18 @@ tidy_energy_hists <- function(data_dir, bin_width = 10, min_max = c(-100, 10)) {
   hists_fcn <- function(energy) {
     # First cap the maximum energy so that the last bin (energy > max) includes the high end
     energy[energy > bin_width * (min_max[2]) + 1] <- bin_width * (min_max[2] + 0.5)
-    energy_rows <- hist(energy, breaks = bins, plot = FALSE)$counts  # FIXME
-    print(energy_rows)
-    hi<-matrix(c(energy_rows[(length(energy_rows)-5):(length(energy_rows)-3)],
-                energy_rows[(length(energy_rows)-2):length(energy_rows)]),
-              byrow = TRUE, ncol=3)  # temporarily meeting specification
-    print(hi)
-    hi
+    raw_hist <- hist(energy, breaks = bins, plot = FALSE)
+    cbind(lower = raw_hist$breaks[1:(length(raw_hist$breaks)-1)],
+          upper = raw_hist$breaks[2:length(raw_hist$breaks)],
+          counts = raw_hist$counts
+          )
   }
-  output_prototype <- rep("integer", 3)
+  output_prototype <- rep("integer", 3)  # Lower bound, upper bound, count
+  names(output_prototype) <- c("lower", "upper", "counts")
+  # Could also simplify this with only the lower bound to save 1/3 memory requirements
+  # Even so, 100k structures will comfortably fit in 600MB of RAM
   
-  energy_stats(data_dir, hists_fcn, output_prototype, 2)
+  energy_stats(data_dir, hists_fcn, output_prototype, length(bins)-1)
   # Need to come back to the summarization command as well
 }
 
@@ -146,4 +169,5 @@ run_energy_stat <- function(dirs, stat_fcn) {
 #hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
 hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists)
 #hist_metric <- run_energy_stat(ANALYSIS_DIRS, energy_metric)
+hist_metric <- metric_from_hists(hist_vals)
 
