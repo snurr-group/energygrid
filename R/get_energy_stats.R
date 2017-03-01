@@ -6,7 +6,7 @@ library(R.utils)
 TEMPERATURE = 77  # K
 E_CUTOFF <- 15 * TEMPERATURE  # K
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
-QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
+QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
 
 
 k_to_kj_mol <- function(energy)  {
@@ -15,7 +15,9 @@ k_to_kj_mol <- function(energy)  {
   energy * kb * na / 1000
 }
 
-energy_stats <- function(data_dir, stats_fcn, df_prototype) {
+energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
+  # Run a stats_fcn on all files nestled within data_dir, according to the cif_dir spec
+  # Returns a data.frame, where each CIF's stats has num_rows by df_prototype entries
   dirs <- list.files(data_dir)
   if (QUICK_TEST) {
     dirs <- dirs[1:100]  # Debugging trick to only run the first 100 folders
@@ -24,7 +26,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype) {
   
   # Preallocate a df using an R.utils function: http://r.789695.n4.nabble.com/idiom-for-constructing-data-frame-td4705353.html
   # Names for the dataframe will automatically be copied from the prototype
-  all_stats <- dataFrame(df_prototype, nrow = num_cifs)
+  all_stats <- dataFrame(df_prototype, nrow = num_cifs*num_rows)
   
   write(paste0("Compiling statistics from the energy files in ", data_dir, "..."), "")
   pb <- txtProgressBar(min = 1, max = num_cifs, style = 3)  # Add a progress bar, courtesy of https://www.r-bloggers.com/r-monitoring-the-function-progress-with-a-progress-bar/
@@ -32,13 +34,15 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype) {
   for (cif_dir in dirs) {
     energy_file <- file.path(data_dir, cif_dir, "Energy_Values.txt")
     energy <- read_tsv(energy_file, col_names = "V1", col_types = "d")$V1
-    all_stats[current_row, ] <- stats_fcn(energy)
-    current_row = current_row + 1
+    end_row <- current_row + num_rows - 1
+    all_stats[current_row:end_row, ] <- stats_fcn(energy)
+    current_row = current_row + num_rows
     setTxtProgressBar(pb, current_row)
   }
   close(pb)
   
   ids <- as.integer(str_sub(dirs, 2, -1))  # strip off leading "h" for hMOF designation
+  ids <- rep(ids, each=num_rows)
   all_stats$id <- ids
   all_stats
 }
@@ -69,7 +73,8 @@ energy_metric <- function(data_dir, lower_bound = -200, upper_bound = 0) {
   energy_stats(data_dir, energy_metric_fcn, output_prototype)
 }
 
-energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)) {
+
+row_energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)) {
   # Retrieve the histograms from the energy directories
   # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
   bins <- seq(from = bin_width * min_max[1],
@@ -86,7 +91,37 @@ energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)
   # It's encouraging that the file reading and IO appears like the most compute-heavy part of this work
   
   energy_stats(data_dir, hists_fcn, output_prototype)
+  # Redo this in a tidy frame????  Then, you can just use the group by commands (or similar in dplyr) to get the sum of relevant columns
 }
+
+
+tidy_energy_hists <- function(data_dir, bin_width = 10, min_max = c(-100, 10)) {
+  # Retrieve the histograms from the energy directories
+  # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
+  # Returns a tidy data.frame, where the histogram bins are explicitly specified as a column
+  # (instead of embedding the energies in the column titles)
+  
+  bins <- seq(from = bin_width * min_max[1],
+              to   = bin_width * (min_max[2] + 1),
+              by   = bin_width
+  )
+  hists_fcn <- function(energy) {
+    # First cap the maximum energy so that the last bin (energy > max) includes the high end
+    energy[energy > bin_width * (min_max[2]) + 1] <- bin_width * (min_max[2] + 0.5)
+    energy_rows <- hist(energy, breaks = bins, plot = FALSE)$counts  # FIXME
+    print(energy_rows)
+    hi<-matrix(c(energy_rows[(length(energy_rows)-5):(length(energy_rows)-3)],
+                energy_rows[(length(energy_rows)-2):length(energy_rows)]),
+              byrow = TRUE, ncol=3)  # temporarily meeting specification
+    print(hi)
+    hi
+  }
+  output_prototype <- rep("integer", 3)
+  
+  energy_stats(data_dir, hists_fcn, output_prototype, 2)
+  # Need to come back to the summarization command as well
+}
+
 
 bin_labels <- function(bin_width = TEMPERATURE, min_max = c(-15, 15)) {
   # Get the lower boundaries of the histogram "breaks"
@@ -108,7 +143,7 @@ run_energy_stat <- function(dirs, stat_fcn) {
   all_stats
 }
 
-hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
-hist_vals <- run_energy_stat(ANALYSIS_DIRS, energy_hists)
-hist_metric <- run_energy_stat(ANALYSIS_DIRS, energy_metric)
+#hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
+hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists)
+#hist_metric <- run_energy_stat(ANALYSIS_DIRS, energy_metric)
 
