@@ -178,13 +178,16 @@ run_interactive_lj_plot <- function() {
   # manipulate is an easy package to use in this IDE.
   # Could probably be more efficient (fast), but honestly it's impressive it works as well as it does
   print("Click on the gear to play with the upper and lower bounds!")
+  print("Currently, +110 is a special entry corresponding to >100 K")
   manipulate(
     hist_vals %>% 
       metric_from_hists(lower=lower_bound, upper=upper_bound) %>%
       left_join(gcmc_data, by="id") %>%
       ggplot(aes(metric, g.L)) + geom_point(),
-    lower_bound = slider(-900, 100, initial=-200, step=10),
-    upper_bound = slider(-900, 100, initial=-10, step=10)
+    lower_bound = slider(-900, 110, initial=-200, step=10),
+    upper_bound = slider(-900, 110, initial=-10, step=10)
     )
+  # hist_vals %>% filter(counts > 0) %>% select(lower) %>% min
+  # will return -830 as the lowest occupied energy bin
 }
 
