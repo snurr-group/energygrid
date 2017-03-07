@@ -8,6 +8,8 @@ library(manipulate)
 TEMPERATURE = 77  # K
 E_CUTOFF <- 15 * TEMPERATURE  # K
 
+BIN_WIDTH = 5
+ENERGY_RANGE = c(-1000, 20)
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
 QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
 
@@ -118,7 +120,7 @@ row_energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15,
 }
 
 
-tidy_energy_hists <- function(data_dir, bin_width = 10, min_max = c(-100, 10)) {
+tidy_energy_hists <- function(data_dir, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH) {
   # Retrieve the histograms from the energy directories
   # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
   # Returns a tidy data.frame, where the histogram bins are explicitly specified as a column
@@ -178,14 +180,14 @@ run_interactive_lj_plot <- function() {
   # manipulate is an easy package to use in this IDE.
   # Could probably be more efficient (fast), but honestly it's impressive it works as well as it does
   print("Click on the gear to play with the upper and lower bounds!")
-  print("Currently, +110 is a special entry corresponding to >100 K")
+  print(paste0("Currently, +", (ENERGY_RANGE[2]+1)*BIN_WIDTH, " is a special entry corresponding to >", ENERGY_RANGE[2]*BIN_WIDTH, "K"))
   manipulate(
     hist_vals %>% 
       metric_from_hists(lower=lower_bound, upper=upper_bound) %>%
       left_join(gcmc_data, by="id") %>%
       ggplot(aes(metric, g.L)) + geom_point(),
-    lower_bound = slider(-900, 110, initial=-200, step=10),
-    upper_bound = slider(-900, 110, initial=-10, step=10)
+    lower_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-200, step=BIN_WIDTH),
+    upper_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-10, step=BIN_WIDTH)
     )
   # hist_vals %>% filter(counts > 0) %>% select(lower) %>% min
   # will return -830 as the lowest occupied energy bin
