@@ -257,9 +257,9 @@ for name_index in range(len(cif_list)):
 	details_file.write(str(lx) + '\t' + str(ly) + '\t' + str(lz) + '\n')
 	details_file.write(str(alpha) + '\t' + str(beta) + '\t' + str(gamma) + '\n')
 
-	f3=open(cif_list[name_index]+'_Energy_Values.txt', 'w')
-	np.savetxt(f3,e_vals)
-	f3.close()
+	# TODO: choose an output format.  Consider pot_repeat (or pot), especially if restructuring the 3D representation is possible
+	np.save(cif_list[name_index]+'_Energy_Values.npy', e_vals)
+	np.savetxt(cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%4g')  # TODO: check with Scotty and Arun on the number of digits, if we use this
 	
 	
 	#Print the fraction of the attractive zone
