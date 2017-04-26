@@ -72,7 +72,11 @@ cif_list = [x[:-4] for x in cif_list]  # Strip off the suffix
 #-------------------------------------------------------------------------------------------------------------
 # Set up output files
 details_file=open('Details.txt','w')
+details_file.write('cif\tnx_total\tny_total\tnz_total\tnx_cells\tny_cells\tnz_cells\tlx\tly\tlz\talpha\tbeta\tgamma\n')
 metric_summary=open('Metric.txt','w')
+metric_summary.write('cif\tmetric\n')
+timer_file=open('timer.txt','w')
+timer_file.write('cif\ttime (s)\n')
 
 # write timestamp
 starttime = time.clock()
@@ -80,6 +84,7 @@ fout = open('timestamp.txt','w')
 fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
 
 for name_index in range(len(cif_list)):
+	timer_start = time.time()
 	cif_file_name = cif_list[name_index] + '.cif'
 	print cif_file_name
 	
@@ -250,13 +255,11 @@ for name_index in range(len(cif_list)):
 		print 'Nonporous material: no attractive region. ', cif_file_name
 		
 	
-	#Write the raw energy values
-	# TODO: this does not make sense without at least a header.  Reorganize as tidy data, instead.
-	details_file.write(str(nx_total) + '\t' + str(ny_total) + '\t' + str(nz_total) + '\n')
-	details_file.write(str(nx_cells) + '\t' + str(ny_cells) + '\t' + str(nz_cells) + '\n')
-	details_file.write(str(lx) + '\t' + str(ly) + '\t' + str(lz) + '\n')
-	details_file.write(str(alpha) + '\t' + str(beta) + '\t' + str(gamma) + '\n')
+	# Write details about the unit cells and replications
+	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, lx, ly, lz, alpha, beta, gamma]]
+	details_file.write('\t'.join(stuff) + '\n')
 
+	# Write the raw energy values
 	# TODO: choose an output format.  Consider pot_repeat (or pot), especially if restructuring the 3D representation is possible
 	np.save(cif_list[name_index]+'_Energy_Values.npy', e_vals)
 	np.savetxt(cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%4g')  # TODO: check with Scotty and Arun on the number of digits, if we use this
@@ -278,9 +281,15 @@ for name_index in range(len(cif_list)):
 		xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
 		f4.close()
 
+	# Write an approximate elapsed time (seconds) from analyzing this CIF file
+	timer_end = time.time()
+	elapsed_seconds = timer_end - timer_start
+	timer_file.write(cif_file_name + '\t' + str(elapsed_seconds) + '\n')
+
 # Clean up output files
 details_file.close()
 metric_summary.close()
+timer_file.close()
 
 #print timing
 endtime = time.clock()
