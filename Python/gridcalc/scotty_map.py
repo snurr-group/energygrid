@@ -5,25 +5,27 @@
 #rest all are energy wise the same hence the energy values can basically be 
 # replicated like the framework itself
 
-from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
+write_xyz = False
+write_vtk = False
+
+if write_vtk:
+	from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
 
 try:
 	from pymatgen.io.cifio import CifParser  # try to use Pymatgen, if installed
 except ImportError:
 	from aprdf.mgcompat import CifParser  # Alternative to pymatgen for importing CIFs
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
+
 import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
+import glob         # Wildcard expansion -- Basic module
 import imp
 import datetime
 import time 
 
-# write timestamp
-starttime = time.clock()
-fout = open('timestamp.txt','w')
-fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
-
-xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
+if write_xyz:
+	xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
 
 # Define LJ Potential
 def lj(eps,sig,rsq):
@@ -62,13 +64,22 @@ ff_file = open('./forcefield/'+force_field+'/force_field_mixing_rules.def').read
 path_orig = os.getcwd()
 os.chdir('CIF_FILES')
 path_files=os.getcwd()
-cif_list=os.listdir('.')
+cif_list=glob.glob('*.cif')  # Assumes lowercase .cif, like cif_file_name below
+cif_list = [x[:-4] for x in cif_list]  # Strip off the suffix
 
 #-------------------------------------------------------------------------------------------------------------
 # The heart of the code
 #-------------------------------------------------------------------------------------------------------------
+# Set up output files
+details_file=open('Details.txt','w')
+metric_summary=open('Metric.txt','w')
+
+# write timestamp
+starttime = time.clock()
+fout = open('timestamp.txt','w')
+fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
+
 for name_index in range(len(cif_list)):
-	os.chdir(cif_list[name_index])
 	cif_file_name = cif_list[name_index] + '.cif'
 	print cif_file_name
 	
@@ -184,7 +195,7 @@ for name_index in range(len(cif_list)):
 	
 	
 	#--------------Replicate the potential array so as to mimic the super cell
-	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))	
+	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))
 	
 	
 	nx_total = int(nx*nx_cells)
@@ -199,30 +210,31 @@ for name_index in range(len(cif_list)):
 	N_grid_total = nx_total *ny_total *nz_total
 	
 	#Write the VTK file
-	# Define the crazy unstructured grid      
-	dx, dy, dz = 1.0/nx_total, 1.0/ny_total, 1.0/nz_total     
-	X = np.arange(0, 1 + 0.1*dx, dx, dtype='float64') 
-	Y = np.arange(0, 1 + 0.1*dy, dy, dtype='float64') 
-	Z = np.arange(0, 1 + 0.1*dz, dz, dtype='float64') 
-	
-	x = np.zeros((nx_total , ny_total , nz_total)) 
-	y = np.zeros((nx_total , ny_total , nz_total)) 
-	z = np.zeros((nx_total , ny_total , nz_total)) 
-	
-	for k in range(nz_total): 
-		for j in range(ny_total):
-			for i in range(nx_total): 
-				x[i,j,k] = X[i] 
-				y[i,j,k] = Y[j] 
-				z[i,j,k] = Z[k]
-	
-	for k in range(nz_total): 
-		for j in range(ny_total):
-			for i in range(nx_total): 
-				[x[i,j,k], y[i,j,k],z[i,j,k]] = np.dot(A,[x[i,j,k], y[i,j,k],z[i,j,k]])
-	
-	# Write pot into .vts file
-	gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})             
+	if write_vtk:
+		# Define the crazy unstructured grid
+		dx, dy, dz = 1.0/nx_total, 1.0/ny_total, 1.0/nz_total
+		X = np.arange(0, 1 + 0.1*dx, dx, dtype='float64')
+		Y = np.arange(0, 1 + 0.1*dy, dy, dtype='float64')
+		Z = np.arange(0, 1 + 0.1*dz, dz, dtype='float64')
+
+		x = np.zeros((nx_total , ny_total , nz_total))
+		y = np.zeros((nx_total , ny_total , nz_total))
+		z = np.zeros((nx_total , ny_total , nz_total))
+
+		for k in range(nz_total):
+			for j in range(ny_total):
+				for i in range(nx_total):
+					x[i,j,k] = X[i]
+					y[i,j,k] = Y[j]
+					z[i,j,k] = Z[k]
+
+		for k in range(nz_total):
+			for j in range(ny_total):
+				for i in range(nx_total):
+					[x[i,j,k], y[i,j,k],z[i,j,k]] = np.dot(A,[x[i,j,k], y[i,j,k],z[i,j,k]])
+
+		# Write pot into .vts file
+		gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})
 	
 	
 	# Histogram into bins (predefined?)
@@ -233,43 +245,42 @@ for name_index in range(len(cif_list)):
 		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'true') # Histogram
 		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
 		data = np.vstack((bincenters, e_hist) )
-		np.savetxt('histogram.txt',data) # Write histogram data
+		np.savetxt(cif_list[name_index] + '_histogram.txt', data) # Write histogram data
 	else:
 		print 'Nonporous material: no attractive region. ', cif_file_name
 		
 	
 	#Write the raw energy values
-	f3=open('Details.txt','w')
-	f3.write(str(nx_total)+'\t'+str(ny_total)+'\t'+str(nz_total)+'\n')
-	f3.write(str(nx_cells)+'\t'+str(ny_cells)+'\t'+str(nz_cells)+'\n')
-	f3.write(str(lx)+'\t'+str(ly)+'\t'+str(lz)+'\n')
-	f3.write(str(alpha)+'\t'+str(beta)+'\t'+str(gamma)+'\n')
-	f3.close()
-	
-	f3=open('Energy_Values.txt','a')
+	# TODO: this does not make sense without at least a header.  Reorganize as tidy data, instead.
+	details_file.write(str(nx_total) + '\t' + str(ny_total) + '\t' + str(nz_total) + '\n')
+	details_file.write(str(nx_cells) + '\t' + str(ny_cells) + '\t' + str(nz_cells) + '\n')
+	details_file.write(str(lx) + '\t' + str(ly) + '\t' + str(lz) + '\n')
+	details_file.write(str(alpha) + '\t' + str(beta) + '\t' + str(gamma) + '\n')
+
+	f3=open(cif_list[name_index]+'_Energy_Values.txt', 'w')
 	np.savetxt(f3,e_vals)
 	f3.close()
 	
 	
 	#Print the fraction of the attractive zone
-	f2=open('../../Metric.txt','a')
-	f2.write(cif_file_name+'\t')
-	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
-	f2.close()
+	metric_summary.write(cif_file_name+'\t')
+	metric_summary.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
 	
 	# write the raw grid data into text file straight array
 	# Write the corresponding xyz coordinates
 	# Write the corresponding MOF coordinates to .xyz file using xyz.py
-	f4=open(cif_list[name_index]+'.xyz','w')
-	coord = np.array(struct.frac_coords)
-	out_coord = np.zeros((np.shape(coord)))
-	for i in range(len(coord)):
-		out_coord[i]=np.dot(A,coord[i])
-	xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
-	f4.close()
-	
-	os.chdir(path_files)
-os.chdir(path_orig)
+	if write_xyz:
+		f4=open(cif_list[name_index]+'.xyz','w')
+		coord = np.array(struct.frac_coords)
+		out_coord = np.zeros((np.shape(coord)))
+		for i in range(len(coord)):
+			out_coord[i]=np.dot(A,coord[i])
+		xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
+		f4.close()
+
+# Clean up output files
+details_file.close()
+metric_summary.close()
 
 #print timing
 endtime = time.clock()
@@ -277,3 +288,7 @@ elaptime = endtime-starttime
 fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
 fout.write('Elapsed time\t%f\n' % (elaptime))
 fout.close()
+
+os.chdir(path_orig)
+
+
