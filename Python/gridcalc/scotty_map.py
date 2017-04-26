@@ -32,7 +32,10 @@ def lj(eps,sig,rsq):
 	E = (4*eps) * (((sig)**12/(rsq)**6) - ((sig)**6/(rsq)**3)) 
 	return E
 
-
+# Helper function for making new directories
+def mkdir_if_new(path):
+	if not os.path.isdir(path):
+		os.mkdir(path)
 
 #-------------------------------------------------------------------------------------------------------------
 # Read the forcefield information from the RASPA style forcefield definition
@@ -71,16 +74,19 @@ cif_list = [x[:-4] for x in cif_list]  # Strip off the suffix
 # The heart of the code
 #-------------------------------------------------------------------------------------------------------------
 # Set up output files
-details_file=open('Details.txt','w')
+mkdir_if_new('Grids/')
+mkdir_if_new('Histograms/')
+mkdir_if_new('Stats/')
+details_file=open('Stats/Details.txt','w')
 details_file.write('cif\tnx_total\tny_total\tnz_total\tnx_cells\tny_cells\tnz_cells\tlx\tly\tlz\talpha\tbeta\tgamma\n')
-metric_summary=open('Metric.txt','w')
+metric_summary=open('Stats/Metric.txt','w')
 metric_summary.write('cif\tmetric\n')
-timer_file=open('timer.txt','w')
+timer_file=open('Stats/timer.txt','w')
 timer_file.write('cif\ttime (s)\n')
 
 # write timestamp
 starttime = time.clock()
-fout = open('timestamp.txt','w')
+fout = open('Stats/timestamp.txt','w')
 fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
 
 for name_index in range(len(cif_list)):
@@ -250,7 +256,7 @@ for name_index in range(len(cif_list)):
 		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'true') # Histogram
 		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
 		data = np.vstack((bincenters, e_hist) )
-		np.savetxt(cif_list[name_index] + '_histogram.txt', data) # Write histogram data
+		np.savetxt('Histograms/' + cif_list[name_index] + '_histogram.txt', data) # Write histogram data
 	else:
 		print 'Nonporous material: no attractive region. ', cif_file_name
 		
@@ -261,8 +267,8 @@ for name_index in range(len(cif_list)):
 
 	# Write the raw energy values
 	# TODO: choose an output format.  Consider pot_repeat (or pot), especially if restructuring the 3D representation is possible
-	np.save(cif_list[name_index]+'_Energy_Values.npy', e_vals)
-	np.savetxt(cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%4g')  # TODO: check with Scotty and Arun on the number of digits, if we use this
+	np.save('Grids/'+cif_list[name_index]+'_Energy_Values.npy', e_vals)
+	np.savetxt('Grids/'+cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%4g')  # TODO: check with Scotty and Arun on the number of digits, if we use this
 	
 	
 	#Print the fraction of the attractive zone
