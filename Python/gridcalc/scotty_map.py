@@ -22,7 +22,8 @@ import os           # System operations -- Basic module
 import glob         # Wildcard expansion -- Basic module
 import imp
 import datetime
-import time 
+import time
+import gzip  # Consider writing the histograms as one huge table, with the file gzip.open('hist.txt.gz', 'wb')
 
 if write_xyz:
 	xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
@@ -52,6 +53,11 @@ e_high=-14
 
 # Grid spacing
 grid_spacing = 1.0  # One grid point per angstrom approximately
+
+# Histogram parameters.  bin_min is the minimum in the dataset
+bin_max = 100
+bin_width = 1
+
 
 # Read the forcefield information from RASPA force field directory
 # I made some changes there to make life easy
@@ -252,11 +258,15 @@ for name_index in range(len(cif_list)):
 	e_vals = np.reshape(pot_repeat,(N_grid_total,1))  # Reshape into linear array
 	
 	if min(e_vals) < 0:
-		bins1 = np.linspace(min(e_vals),0,31)
-		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'true') # Histogram
-		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
-		data = np.vstack((bincenters, e_hist) )
-		np.savetxt('Histograms/' + cif_list[name_index] + '_histogram.txt', data) # Write histogram data
+		bin_min = min(e_vals) - bin_width  # FIXME: derived from min, not exactly the min.  Modulo?  How to handle fractional energies?
+		bins1 = range(bin_min, bin_max+bin_width, bin_width)
+		bins1.extend([np.inf])
+		e_hist, binedges1 = np.histogram(e_vals,bins=bins1) # Histogram
+		bin_left = np.asarray(binedges1[:-1], 'int')
+		bin_right = np.asarray(binedges1[1:], 'int')
+		bin_right[-1] = bin_max * 10  # Pseudo final bin indicates all the energies above the set maximum
+		data = np.transpose(np.vstack((bin_left, bin_right, e_hist)))
+		np.savetxt('Histograms/' + cif_list[name_index] + '_histogram.txt.gz', data, fmt='%d')  # Write histogram data
 	else:
 		print 'Nonporous material: no attractive region. ', cif_file_name
 		
