@@ -3,7 +3,7 @@
 
 # This is a modified code where the grid is geneerated only on the unit cell
 #rest all are energy wise the same hence the energy values can basically be 
-# replicated like the framework itself
+# replicated like the framework itself	
 
 from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
 
@@ -14,39 +14,22 @@ except ImportError:
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
 import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
-import time         # Time operations -- Basic module
-#from numba import jit
 import imp
+import datetime
+import time 
+
+# write timestamp
+starttime = time.clock()
+fout = open('timestamp.txt','w')
+fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
+
 xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
 
 # Define LJ Potential
-#@jit
 def lj(eps,sig,rsq):
 	E = (4*eps) * (((sig)**12/(rsq)**6) - ((sig)**6/(rsq)**3)) 
 	return E
 
-#@jit
-def add_atom_lj_to_grid(potential_grid, cell_transform, atm_coord, xgrid, ygrid, zgrid):
-	xlen = xgrid.size  # nx renamed for this function
-	ylen = ygrid.size
-	zlen = zgrid.size
-	for k in range(zlen):
-		for j in range(ylen):
-			for i in range(xlen):
-				grid_point = np.array([xgrid[i], ygrid[j], zgrid[k]])  # fractional grid coordinater unit box
-				# Don't convert back to Cartesian coordinates until we apply PBC.  Work in fractional coords
-				# grid_point = np.dot(A , grid_point) # Cartesian coordinates
-
-				drij = grid_point - atm_coord
-				# Apply PBC
-				drij -= drij.round()
-
-				# Transform back to find the actual distance
-				r_act = np.dot(cell_transform, drij)
-				rsq = r_act[0] ** 2 + r_act[1] ** 2 + r_act[2] ** 2
-
-				if np.sqrt(rsq) <= rcut:
-					potential_grid[i][j][k] += lj(eps, sig, rsq)
 
 
 #-------------------------------------------------------------------------------------------------------------
@@ -54,26 +37,24 @@ def add_atom_lj_to_grid(potential_grid, cell_transform, atm_coord, xgrid, ygrid,
 #-------------------------------------------------------------------------------------------------------------
 
 # Define the probe LJ parameters (H2 for the time being--change here)
-eps1  = 11.25 # in kelvin
-sig1  = 2.68  # in angstrom
-rcut = 12     # Maximum range under consideration for the LJ interactions
+eps1  = 37.3 # in kelvin
+sig1  = 3.31  # in angstrom
+rcut = 12.8     # Maximum range under consideration for the LJ interactions
 
+# Set the cut offs for defining the energy metric
+e_low=-832 # in kelvin units
+e_high=-14
 
 # Grid spacing
 grid_spacing = 1.0  # One grid point per angstrom approximately
 
-
 # Read the forcefield information from RASPA force field directory
 # I made some changes there to make life easy
-force_field = 'GenericMOFs'
+force_field = 'UFF'
 #pa_file = open('./forcefield/'+forcefield+'/pseudo_atoms.def').readlines()
 #NumberOfPseudoAtoms = int(pa_file.[1].split()[0])
 
 ff_file = open('./forcefield/'+force_field+'/force_field_mixing_rules.def').readlines()
-
-# Set the cut offs for defining the energy metric
-e_low=-960.0 # in kelvin units
-e_high=-120.0 
 
 # --------------------------------------------------------------------------------------------------------------------
 # Prepare dir structure
@@ -87,10 +68,9 @@ cif_list=os.listdir('.')
 # The heart of the code
 #-------------------------------------------------------------------------------------------------------------
 for name_index in range(len(cif_list)):
-	timer_start = time.time()
 	os.chdir(cif_list[name_index])
 	cif_file_name = cif_list[name_index] + '.cif'
-	
+	print cif_file_name
 	
 	# Read the coordinates from the cif file using pymatgen
 	f1=CifParser(cif_file_name)
@@ -181,20 +161,37 @@ for name_index in range(len(cif_list)):
 
 		sig = (sig1 + sig2) / 2
 		eps = np.sqrt(eps1 * eps2)
-		add_atom_lj_to_grid(pot, A, coord[atm_index], x_grid, y_grid, z_grid)
+		for k in range(nz):
+			for j in range(ny):
+				for i in range(nx):
+					grid_point = np.array([x_grid[i],y_grid[j],z_grid[k]]) # fractional grid coordinater unit box
+					# Don't convert back to Cartesian coordinates until we apply PBC.  Work in fractional coords
+					# grid_point = np.dot(A , grid_point) # Cartesian coordinates
+
+					drij = grid_point - coord[atm_index]
+					# Apply PBC
+					drij -= drij.round()
+					# Minor detail: python's round appears to round towards +/- inf; numpy is round to nearest even
+
+					#Transform back to find the actual distance
+					r_act = np.dot(A , drij)
+					rsq=r_act[0]**2+r_act[1]**2+r_act[2]**2
+
+					if np.sqrt(rsq) <= rcut:
+						pot[i][j][k] += lj(eps,sig,rsq)
 	
 	
 	
 	
 	#--------------Replicate the potential array so as to mimic the super cell
-	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))
-	
-	
-	nx_total = int(nx*nx_cells)
-	ny_total = int(ny*ny_cells)
-	nz_total = int(nz*nz_cells)
-
-
+        pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))	
+  	
+  	
+  	nx_total = int(nx*nx_cells)
+  	ny_total = int(ny*ny_cells)
+  	nz_total = int(nz*nz_cells)
+  	 	
+  
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
 	#-------------------------------------------------------------------------------------------------------------
@@ -228,8 +225,20 @@ for name_index in range(len(cif_list)):
 	gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})             
 	
 	
-	#Write the raw energy values  
+	# Histogram into bins (predefined?)
 	e_vals = np.reshape(pot_repeat,(N_grid_total,1))  # Reshape into linear array
+	
+	if min(e_vals) < 0:
+		bins1 = np.linspace(min(e_vals),0,31)
+		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'true') # Histogram
+		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
+		data = np.vstack((bincenters, e_hist) )
+		np.savetxt('histogram.txt',data) # Write histogram data
+	else:
+		print 'Nonporous material: no attractive region. ', cif_file_name
+		
+	 
+	#Write the raw energy values        
 	f3=open('Details.txt','w')
 	f3.write(str(nx_total)+'\t'+str(ny_total)+'\t'+str(nz_total)+'\n')
 	f3.write(str(nx_cells)+'\t'+str(ny_cells)+'\t'+str(nz_cells)+'\n')
@@ -244,22 +253,10 @@ for name_index in range(len(cif_list)):
 	
 	#Print the fraction of the attractive zone
 	f2=open('../../Metric.txt','a')
-	f2.write('The attraction zone for '+cif_file_name+':\t')
+	f2.write(cif_file_name+'\t')
 	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
 	f2.close()
-	
-	
-	# Histogram into bins (predefined?)
-	if min(e_vals) < 0:  # Some MOFs have no attractive region
-		bins1 = np.linspace(min(e_vals),0,31)
-		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'false') # Histogram
-		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
-		data = np.vstack((bincenters, e_hist) )
-		np.savetxt('histogram.txt',data) # Write histogram data
-	else:
-		open('no_histogram.txt', 'a').close()  # Write a blank file indicating no histogram
-	
-	
+
 	# write the raw grid data into text file straight array
 	# Write the corresponding xyz coordinates
 	# Write the corresponding MOF coordinates to .xyz file using xyz.py
@@ -271,13 +268,12 @@ for name_index in range(len(cif_list)):
 	xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
 	f4.close()
 	
-	
-	# Write an approximate elapsed time (seconds) from analyzing this CIF file
-	timer_end = time.time()
-	elapsed_seconds = timer_end - timer_start
-	f5=open('../../timer.txt','a')
-	f5.write(cif_file_name + '\t' + str(elapsed_seconds) + '\n')
-	f5.close()
-	
 	os.chdir(path_files)
 os.chdir(path_orig)
+
+#print timing
+endtime = time.clock()	
+elaptime = endtime-starttime
+fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
+fout.write('Elapsed time\t%f\n' % (elaptime))	
+fout.close()
