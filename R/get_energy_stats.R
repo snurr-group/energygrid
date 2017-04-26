@@ -181,8 +181,8 @@ run_interactive_lj_plot <- function() {
       metric_from_hists(lower=lower_bound, upper=upper_bound) %>%
       left_join(gcmc_data, by="id") %>%
       ggplot(aes(metric, g.L)) + geom_point(),
-    lower_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-200, step=BIN_WIDTH),
-    upper_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-10, step=BIN_WIDTH)
+    upper_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-10, step=BIN_WIDTH),
+    lower_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-200, step=BIN_WIDTH)
     )
   # hist_vals %>% filter(counts > 0) %>% select(lower) %>% min
   # will return -830 as the lowest occupied energy bin
