@@ -3,6 +3,7 @@
 # Exclude all data files within dated directories, except for README.md
 # Can always manually git add important scripts, etc.
 Data/
+BigData/
 !README.md
 !notebook.md
 Test/*
@@ -13,4 +14,6 @@ Test/*
 .codelite/
 Python/gridcalc/CIF_FILES/
 Python/gridcalc/Metric.txt
+Python/gridcalc/timer.txt
 Python/gridcalc/Profiling/
+Python/gridcalc/OldFiles/
