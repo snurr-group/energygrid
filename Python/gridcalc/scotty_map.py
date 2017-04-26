@@ -3,7 +3,7 @@
 
 # This is a modified code where the grid is geneerated only on the unit cell
 #rest all are energy wise the same hence the energy values can basically be 
-# replicated like the framework itself	
+# replicated like the framework itself
 
 from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
 
@@ -37,9 +37,9 @@ def lj(eps,sig,rsq):
 #-------------------------------------------------------------------------------------------------------------
 
 # Define the probe LJ parameters (H2 for the time being--change here)
-eps1  = 37.3 # in kelvin
-sig1  = 3.31  # in angstrom
-rcut = 12.8     # Maximum range under consideration for the LJ interactions
+eps1 = 37.3  # in kelvin
+sig1 = 3.31  # in angstrom
+rcut = 12.8  # Maximum range under consideration for the LJ interactions
 
 # Set the cut offs for defining the energy metric
 e_low=-832 # in kelvin units
@@ -126,14 +126,14 @@ for name_index in range(len(cif_list)):
 	nx = int(lx_unit/grid_spacing)
 	ny = int(ly_unit/grid_spacing)
 	nz = int(lz_unit/grid_spacing)
-
+	
 	# Intially the grids are defined on a only on the unit cell, which is only a tiny part of the unit box
 	# The unit box corresponds to the entire super cell
 	x_grid = np.linspace(0,1.0/nx_cells,nx)
 	y_grid = np.linspace(0,1.0/ny_cells,ny)
 	z_grid = np.linspace(0,1.0/nz_cells,nz)
-
-
+	
+	
 	
 	# Read the corresponding forcefield parameters (pseudo atoms information)
 	# for the atoms in the MOF
@@ -167,16 +167,16 @@ for name_index in range(len(cif_list)):
 					grid_point = np.array([x_grid[i],y_grid[j],z_grid[k]]) # fractional grid coordinater unit box
 					# Don't convert back to Cartesian coordinates until we apply PBC.  Work in fractional coords
 					# grid_point = np.dot(A , grid_point) # Cartesian coordinates
-
+					
 					drij = grid_point - coord[atm_index]
 					# Apply PBC
 					drij -= drij.round()
 					# Minor detail: python's round appears to round towards +/- inf; numpy is round to nearest even
-
+					
 					#Transform back to find the actual distance
 					r_act = np.dot(A , drij)
 					rsq=r_act[0]**2+r_act[1]**2+r_act[2]**2
-
+					
 					if np.sqrt(rsq) <= rcut:
 						pot[i][j][k] += lj(eps,sig,rsq)
 	
@@ -184,18 +184,18 @@ for name_index in range(len(cif_list)):
 	
 	
 	#--------------Replicate the potential array so as to mimic the super cell
-        pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))	
-  	
-  	
-  	nx_total = int(nx*nx_cells)
-  	ny_total = int(ny*ny_cells)
-  	nz_total = int(nz*nz_cells)
-  	 	
-  
+	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))	
+	
+	
+	nx_total = int(nx*nx_cells)
+	ny_total = int(ny*ny_cells)
+	nz_total = int(nz*nz_cells)
+	
+	
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
 	#-------------------------------------------------------------------------------------------------------------
-
+	
 	N_grid_total = nx_total *ny_total *nz_total
 	
 	#Write the VTK file
@@ -237,16 +237,16 @@ for name_index in range(len(cif_list)):
 	else:
 		print 'Nonporous material: no attractive region. ', cif_file_name
 		
-	 
-	#Write the raw energy values        
+	
+	#Write the raw energy values
 	f3=open('Details.txt','w')
 	f3.write(str(nx_total)+'\t'+str(ny_total)+'\t'+str(nz_total)+'\n')
 	f3.write(str(nx_cells)+'\t'+str(ny_cells)+'\t'+str(nz_cells)+'\n')
-	f3.write(str(lx)+'\t'+str(ly)+'\t'+str(lz)+'\n')       
-	f3.write(str(alpha)+'\t'+str(beta)+'\t'+str(gamma)+'\n')       
+	f3.write(str(lx)+'\t'+str(ly)+'\t'+str(lz)+'\n')
+	f3.write(str(alpha)+'\t'+str(beta)+'\t'+str(gamma)+'\n')
 	f3.close()
 	
-	f3=open('Energy_Values.txt','a')                
+	f3=open('Energy_Values.txt','a')
 	np.savetxt(f3,e_vals)
 	f3.close()
 	
@@ -256,7 +256,7 @@ for name_index in range(len(cif_list)):
 	f2.write(cif_file_name+'\t')
 	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
 	f2.close()
-
+	
 	# write the raw grid data into text file straight array
 	# Write the corresponding xyz coordinates
 	# Write the corresponding MOF coordinates to .xyz file using xyz.py
@@ -264,7 +264,7 @@ for name_index in range(len(cif_list)):
 	coord = np.array(struct.frac_coords)
 	out_coord = np.zeros((np.shape(coord)))
 	for i in range(len(coord)):
-	  out_coord[i]=np.dot(A,coord[i])
+		out_coord[i]=np.dot(A,coord[i])
 	xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
 	f4.close()
 	
@@ -272,8 +272,8 @@ for name_index in range(len(cif_list)):
 os.chdir(path_orig)
 
 #print timing
-endtime = time.clock()	
+endtime = time.clock()
 elaptime = endtime-starttime
 fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
-fout.write('Elapsed time\t%f\n' % (elaptime))	
+fout.write('Elapsed time\t%f\n' % (elaptime))
 fout.close()
