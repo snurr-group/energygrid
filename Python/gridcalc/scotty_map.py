@@ -47,17 +47,19 @@ eps1 = 37.3  # in kelvin
 sig1 = 3.31  # in angstrom
 rcut = 12.8  # Maximum range under consideration for the LJ interactions
 
+# Units conversion from Kelvin to J/mol (to use integer values)
+K_TO_J_MOL = 8.314
+
 # Set the cut offs for defining the energy metric
-e_low=-832 # in kelvin units
-e_high=-14
+e_low=-7000 # in kelvin units
+e_high=-116
 
 # Grid spacing
 grid_spacing = 1.0  # One grid point per angstrom approximately
 
-# Histogram parameters.  bin_min is the minimum in the dataset
-bin_max = 100
-bin_width = 1
-
+# Histogram parameters in [J/mol].  bin_min is automatically calculated from the minimum in the dataset
+bin_max = 5000
+bin_width = 10
 
 # Read the forcefield information from RASPA force field directory
 # I made some changes there to make life easy
@@ -209,7 +211,8 @@ for name_index in range(len(cif_list)):
 						pot[i][j][k] += lj(eps,sig,rsq)
 	
 	
-	
+	# Unit conversion
+	pot *= K_TO_J_MOL
 	
 	#--------------Replicate the potential array so as to mimic the super cell
 	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))
