@@ -23,7 +23,7 @@ import glob         # Wildcard expansion -- Basic module
 import imp
 import datetime
 import time
-import gzip  # Consider writing the histograms as one huge table, with the file gzip.open('hist.txt.gz', 'wb')
+import gzip  # Consider writing the metadata as one huge table, with the file gzip.open('data.txt.gz', 'wb')
 
 if write_xyz:
 	xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
@@ -177,9 +177,13 @@ for name_index in range(len(cif_list)):
 	# Get the atom indices from the force_field file for the atoms in the MOF
 	mof_atm_indices = np.zeros((Number_Of_Atoms,1))
 	for i in range(len(mof_atm_names)):
+		param_defined = False
 		for line in ff_file:
 			if mof_atm_names[i] == line.split()[0]:
-				mof_atm_indices[i]=ff_file.index(line) 
+				mof_atm_indices[i]=ff_file.index(line)
+				param_defined = True
+		if not param_defined:
+			raise ValueError("Undefined behavior: atom type " + mof_atm_names[i] + " not defined in forcefield")
 	
 	pot=np.zeros((nx,ny,nz)) # this is over just the unit cell
 	
@@ -280,8 +284,7 @@ for name_index in range(len(cif_list)):
 	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, lx, ly, lz, alpha, beta, gamma]]
 	details_file.write('\t'.join(stuff) + '\n')
 
-	# Write the raw energy values
-	# TODO: Consider pot_repeat (or pot), especially if restructuring the 3D representation is possible
+	# Write the raw energy values.  Could also consider a 3d npy file, but 3D arrays are less generally compatible
 	np.savetxt('Grids/'+cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%.6g')
 	
 	
