@@ -258,22 +258,24 @@ for name_index in range(len(cif_list)):
 	
 	
 	# Histogram into predefined bins
-	e_vals = np.reshape(pot,(nx*ny*nz,1))  # Reshape into linear array, without supercell duplication
-	
-	if min(e_vals) < 0:
-		bin_min = min(e_vals) - bin_width  # FIXME: derived from min, not exactly the min.  Modulo?  How to handle fractional energies?
-		bins1 = range(bin_min, bin_max+bin_width, bin_width)
-		bins1.extend([np.inf])
-		e_hist, binedges1 = np.histogram(e_vals,bins=bins1) # Histogram
-		bin_left = np.asarray(binedges1[:-1], 'int')
-		bin_right = np.asarray(binedges1[1:], 'int')
-		bin_right[-1] = bin_max * 10  # Pseudo final bin indicates all the energies above the set maximum
-		data = np.transpose(np.vstack((bin_left, bin_right, e_hist)))
-		np.savetxt('Histograms/' + cif_list[name_index] + '_histogram.txt.gz', data, fmt='%d')  # Write histogram data
-	else:
+	N_grid_inner = nx * ny * nz
+	e_vals = np.reshape(pot,(N_grid_inner,1))  # Reshape into linear array, without supercell duplication
+
+	if min(e_vals) > 0:
 		print 'Nonporous material: no attractive region. ', cif_file_name
-		
-	
+		bin_min = 0
+	else:
+		bin_min = int(min(e_vals)/bin_width) * bin_width - bin_width  # Align the lowest bin with bin_width
+	bins1 = range(bin_min, bin_max+bin_width, bin_width)
+	bins1.extend([np.inf])
+	e_hist, binedges1 = np.histogram(e_vals,bins=bins1) # Histogram
+	bin_left = np.asarray(binedges1[:-1], 'int')
+	bin_right = np.asarray(binedges1[1:], 'int')
+	bin_right[-1] = bin_max * 10  # Pseudo final bin indicates all the energies above the set maximum
+	data = np.transpose(np.vstack((bin_left, bin_right, e_hist)))
+	np.savetxt('Histograms/' + cif_list[name_index] + '_histogram.txt.gz', data, fmt='%d')  # Write histogram data
+
+
 	# Write details about the unit cells and replications
 	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, lx, ly, lz, alpha, beta, gamma]]
 	details_file.write('\t'.join(stuff) + '\n')
@@ -285,7 +287,7 @@ for name_index in range(len(cif_list)):
 	
 	#Print the fraction of the attractive zone
 	metric_summary.write(cif_file_name+'\t')
-	metric_summary.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
+	metric_summary.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_inner) + '\n')
 	
 	# write the raw grid data into text file straight array
 	# Write the corresponding xyz coordinates
