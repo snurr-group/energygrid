@@ -257,8 +257,8 @@ for name_index in range(len(cif_list)):
 		gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})
 	
 	
-	# Histogram into bins (predefined?)
-	e_vals = np.reshape(pot_repeat,(N_grid_total,1))  # Reshape into linear array
+	# Histogram into predefined bins
+	e_vals = np.reshape(pot,(nx*ny*nz,1))  # Reshape into linear array, without supercell duplication
 	
 	if min(e_vals) < 0:
 		bin_min = min(e_vals) - bin_width  # FIXME: derived from min, not exactly the min.  Modulo?  How to handle fractional energies?
@@ -279,9 +279,8 @@ for name_index in range(len(cif_list)):
 	details_file.write('\t'.join(stuff) + '\n')
 
 	# Write the raw energy values
-	# TODO: choose an output format.  Consider pot_repeat (or pot), especially if restructuring the 3D representation is possible
-	np.save('Grids/'+cif_list[name_index]+'_Energy_Values.npy', e_vals)
-	np.savetxt('Grids/'+cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%4g')  # TODO: check with Scotty and Arun on the number of digits, if we use this
+	# TODO: Consider pot_repeat (or pot), especially if restructuring the 3D representation is possible
+	np.savetxt('Grids/'+cif_list[name_index]+'_Energy_Values.txt.gz', e_vals, fmt='%.6g')
 	
 	
 	#Print the fraction of the attractive zone
