@@ -23,6 +23,7 @@ import glob         # Wildcard expansion -- Basic module
 import imp
 import datetime
 import time
+import warnings
 import gzip  # Consider writing the metadata as one huge table, with the file gzip.open('data.txt.gz', 'wb')
 
 if write_xyz:
@@ -91,6 +92,7 @@ metric_summary=open('Stats/Metric.txt','w')
 metric_summary.write('cif\tmetric\n')
 timer_file=open('Stats/timer.txt','w')
 timer_file.write('cif\ttime (s)\n')
+missing_params=open('Stats/bad_ff.txt', 'w')
 
 # write timestamp
 starttime = time.clock()
@@ -174,24 +176,32 @@ for name_index in range(len(cif_list)):
 		mof_atm_names.append(str(struct.species[i]))
 	
 	
-	# Get the atom indices from the force_field file for the atoms in the MOF
-	mof_atm_indices = np.zeros((Number_Of_Atoms,1))
-	for i in range(len(mof_atm_names)):
-		param_defined = False
-		for line in ff_file:
-			if mof_atm_names[i] == line.split()[0]:
-				mof_atm_indices[i]=ff_file.index(line)
-				param_defined = True
-		if not param_defined:
-			raise ValueError("Undefined behavior: atom type " + mof_atm_names[i] + " not defined in forcefield")
-	
+	# Load the LJ parameters from the force fields
+	ff_sig = dict()
+	ff_eps = dict()
+	for line in ff_file:
+		fields = line.strip().split()
+		if len(fields) == 4 and fields[1] == "lennard-jones":
+			ff_sig[fields[0]] = fields[3]
+			ff_eps[fields[0]] = fields[2]
+
+	# Ensure that all atom types are defined
+	mof_atm_indices = np.zeros((Number_Of_Atoms, 1))
+	for i, element in enumerate(mof_atm_names):
+		if (not ff_sig.has_key(element)) or (not ff_eps.has_key(element)):
+			warnings.warn("Atom type " + element + " not defined in forcefield", UserWarning)
+			missing_params.write(cif_file_name + '\t' + element + '\n')
+			ff_sig[element] = 0.0
+			ff_eps[element] = 0.0
+
+
 	pot=np.zeros((nx,ny,nz)) # this is over just the unit cell
 	
 	#Calculate LJ interaction energy
 	for atm_index in range(Number_Of_Atoms):
 		# Lorentz Berthelot
-		sig2 = float(ff_file[int(mof_atm_indices[atm_index][0])].split()[3])  # Get sigma
-		eps2 = float(ff_file[int(mof_atm_indices[atm_index][0])].split()[2])  # get epsilon
+		sig2 = float(ff_sig[mof_atm_names[atm_index]])
+		eps2 = float(ff_eps[mof_atm_names[atm_index]])
 
 		sig = (sig1 + sig2) / 2
 		eps = np.sqrt(eps1 * eps2)
@@ -313,6 +323,7 @@ for name_index in range(len(cif_list)):
 details_file.close()
 metric_summary.close()
 timer_file.close()
+missing_params.close()
 
 #print timing
 endtime = time.clock()
