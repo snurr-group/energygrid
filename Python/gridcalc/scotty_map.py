@@ -93,6 +93,7 @@ metric_summary.write('cif\tmetric\n')
 timer_file=open('Stats/timer.txt','w')
 timer_file.write('cif\ttime (s)\n')
 missing_params=open('Stats/bad_ff.txt', 'w')
+open_stat_files = [details_file, metric_summary, timer_file, missing_params]
 
 # write timestamp
 starttime = time.clock()
@@ -319,11 +320,12 @@ for name_index in range(len(cif_list)):
 	elapsed_seconds = timer_end - timer_start
 	timer_file.write(cif_file_name + '\t' + str(elapsed_seconds) + '\n')
 
+	# Write files to disk to make sure we don't lose any progress if the script is closed or crashes
+	[f.flush() for f in open_stat_files]
+	[os.fsync(f.fileno()) for f in open_stat_files]
+
 # Clean up output files
-details_file.close()
-metric_summary.close()
-timer_file.close()
-missing_params.close()
+[f.close() for f in open_stat_files]
 
 #print timing
 endtime = time.clock()
