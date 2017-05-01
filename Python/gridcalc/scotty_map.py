@@ -87,7 +87,7 @@ mkdir_if_new('Grids/')
 mkdir_if_new('Histograms/')
 mkdir_if_new('Stats/')
 details_file=open('Stats/Details.txt','w')
-details_file.write('cif\tnx_total\tny_total\tnz_total\tnx_cells\tny_cells\tnz_cells\tlx\tly\tlz\talpha\tbeta\tgamma\n')
+details_file.write('cif\tnx_total\tny_total\tnz_total\tnx_cells\tny_cells\tnz_cells\tlx\tly\tlz\talpha\tbeta\tgamma\tvf?\n')
 metric_summary=open('Stats/Metric.txt','w')
 metric_summary.write('cif\tmetric\n')
 timer_file=open('Stats/timer.txt','w')
@@ -289,10 +289,11 @@ for name_index in range(len(cif_list)):
 	bin_right[-1] = bin_max * 10  # Pseudo final bin indicates all the energies above the set maximum
 	data = np.transpose(np.vstack((bin_left, bin_right, e_hist)))
 	np.savetxt('Histograms/' + cif_list[name_index] + '_histogram.txt.gz', data, fmt='%d')  # Write histogram data
+	vf = float(sum(np.less(e_vals, 0))) / N_grid_inner  # Approximating void frac as points with E < 0
 
 
 	# Write details about the unit cells and replications
-	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, lx, ly, lz, alpha, beta, gamma]]
+	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, lx, ly, lz, alpha, beta, gamma, vf]]
 	details_file.write('\t'.join(stuff) + '\n')
 
 	# Write the raw energy values.  Could also consider a 3d npy file, but 3D arrays are less generally compatible
