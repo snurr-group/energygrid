@@ -15,13 +15,6 @@ except ImportError:
 import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
 import imp
-import datetime
-import time 
-
-# write timestamp
-starttime = time.clock()
-fout = open('timestamp.txt','w')
-fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
 
 xyz_mod = imp.load_source('xyz','xyz.py')  # A single file to make xyz file writing easy
 
@@ -37,24 +30,26 @@ def lj(eps,sig,rsq):
 #-------------------------------------------------------------------------------------------------------------
 
 # Define the probe LJ parameters (H2 for the time being--change here)
-eps1  = 37.3 # in kelvin
-sig1  = 3.31  # in angstrom
+eps1  = 98 # in kelvin
+sig1  = 3.75  # in angstrom
 rcut = 12.8     # Maximum range under consideration for the LJ interactions
 
-# Set the cut offs for defining the energy metric
-e_low=-832 # in kelvin units
-e_high=-14
 
 # Grid spacing
-grid_spacing = 1.0  # One grid point per angstrom approximately
+grid_spacing = 0.5  # One grid point per angstrom approximately
+
 
 # Read the forcefield information from RASPA force field directory
 # I made some changes there to make life easy
-force_field = 'UFF'
+force_field = 'GenericMOFs'
 #pa_file = open('./forcefield/'+forcefield+'/pseudo_atoms.def').readlines()
 #NumberOfPseudoAtoms = int(pa_file.[1].split()[0])
 
 ff_file = open('./forcefield/'+force_field+'/force_field_mixing_rules.def').readlines()
+
+# Set the cut offs for defining the energy metric
+e_low=-200.0 # in kelvin units
+e_high=0.0 
 
 # --------------------------------------------------------------------------------------------------------------------
 # Prepare dir structure
@@ -70,7 +65,7 @@ cif_list=os.listdir('.')
 for name_index in range(len(cif_list)):
 	os.chdir(cif_list[name_index])
 	cif_file_name = cif_list[name_index] + '.cif'
-	print cif_file_name
+	
 	
 	# Read the coordinates from the cif file using pymatgen
 	f1=CifParser(cif_file_name)
@@ -89,7 +84,7 @@ for name_index in range(len(cif_list)):
 	alpha = struct.lattice.alpha * (np.pi/180.0)
 	beta  = struct.lattice.beta * (np.pi/180.0)
 	gamma = struct.lattice.gamma * (np.pi/180.0)
-	vol = struct.volume
+	vol = struct.volume	
 
 
 	
@@ -100,7 +95,7 @@ for name_index in range(len(cif_list)):
         # Find the perpendicular box lengths. 
         # Those are the projections of the lattice vectors on the x, y and z axes
         # it can be shown that these lengths are equal to the inverse magnitude of the corresponding reciprocal vectors
-        #  Eg . a.i = 1/|a*|
+        #  Eg . a.i = 1/|a*|	
 	
 	lx_unit = vol / np.linalg.norm(np.cross(eB,eC))
 	ly_unit = vol / np.linalg.norm(np.cross(eC,eA))
@@ -237,16 +232,12 @@ for name_index in range(len(cif_list)):
 	
 	# Histogram into bins (predefined?)
 	e_vals = np.reshape(pot_repeat,(N_grid_total,1))  # Reshape into linear array
-	
-	if min(e_vals) < 0:
-		bins1 = np.linspace(min(e_vals),0,31)
-		e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'true') # Histogram
-		bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
-		data = np.vstack((bincenters, e_hist) )
-		np.savetxt('histogram.txt',data) # Write histogram data
-	else:
-		print 'Nonporous material: no attractive region. ', cif_file_name
-		
+	bins1 = np.linspace(min(e_vals),max(e_vals),31)
+	e_hist, binedges1 = np.histogram(e_vals,bins=bins1, normed = 'false') # Histogram
+	bincenters = 0.5*(binedges1[1:]+binedges1[:-1]) # Bincenters
+	data = np.vstack((bincenters, e_hist) )
+	np.savetxt('histogram.txt',data) # Write histogram data
+	 
 	 
 	#Write the raw energy values        
 	f3=open('Details.txt','w')
@@ -256,14 +247,14 @@ for name_index in range(len(cif_list)):
 	f3.write(str(alpha)+'\t'+str(beta)+'\t'+str(gamma)+'\n')       
 	f3.close()
 	
-	f3=open('Energy_Values.txt','a')                
+	f3=open('Energy_Values.txt','wb')                
 	np.savetxt(f3,e_vals)
 	f3.close()
 	
 	
 	#Print the fraction of the attractive zone
 	f2=open('../../Metric.txt','a')
-	f2.write(cif_file_name+'\t')
+	f2.write('The attraction zone for '+cif_file_name+':\t')
 	f2.write(str(float(sum((e_vals < e_high) & (e_vals> e_low))[0])/N_grid_total) + '\n')
 	f2.close()
 
@@ -280,10 +271,3 @@ for name_index in range(len(cif_list)):
 	
 	os.chdir(path_files)
 os.chdir(path_orig)
-
-#print timing
-endtime = time.clock()	
-elaptime = endtime-starttime
-fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
-fout.write('Elapsed time\t%f\n' % (elaptime))	
-fout.close()
