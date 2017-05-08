@@ -12,7 +12,7 @@ if write_vtk:
 	from pyevtk.hl import gridToVTK  # To output vtk data -- Advanced module need to be installed
 
 try:
-	from pymatgen.io.cifio import CifParser  # try to use Pymatgen, if installed
+	from pymatgen.io.cif import CifParser  # try to use Pymatgen, if installed
 except ImportError:
 	from aprdf.mgcompat import CifParser  # Alternative to pymatgen for importing CIFs
 # Needs PyCIFRW library installed.  Might also need to run `conda install mingw` in Windows
@@ -87,7 +87,7 @@ mkdir_if_new('Grids/')
 mkdir_if_new('Histograms/')
 mkdir_if_new('Stats/')
 details_file=open('Stats/Details.txt','w')
-details_file.write('cif\tnx_total\tny_total\tnz_total\tnx_cells\tny_cells\tnz_cells\tlx\tly\tlz\talpha\tbeta\tgamma\tvf?\n')
+details_file.write('cif\tnx_total\tny_total\tnz_total\tnx_cells\tny_cells\tnz_cells\tla\tlb\tlc\talpha\tbeta\tgamma\tvf?\n')
 metric_summary=open('Stats/Metric.txt','w')
 metric_summary.write('cif\tmetric\n')
 timer_file=open('Stats/timer.txt','w')
@@ -113,27 +113,41 @@ for name_index in range(len(cif_list)):
 	# Need the box lengths to ensure the distance criterion
 	# Create the cell matrix to ensure this criterion
 	
-	lx_unit = struct.lattice.a
-	ly_unit = struct.lattice.b
-	lz_unit = struct.lattice.c
+	la = struct.lattice.a
+	lb = struct.lattice.b
+	lc = struct.lattice.c
+
+
 	
 	alpha = struct.lattice.alpha * (np.pi/180.0)
 	beta  = struct.lattice.beta * (np.pi/180.0)
 	gamma = struct.lattice.gamma * (np.pi/180.0)
+	vol = struct.volume
+
+
+	eA = [la , 0, 0]
+	eB = [lb*np.cos(gamma),lb*np.sin(gamma),0]
+	eC = [lc*np.cos(beta),lc*(np.cos(alpha)-np.cos(beta)*np.cos(beta))/np.sin(gamma), vol/(la*lb*np.sin(gamma))]
 	
+        # Find the perpendicular box lengths. 
+        # Those are the projections of the lattice vectors on the x, y and z axes
+        # it can be shown that these lengths are equal to the inverse magnitude of the corresponding reciprocal vectors
+        #  Eg . a.i = 1/|a*|
 	
+	lx_unit = vol / np.linalg.norm(np.cross(eB,eC))
+	ly_unit = vol / np.linalg.norm(np.cross(eC,eA))
+	lz_unit = vol / np.linalg.norm(np.cross(eA,eB))
 	
-	unit_cell_matrix = [[1 , 0, 0],[np.cos(gamma),np.sin(gamma),0],[0, 0, 1]]
-	unit_rec_space = np.linalg.inv(unit_cell_matrix)
-	
-	
-	# Make super cell based on the cut off criteria
-	# the minimum box edge must be greater than twice the maximum range of interaction  
-	# set to fixed 14 angstroms
-	
-	nx_cells = np.ceil(2*rcut/lx_unit)    # magic formula
-	ny_cells = np.ceil(2*rcut/ly_unit)
-	nz_cells = np.ceil(2*rcut/lz_unit) 
+	# Define grid points in a unit box (Non adaptive grid)
+	# Number of grid points
+	nx = int(la/grid_spacing)
+	ny = int(lb/grid_spacing)
+	nz = int(lc/grid_spacing)
+
+ 
+	nx_cells = np.ceil(2.0*rcut/lx_unit)    # magic formula
+	ny_cells = np.ceil(2.0*rcut/ly_unit)
+	nz_cells = np.ceil(2.0*rcut/lz_unit)
 	
 	
 	struct.make_supercell([nx_cells,ny_cells,nz_cells]) # Structure is made into a super cell
@@ -142,31 +156,26 @@ for name_index in range(len(cif_list)):
 	
 	
 	# Redefine the box matrix since we made a supercell
-	lx = struct.lattice.a
-	ly = struct.lattice.b
-	lz = struct.lattice.c
+	la = struct.lattice.a
+	lb = struct.lattice.b
+	lc = struct.lattice.c
 	
 	alpha = struct.lattice.alpha * (np.pi/180.0)
 	beta  = struct.lattice.beta * (np.pi/180.0)
 	gamma = struct.lattice.gamma * (np.pi/180.0)
-	
-	A = [[lx , 0, 0],[ly*np.cos(gamma),ly*np.sin(gamma),0],[0, 0, lz]]
+	vol = struct.volume
+	A = [[la , 0, 0],[lb*np.cos(gamma),lb*np.sin(gamma),0],[lc*np.cos(beta),lc*(np.cos(alpha)-np.cos(beta)*np.cos(beta))/np.sin(gamma), vol/(la*lb*np.sin(gamma))]]
 	A = np.array(A).T
 	A_inv = np.linalg.inv(A)
 	
-	# Define grid points in a unit box (Non adaptive grid)
-	# Number of grid points
-	nx = int(lx_unit/grid_spacing)
-	ny = int(ly_unit/grid_spacing)
-	nz = int(lz_unit/grid_spacing)
-	
-	# Intially the grids are defined on a only on the unit cell, which is only a tiny part of the unit box
+
+	# Intially the grids are defined only on the unit cell, which is only a tiny part of the unit box
 	# The unit box corresponds to the entire super cell
 	x_grid = np.linspace(0,1.0/nx_cells,nx)
 	y_grid = np.linspace(0,1.0/ny_cells,ny)
 	z_grid = np.linspace(0,1.0/nz_cells,nz)
-	
-	
+
+
 	
 	# Read the corresponding forcefield parameters (pseudo atoms information)
 	# for the atoms in the MOF
@@ -231,13 +240,12 @@ for name_index in range(len(cif_list)):
 	
 	#--------------Replicate the potential array so as to mimic the super cell
 	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))
-	
-	
+
+
 	nx_total = int(nx*nx_cells)
 	ny_total = int(ny*ny_cells)
 	nz_total = int(nz*nz_cells)
-	
-	
+
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
 	#-------------------------------------------------------------------------------------------------------------
@@ -293,7 +301,7 @@ for name_index in range(len(cif_list)):
 
 
 	# Write details about the unit cells and replications
-	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, lx, ly, lz, alpha, beta, gamma, vf]]
+	stuff = [str(x) for x in [cif_file_name, nx_total, ny_total, nz_total, nx_cells, ny_cells, nz_cells, la, lb, lc, alpha, beta, gamma, vf]]
 	details_file.write('\t'.join(stuff) + '\n')
 
 	# Write the raw energy values.  Could also consider a 3d npy file, but 3D arrays are less generally compatible

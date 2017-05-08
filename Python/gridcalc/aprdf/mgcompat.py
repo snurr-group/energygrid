@@ -72,6 +72,7 @@ class CifParser(CifData):
 		self.num_sites = self.atoms.count
 		self.species = self.atoms.element
 		self._calculate_formulas()
+		self.volume = self.box.volume
 
 	def get_structures(self):
 		# WARNING: The base cifparse.py class by default only reads the first structure in the CIF file
