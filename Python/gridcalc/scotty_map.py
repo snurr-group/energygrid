@@ -16,7 +16,7 @@ import numpy as np  # Numerical calculations -- Basic module
 import os           # System operations -- Basic module
 import imp
 import datetime
-import time 
+import time
 
 # write timestamp
 starttime = time.clock()
@@ -115,7 +115,7 @@ for name_index in range(len(cif_list)):
  
 	nx_cells = np.ceil(2.0*rcut/lx_unit)    # magic formula
 	ny_cells = np.ceil(2.0*rcut/ly_unit)
-	nz_cells = np.ceil(2.0*rcut/lz_unit) 
+	nz_cells = np.ceil(2.0*rcut/lz_unit)
 	
 	
 	struct.make_supercell([nx_cells,ny_cells,nz_cells]) # Structure is made into a super cell
@@ -194,14 +194,13 @@ for name_index in range(len(cif_list)):
 	
 	
 	#--------------Replicate the potential array so as to mimic the super cell
-        pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))	
-  	
-  	
-  	nx_total = int(nx*nx_cells)
-  	ny_total = int(ny*ny_cells)
-  	nz_total = int(nz*nz_cells)
-  	 	
-  
+	pot_repeat = np.tile(pot,(nx_cells,ny_cells,nz_cells))
+
+
+	nx_total = int(nx*nx_cells)
+	ny_total = int(ny*ny_cells)
+	nz_total = int(nz*nz_cells)
+
 	#-------------------------------------------------------------------------------------------------------------
 	# Output the VTS, grid energy values and attractive zone
 	#-------------------------------------------------------------------------------------------------------------
@@ -209,30 +208,30 @@ for name_index in range(len(cif_list)):
 	N_grid_total = nx_total *ny_total *nz_total
 	
 	#Write the VTK file
-	# Define the crazy unstructured grid      
-	dx, dy, dz = 1.0/nx_total, 1.0/ny_total, 1.0/nz_total     
-	X = np.arange(0, 1 + 0.1*dx, dx, dtype='float64') 
-	Y = np.arange(0, 1 + 0.1*dy, dy, dtype='float64') 
-	Z = np.arange(0, 1 + 0.1*dz, dz, dtype='float64') 
+	# Define the crazy unstructured grid
+	dx, dy, dz = 1.0/nx_total, 1.0/ny_total, 1.0/nz_total
+	X = np.arange(0, 1 + 0.1*dx, dx, dtype='float64')
+	Y = np.arange(0, 1 + 0.1*dy, dy, dtype='float64')
+	Z = np.arange(0, 1 + 0.1*dz, dz, dtype='float64')
 	
-	x = np.zeros((nx_total , ny_total , nz_total)) 
-	y = np.zeros((nx_total , ny_total , nz_total)) 
-	z = np.zeros((nx_total , ny_total , nz_total)) 
+	x = np.zeros((nx_total , ny_total , nz_total))
+	y = np.zeros((nx_total , ny_total , nz_total))
+	z = np.zeros((nx_total , ny_total , nz_total))
 	
-	for k in range(nz_total): 
+	for k in range(nz_total):
 		for j in range(ny_total):
-			for i in range(nx_total): 
-				x[i,j,k] = X[i] 
-				y[i,j,k] = Y[j] 
+			for i in range(nx_total):
+				x[i,j,k] = X[i]
+				y[i,j,k] = Y[j]
 				z[i,j,k] = Z[k]
 	
-	for k in range(nz_total): 
+	for k in range(nz_total):
 		for j in range(ny_total):
-			for i in range(nx_total): 
+			for i in range(nx_total):
 				[x[i,j,k], y[i,j,k],z[i,j,k]] = np.dot(A,[x[i,j,k], y[i,j,k],z[i,j,k]])
 	
 	# Write pot into .vts file
-	gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})             
+	gridToVTK("./pot", x, y, z, pointData = {"Potential" : pot_repeat})
 	
 	
 	# Histogram into bins (predefined?)
@@ -247,16 +246,16 @@ for name_index in range(len(cif_list)):
 	else:
 		print 'Nonporous material: no attractive region. ', cif_file_name
 		
-	 
-	#Write the raw energy values        
+
+	#Write the raw energy values
 	f3=open('Details.txt','w')
 	f3.write(str(nx_total)+'\t'+str(ny_total)+'\t'+str(nz_total)+'\n')
 	f3.write(str(nx_cells)+'\t'+str(ny_cells)+'\t'+str(nz_cells)+'\n')
-	f3.write(str(la)+'\t'+str(lb)+'\t'+str(lc)+'\n')       
-	f3.write(str(alpha)+'\t'+str(beta)+'\t'+str(gamma)+'\n')       
+	f3.write(str(la)+'\t'+str(lb)+'\t'+str(lc)+'\n')
+	f3.write(str(alpha)+'\t'+str(beta)+'\t'+str(gamma)+'\n')
 	f3.close()
 	
-	f3=open('Energy_Values.txt','a')                
+	f3=open('Energy_Values.txt','a')
 	np.savetxt(f3,e_vals)
 	f3.close()
 	
@@ -274,7 +273,7 @@ for name_index in range(len(cif_list)):
 	coord = np.array(struct.frac_coords)
 	out_coord = np.zeros((np.shape(coord)))
 	for i in range(len(coord)):
-	  out_coord[i]=np.dot(A,coord[i])
+		out_coord[i]=np.dot(A,coord[i])
 	xyz_mod.write_xyz(f4,out_coord,title=cif_list[name_index]+'.xyz',atomtypes=mof_atm_names)
 	f4.close()
 	
@@ -282,8 +281,8 @@ for name_index in range(len(cif_list)):
 os.chdir(path_orig)
 
 #print timing
-endtime = time.clock()	
+endtime = time.clock()
 elaptime = endtime-starttime
 fout.write('Timestamp: {:%Y-%b-%d %H:%M:%S}\n'.format(datetime.datetime.now()))
-fout.write('Elapsed time\t%f\n' % (elaptime))	
+fout.write('Elapsed time\t%f\n' % (elaptime))
 fout.close()
