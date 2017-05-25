@@ -128,8 +128,10 @@ class CifParser(CifData):
 		new_data['_cell_length_a'] = clean_float(self.data['_cell_length_a']) * mx
 		new_data['_cell_length_b'] = clean_float(self.data['_cell_length_b']) * my
 		new_data['_cell_length_c'] = clean_float(self.data['_cell_length_c']) * mz
-		for key in ['_cell_angle_alpha', '_cell_angle_beta', '_cell_angle_gamma', '_symmetry_space_group_name_H-M']:
+		for key in ['_cell_angle_alpha', '_cell_angle_beta', '_cell_angle_gamma']:
 			new_data[key] = self.data[key]
+		if '_symmetry_space_group_name_H-M' in self.data.keys():
+			new_data['_symmetry_space_group_name_H-M'] = self.data['_symmetry_space_group_name_H-M']
 
 		# Apply changes back to the class, which will require reinitialization
 		if False:  # Old debugging commands to figure out the transform
