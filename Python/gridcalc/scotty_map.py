@@ -31,7 +31,9 @@ if write_xyz:
 
 # Define LJ Potential
 def lj(eps,sig,rsq):
-	E = (4*eps) * (((sig)**12/(rsq)**6) - ((sig)**6/(rsq)**3)) 
+	if rsq < 1e-8:
+		rsq = 1e-8
+	E = (4*eps) * (((sig)**12/(rsq)**6) - ((sig)**6/(rsq)**3))
 	return E
 
 # Helper function for making new directories
