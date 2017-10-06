@@ -13,11 +13,14 @@ ENERGY_RANGE = c(-1000, 20)
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
 QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
 
+R_GAS <- 8.314  # J/mol.K
+
 
 k_to_kj_mol <- function(energy)  {
-  kb <- 1.38064853e-23  # J/K from Wikipedia
-  na <- 6.022e23
-  energy * kb * na / 1000
+  #kb <- 1.38064853e-23  # J/K from Wikipedia
+  #na <- 6.022e23
+  #energy * kb * na / 1000
+  energy * R_GAS / 1000
 }
 
 energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
