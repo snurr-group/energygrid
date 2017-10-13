@@ -81,16 +81,16 @@ energy_metric <- function(data_dir, lower_bound = -200, upper_bound = 0) {
   energy_stats(data_dir, energy_metric_fcn, output_prototype)
 }
 
-metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0) {
+metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn = TRUE) {
   # Compute the "LJ metric" based on given cutoffs
   # Set a bound to NA for open intervals (e.g., energy > -200, but no upper bound)
   # TODO: NA code
-  if (!(lower_bound %in% hist_df$lower & upper_bound %in% hist_df$upper)) {
+  if (warn & !(lower_bound %in% hist_df$lower & upper_bound %in% hist_df$upper)) {
     warning("Metric bounds do not exactly line up with a histogram bin")
   }
   
   good_counts <- hist_df %>%
-    filter(lower >= lower_bound) %>% filter(upper <= upper_bound) %>% 
+    filter(lower >= lower_bound) %>% filter(upper < upper_bound) %>% 
     group_by(id) %>% summarize(good = sum(counts))
   
   total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))
