@@ -76,6 +76,10 @@ standardize <- function(glm_mod, x) {
   standardize_from_props(x, glm_mod$removed_cols, glm_mod$meanz, glm_mod$stdz)
 }
 
+shuffle <- function(vec) {
+  # Shuffles the values around in a vector
+  sample(vec, size=length(vec))
+}
 
 ### MODEL FITTING ###
 # First, some potentially useful documentation links:
@@ -149,12 +153,14 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
     left_join(y_with_id, by="id") %>% 
     rename(y = g.L) %>% 
     .$y
+  x_id <- x %>% select(id)
   x <- x %>% select(-id)
   
   q2 <- calc_q2(x, y)
   fitted_mod <- fit_glmnet(x, y)
   tibble(
     fitted_model = list(fitted_mod),
+    id_list = list(x_id),
     q2=q2,
     lambda = fitted_mod$lambda, 
     step = step,
