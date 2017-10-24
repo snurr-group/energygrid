@@ -41,7 +41,8 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split)
   filtered_hist <- unprocessed_x_with_id %>% 
     filter(id %in% y_with_id$id)
   filtered_ids <- filtered_hist %>% 
-    select(id)
+    select(id) %>% 
+    unique
   num_ids <- filtered_ids %>% nrow
   
   # For hyperparameter tuning
