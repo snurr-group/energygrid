@@ -88,10 +88,10 @@ shuffle <- function(vec) {
 # * My current model uses [glmnet](https://cran.r-project.org/web/packages/glmnet/glmnet.pdf)
 # * See also a helpful [vignette](https://cran.r-project.org/web/packages/glmnet/vignettes/glmnet_beta.pdf) and [blog post](https://www.r-bloggers.com/ridge-regression-and-the-lasso/)
 
-fit_glmnet <- function(x, y, lambda = NULL) {
+fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
   # Fits a ridge regression model to a dataframe of predictors
   # Also standardizes the inputs (mean-centered, unit variance)
-  # TODO: add an alpha parameter so we can also do analysis vs. LASSO (or potentially even elastic net)
+  # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
   
   # Remove columns with zero std dev
   removed_cols <- x %>% 
@@ -114,12 +114,12 @@ fit_glmnet <- function(x, y, lambda = NULL) {
   cvfit <- NULL
   if (is.null(lambda)) {
     trial_lambdas <- 10^seq(10, -2, length = 100)  # Idea from https://www.r-bloggers.com/ridge-regression-and-the-lasso/
-    cvfit <- cv.glmnet(as.matrix(x), y, alpha=0, nfolds=10, type.measure="mse", lambda=trial_lambdas)
+    cvfit <- cv.glmnet(as.matrix(x), y, alpha=alpha, nfolds=10, type.measure="mse", lambda=trial_lambdas)
     lambda <- cvfit$lambda.1se
   }
   
   # Actually run the model
-  mod <- glmnet(as.matrix(x), y, alpha=0, lambda=lambda)  # alpha=0 is ridge regression
+  mod <- glmnet(as.matrix(x), y, alpha=alpha, lambda=lambda)  # alpha=0 is ridge regression
   
   # Return the relevant model details
   list(
@@ -130,6 +130,7 @@ fit_glmnet <- function(x, y, lambda = NULL) {
     meanz = meanz,
     stdz = varz,
     lambda = lambda,
+    alpha = alpha,
     coefs = NULL,
     cv_for_lambda = cvfit
   )
@@ -144,7 +145,7 @@ pred_glmnet <- function(glm_mod, x_tbl) {
   predict(glm_mod$mod, as.matrix(x))
 }
 
-run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL) {
+run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha = 0) {
   # Runs the ridge regression model, transforming e_data into a stepped histogram with appropriate y columns.
   # Also runs cross-validation and returns the model for later consideration
   x <- e_data %>% 
@@ -157,8 +158,8 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
   x_id <- x %>% select(id)
   x <- x %>% select(-id)
   
-  q2 <- calc_q2(x, y)
-  fitted_mod <- fit_glmnet(x, y)
+  q2 <- calc_q2(x, y, alpha=alpha)
+  fitted_mod <- fit_glmnet(x, y, alpha=alpha)
   tibble(
     fitted_model = list(fitted_mod),
     id_list = list(x_id),
@@ -180,13 +181,13 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
 
 # Q2, aka predicted R2
 # Use caret's `createFolds` helper function to generate the CV fold indicies
-calc_q2 <- function(x, y, lambda = NULL) {
+calc_q2 <- function(x, y, lambda = NULL, alpha = 0) {
   # Calculate Q2 for a given model fit
   # Alternatively, we could use the results from glmnet, but the code is messy and hard to read
   q2 <- NULL
   
   # First, obtain the global model parameters, such as lambda and mean-centering
-  global_mod <- fit_glmnet(x, y, lambda)
+  global_mod <- fit_glmnet(x, y, lambda, alpha)
   global_lambda <- global_mod$lambda
   
   folds <- createFolds(y, k=10)
@@ -202,7 +203,7 @@ calc_q2 <- function(x, y, lambda = NULL) {
     y_others <- y[-fold]  # We can use the "-" notation in this case, since it's integers instead of names
     
     # Make glm model from others
-    fold_model <- glmnet(as.matrix(x_others), y_others, alpha=0, lambda=global_lambda)
+    fold_model <- glmnet(as.matrix(x_others), y_others, alpha=alpha, lambda=global_lambda)
     
     # Predict on current fold
     y_jack <- predict(fold_model, as.matrix(x_fold))
