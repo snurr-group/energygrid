@@ -93,6 +93,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
   # Also standardizes the inputs (mean-centered, unit variance)
   # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
   
+  orig_x <- x
   # Remove columns with zero std dev
   removed_cols <- x %>% 
     summarize_all(funs(sd)) %>% 
@@ -126,6 +127,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
     mod = mod,
     x = x,
     y = y,
+    orig_x = orig_x,
     removed_cols = removed_cols,
     meanz = meanz,
     stdz = varz,
@@ -207,7 +209,8 @@ calc_q2 <- function(x, y, lambda = NULL, alpha = 0) {
     
     # Predict on current fold
     y_jack <- predict(fold_model, as.matrix(x_fold))
-    y_bar <- mean(y_fold)
+    #y_bar <- mean(y_fold)
+    y_bar <- mean(y_others)
     
     # Add to press and tss accordingly
     press <- press + sum((y_fold - y_jack)^2)
