@@ -42,12 +42,10 @@
 
 \subsection{Quick tasks}
 \begin{outline}
-	\1 Fill in the remainder of the figures I could see for this paper
+	\1 Fill in the remainder of the figures I could see for this paper (placeholders with ``Figure'' marking)
 	\1 Debrief with Scotty and get his input on availability and possible directions for the manuscript.  He might have some good figures we should adapt for the manuscript, too.
 	\1 Do we pre-set the upper and/or lower bounds of the histograms?
-	\1 Check out the long-tail(?) of the parity plot (top right, below the parity line).  Could be another variable we need to account for
-	\1 Need to comment on nonlinearity somewhere, based on question from AIChE session
-	\1 What is the original distribution of y?
+	\1 Fitting models on the 2 bar and 100 bar cases.  Do the coefficients sum to the combined model?
 \end{outline}
 
 \subsection{Potential directions}
@@ -147,6 +145,10 @@
 		\end{figure}
 		\2 Q2 of 0.96
 		\2 RMSE of 3 g/L, MAE/MUE of 2.4 g/L
+	\1 Why ridge regression?
+		\2 Interpretability with a simple model
+		\2 Likely some kind of link with a multi-site Langmuir model (assuming that all sites at a given energy are identical)
+		\2 Someone at AIChE asked why our model didn't include nonlinearity.  The reason is that we don't need it to make great predictions. (my earlier work used random forest, which would avoid manual feature transformations)
 \end{outline}
 
 
@@ -157,7 +159,7 @@
 \end{outline}
 \begin{figure}[!ht]
 	\centering
-	\caption{TODO: top candidates for experimental synthesis from the CCDC MOF database}
+	\caption{TODO: top candidates for experimental synthesis based on screening the CCDC MOF database}
 	\label{fig:candidates}
 \end{figure}
 
@@ -207,6 +209,14 @@ Also consider adding a figure on "Consistency across nodes/linkers and/or other 
 	\caption{Consistency of model accuracy across MOF compositions.  Note that Zr MOFs are less accurate (node 4), possibly due to differences in topology and undersampling relative to \textbf{pcu} MOFs.}
 	\label{fig:nodes_vs_cat}
 \end{figure}
+
+\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=0.75\columnwidth]{Figs/residual.png}
+	\caption{Residual plot for the testing data.  One audience member in my talk once concerned about a long tail (?) on the top right of my parity plot, below the line of parity, possibly requiring another variable for correction.  But I'm having trouble seeing it in the residual plot, so perhaps it was an optical illusion against the 45 degree line.}
+	\label{fig:test_residual}
+\end{figure}
+
 
 \subsection{Alternative approaches}
 
