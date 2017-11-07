@@ -48,6 +48,17 @@
 \begin{outline}
 	\1 Figure out in meeting: Do we pre-set the upper and/or lower bounds of the histograms?
 	\1 Fitting models on the 2 bar and 100 bar cases.  Do the coefficients sum to the combined model?
+		\2 Answer: yes.  I calculated a "discrepancy" term between the original ridge model and by subtracting the original high and low pressure models.  The max discrepancy between betas is 0.3 ("Inf" bin), which isn't unexpected considering we regularize the models separately.
+		
+		Also from the plot, we can observe properties of the individual fitted models.  Here, we can see that the highly attractive region actually has similar beta values.  The difference really comes into play at the mildly attractive regions, where adsorption is not sufficiently strong to bind H2 at 2 bar.  Also the "Inf" bin might be attributed to the differences in $\beta_0$, 41 vs. 17 g/L.
+		\begin{figure}[H]
+			%TODO: change this back in the manuscript document
+			%\begin{figure}[!ht]
+			\centering
+			\includegraphics[width=0.75\columnwidth]{Figs/beta_vs_pressure.png}
+			\caption{Difference between the beta coefficients at 2 bar and 100 bar (add this as a subfigure to the other beta plot?)}
+			\label{fig:diff_betas}
+		\end{figure}
 	\1 Take a look at the \href{http://www.rsc.org/journals-books-databases/about-journals/molecular-systems-design-engineering/#undefined}{journal guidelines for authors} and their \href{http://www.rsc.org/journals-books-databases/journal-authors-reviewers/author-tools-services/#article-templates}{\LaTeX~templates}.  See also Overleaf?
 \end{outline}
 
@@ -189,7 +200,7 @@
 	\centering
 	\includegraphics[width=0.75\columnwidth]{Figs/beta_robustness.png}
 	\caption{DEMO Model coefficients are robust to histogram bin strategy: showing the locations of the bins, color coded by the beta, to see if the model gives consistent results for certain sections of energy (TODO after meeting)}
-	\label{fig:parity}
+	\label{fig:binwidth}
 \end{figure}
 
 \subsection{Screening other databases}
@@ -238,7 +249,7 @@ Data Science Initiative, NMGC, etc.
 	\centering
 	\includegraphics[width=0.75\columnwidth]{Figs/tuning_bin_width.png}
 	\caption{Model is robust to selected histogram bin width (perhaps repeat with RMSE in addition to Q2)}
-	\label{fig:lambda}
+	\label{fig:robustness_q2}
 \end{figure}
 
 \subsection{Model evaluation/consistency}
