@@ -161,12 +161,12 @@ bin_labels <- function(bin_width = TEMPERATURE, min_max = c(-15, 15)) {
                     )
 }
 
-run_energy_stat <- function(dirs, stat_fcn) {
+run_energy_stat <- function(dirs, stat_fcn, ...) {
   # Runs the stat function over multiple directories to reduce copy-paste
   all_stats <- stat_fcn(dirs[1])
   if (length(dirs) > 1) {
     for (x in dirs[2:length(dirs)]) {
-      all_stats <- rbind(all_stats, stat_fcn(x))
+      all_stats <- rbind(all_stats, stat_fcn(x, ...))
     }
   }
   all_stats

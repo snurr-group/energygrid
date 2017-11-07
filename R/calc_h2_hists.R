@@ -1,3 +1,6 @@
+# WARNING: DEPRECATED
+# Code became unmaintainable, so transformed it into an intermediate version called save_h2_hists.R
+
 # Calculates histograms for H2 using reasonable parameters (which can be overwritten)
 # Caches values in hist_vals to avoid long re-computation time when running the code block
 # Need to first load "R/load_data.R" and "R/get_energy_stats.R"
@@ -18,7 +21,7 @@ BIN_WIDTH <- min_bin_width / R_GAS_KJ  # minimum histogram bin width we'll consi
 ENERGY_RANGE <- hist_range / R_GAS_KJ
 
 if (!exists("hist_vals")) {
-  hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists)
+  hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH)
   # Also convert our hist_vals to more convenient units of kJ/mol
   hist_vals <- mutate(hist_vals, lower=lower*R_GAS_KJ, upper=upper*R_GAS_KJ)
 }
