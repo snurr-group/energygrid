@@ -2,7 +2,7 @@
 \usepackage[left=1in,right=1in,top=1in,bottom=1in]{geometry}
 
 \title{Outline for MOF energy histogram work}
-\author{Ben Bucior, N. Scott Bobbitt, Arun Gopalan, Neda Bagheri, Randy Snurr}
+\author{Ben Bucior, Scotty Bobbitt, Arun Gopalan, Neda Bagheri, Randy Snurr}
 
 \usepackage[hidelinks]{hyperref}
 \usepackage{graphicx}
@@ -128,7 +128,7 @@
 		\2 Equations and loss function
 		\2 R package \verb|glmnet|
 			\3 Finding the greatest lambda within 1 SE of the lambda that minimizes model error
-	\1 Data preprocessing: z-score bins and remove columns with zero variance.  Also filter out unphysical uptake ($<$ 0 g/L) from GCMC with giant error bars
+	\1 Data preprocessing: z-score bins and remove columns with zero variance.  Also filter out unphysical uptake ($<$ 0 g/L) from GCMC
 	\1 Define equations used for model evaluation: Q2, RMSE, MAE
 \end{outline}
 
@@ -182,13 +182,13 @@
 	\1 Why ridge regression?
 		\2 Interpretability with a simple model
 		\2 Likely some kind of link with a multi-site Langmuir model (assuming that all sites at a given energy are identical)
-		\2 Someone at AIChE asked why our model didn't include nonlinearity.  The reason is that we don't need that to make great predictions. (my earlier work used random forest, which would avoid manual feature transformations)
+		\2 Someone at AIChE asked why our model didn't include nonlinearity.  The reason is that we don't need that to make great predictions. (some of my initial work used random forest, which would avoid manual feature transformations)
 \end{outline}
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.75\columnwidth]{Figs/beta_robustness.png}
-	\caption{Model coefficients are robust to histogram bin strategy: showing the locations of the bins, color coded by the beta, to see if the model gives consistent results for certain sections of energy (TODO after meeting)}
+	\caption{DEMO Model coefficients are robust to histogram bin strategy: showing the locations of the bins, color coded by the beta, to see if the model gives consistent results for certain sections of energy (TODO after meeting)}
 	\label{fig:parity}
 \end{figure}
 
@@ -223,7 +223,7 @@ Data Science Initiative, NMGC, etc.
 \begin{outline}
 	\1 Grid spacing: convergence of a few different sample MOF histograms
 		\2 Also might be good to have a figure overlaying sampling points on top of a continuous background, to exemplify the convergence testing
-		\2 TODO more rigorously
+		\2 TODO make a figure more rigorously
 	\1 Bin width and degree of overlap (TODO: consider adding examples, and Q2 figure)
 	\1 Lambda selection
 	\begin{figure}[H]
