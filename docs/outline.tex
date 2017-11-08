@@ -301,22 +301,30 @@ Also consider adding a figure on "Consistency across nodes/linkers and/or other 
 
 
 \subsection{Some newer figures on normality and transferability}
-How well does the model work on a set of new 500 CCDC MOFs?  The figure speaks for itself.  The discrepancy could be a number of causes: first we need to check the sigma/epsilon parameters for the energy calculations.  The original 10k hMOFs used an epsilon of 11.25~K and sigma of 2.68~Angstroms.  Also, they're different distributions of energy sites throughout the MOF.
+How well does the model work on a set of new 500 CCDC MOFs?  The left subfigure speaks for itself.
+
+The discrepancy could be a number of causes: first we need to check the sigma/epsilon parameters for the energy calculations.  The original 10k hMOFs used an epsilon of 11.25~K and sigma of 2.68~Angstroms, but the actual sigma was about 36.7~K.  After correction, the fit is considerably better (right subfigure).  For the remainder of the error, consider that we mostly trained on **pcu** MOFs, whereas the CCDC MOFs are considerably more diverse.
 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.75\columnwidth]{Figs/initial_ccdc.png}
-	\caption{Parity plot for the CCDC MOFs, using the ridge regression model trained on 4000 hMOFs}
+	\caption{Parity plot for the CCDC MOFs, using the initial ridge regression model trained on 4000 hMOFs.}
 	\label{fig:init_ccdc_parity}
 \end{figure}
 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\columnwidth]{Figs/initial_ccdc_scaled_hmof.png}
+	\caption{Parity plot for the CCDC MOFs, after scaling the energies fed to the hMOF ridge regression model to match epsilon.}
+	\label{fig:init_ccdc_parity}
+\end{figure}
 
 Let's take a look at the distribution of z-scores.  Do high or low performing MOFs tend to have similar z-scores in certain bins?  Are the z-scores reasonable (especially for "important" bins)?
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.47\columnwidth]{Figs/z_distr.png}
 	\includegraphics[width=0.47\columnwidth]{Figs/z_distr_init_ccdc.png}
-	\caption{Distribution of z-scores (x variables) in each bin, colored by the beta of the trained model.  Extreme z-scores are more common in the bins with low weights}
+	\caption{Distribution of z-scores (x variables) in each bin, colored by the beta of the trained model.  Extreme z-scores are more common in the bins with low weights.  Left: original hMOF data, right: CCDC vs. actual GCMC, with the new betas (from scaled hMOF energies)}
 	\label{fig:z_distr}
 \end{figure}
 
