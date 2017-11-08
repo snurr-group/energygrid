@@ -41,6 +41,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   current_row = 1
   for (cif_dir in dirs) {
     energy_file <- file.path(data_dir, cif_dir, "Energy_Values.txt")
+    # print(energy_file)
     energy <- read_tsv(energy_file, col_names = "V1", col_types = "d")$V1
     end_row <- current_row + num_rows - 1
     all_stats[current_row:end_row, ] <- stats_fcn(energy)
@@ -49,7 +50,12 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   }
   close(pb)
   
-  ids <- as.integer(str_sub(dirs, 2, -1))  # strip off leading "h" for hMOF designation
+  # Assign a numeric ID column to hMOFs, character otherwise
+  if (all(str_detect(dirs, "^h"))) {
+    ids <- as.integer(str_sub(dirs, 2, -1))  # strip off leading "h" for hMOF designation
+  } else {
+    ids <- as.character(dirs)
+  }
   ids <- rep(ids, each=num_rows)
   all_stats$id <- ids
   all_stats
@@ -135,7 +141,11 @@ tidy_energy_hists <- function(data_dir, bin_width = BIN_WIDTH, min_max = ENERGY_
   )
   hists_fcn <- function(energy) {
     # First cap the maximum energy so that the last bin (energy > max) includes the high end
-    energy[energy > bin_width * (min_max[2]) + 1] <- bin_width * (min_max[2] + 0.5)
+    energy[energy >= (bin_width * (min_max[2]) + 1)] <- bin_width * (min_max[2] + 0.5)
+    # Do the same for the low end.  If we care about the strongly attractive region, check
+    # that both of the lower two bins are unoccupied.  Otherwise they're lumped in with the smallest.
+    energy[energy <= (bin_width * min_max[1])] <- bin_width * (min_max[1] + 0.5)
+    # Now that preprocessing is done, run the histogram binning
     raw_hist <- hist(energy, breaks = bins, plot = FALSE)
     cbind(lower = raw_hist$breaks[1:(length(raw_hist$breaks)-1)],
           upper = raw_hist$breaks[2:length(raw_hist$breaks)],
