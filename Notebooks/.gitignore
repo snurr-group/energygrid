@@ -1,0 +1,3 @@
+# Let's only save the source Rmd notebooks
+*.nb.html
+
