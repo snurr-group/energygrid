@@ -107,6 +107,14 @@
 
 \section{Methods}
 
+TODO:
+Flip sections 5.1 and 5.2.  Rewrite them as:
+\begin{enumerate}
+	\item Data collection (GCMC, DB, grid, z-scoring, etc.)
+	\item Data analysis (ridge, etc.--error handling?)
+	\item Data sharing (consider making the GCMC and PES data publicly available.  Also could make a quick web interface where users can make predictions on their own MOF)
+\end{enumerate}
+
 \subsection{Calculating the energy grid}
 
 \begin{figure}[H]
@@ -139,15 +147,16 @@
 		\2 Equations and loss function
 		\2 R package \verb|glmnet|
 			\3 Finding the greatest lambda within 1 SE of the lambda that minimizes model error
+			\3 [Can probably keep this vague-ish, since we'll be citing a known package]
 	\1 Data preprocessing: z-score bins and remove columns with zero variance.  Also filter out unphysical uptake ($<$ 0 g/L) from GCMC
-	\1 Define equations used for model evaluation: Q2, RMSE, MAE
+	\1 Define equations used for model evaluation: Q2, RMSE, MAE [move to results, as necessary]
 \end{outline}
 
 
 
 \section{Results and discussion}
 
-\subsection{LJ metric}
+\subsection{LJ metric [we'll see where this fits best in the flow]}
 
 \begin{outline}
 	\1 Inspiration from "binding fraction"
@@ -166,7 +175,7 @@
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.75\columnwidth]{Figs/lj_metric.png}
-	\caption{The LJ metric generally indicates deliverable capacity.  Each point represents results for one of $\approx 1000$ hMOFs tested.}
+	\caption{The LJ metric generally indicates deliverable capacity.  Each point represents results for one of $\approx 1000$ hMOFs tested. [ADD DC VS. VF PLOT as another subfigure]}
 	\label{fig:lj_metric}
 \end{figure}
 
@@ -207,6 +216,7 @@
 \begin{outline}
 	\1 Plan of testing applicability on 1000 MOFs
 	\1 Benchmarking (maybe as a table): Full GCMC vs. energy grid calculations, feature representation, and ML
+	\1 TODO: pick out the top 500 CSD MOFs and test them with GCMC
 \end{outline}
 \begin{figure}[H]
 	\centering
@@ -275,6 +285,9 @@ Also consider adding a figure on "Consistency across nodes/linkers and/or other 
 	\includegraphics[width=0.75\columnwidth]{Figs/residual.png}
 	\caption{Residual plot for the testing data.  One audience member in my talk once concerned about a long tail (?) on the top right of my parity plot, below the line of parity, possibly requiring another variable for correction.  But I'm having trouble seeing it in the residual plot, so perhaps it was an optical illusion against the 45 degree line.}
 	\label{fig:test_residual}
+
+[TODO: also fit the residuals to a Gaussian to verify that there isn't a problem with top right]
+
 \end{figure}
 
 
