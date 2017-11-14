@@ -13,6 +13,8 @@ ENERGY_RANGE = c(-1000, 20)
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
 QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
 
+SIMPLE_ENERGY_FILE <- "sm_Energy_Values.txt"  # previously Energy_Values.txt
+
 R_GAS <- 8.314  # J/mol.K
 
 
@@ -40,7 +42,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   pb <- txtProgressBar(min = 1, max = num_cifs, style = 3)  # Add a progress bar, courtesy of https://www.r-bloggers.com/r-monitoring-the-function-progress-with-a-progress-bar/
   current_row = 1
   for (cif_dir in dirs) {
-    energy_file <- file.path(data_dir, cif_dir, "Energy_Values.txt")
+    energy_file <- file.path(data_dir, cif_dir, SIMPLE_ENERGY_FILE)
     # print(energy_file)
     energy <- read_tsv(energy_file, col_names = "V1", col_types = "d")$V1
     end_row <- current_row + num_rows - 1

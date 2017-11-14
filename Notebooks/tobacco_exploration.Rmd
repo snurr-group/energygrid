@@ -11,6 +11,7 @@ library(dplyr)
 library(tidyr)
 library(readr)
 library(ggplot2)
+library(stringr)
 
 library(purrr)
 library(readxl)
@@ -24,10 +25,6 @@ theme_set(theme_bw(base_size=16) + theme(aspect.ratio=1))  # Default ggplot2 par
 ```
 
 ```{r load.data, include=FALSE}
-#source("R/load_data.R")
-#source("R/get_energy_stats.R")
-#hist_vals <- read_rds("BigData/init_h2_hist_vals.Rds")
-
 h2_types <- paste0("h2.", c("g.L", "mol.kg", "wtp"))
 tobacco_data <- read_xlsx(
   "BigData/CrystGrowthDesign_SI.xlsx",
@@ -51,20 +48,41 @@ tobacco_data <- read_xlsx(
     "cbb.ID"
     )
   )
-tobacco_codes <- read_table2("BigData/mofs_map.dat", col_names = c("MOF.ID", "id"), col_types="ic")
+tobacco_codes <- read_table2("BigData/mofs_map.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
 
 tobacco_data <- tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
+
+# Translate between Scotty's ID and the traditional ToBaCCo filename
+scotty_codes <- read_tsv("BigData/tobacco-20171114/key.tsv", col_names = c("filename", "id"), col_types="cc")
+scotty_codes <- scotty_codes %>% mutate(python.id = str_sub(filename, 1, -5))  # trim .cif suffix
+tobacco_data <- tobacco_data %>% inner_join(scotty_codes, by="python.id")
 
 DATA_SPLIT <- c(0.4, 0.4, 0.2)
 R_GAS_KJ <- 8.314 / 1000
 source("R/regression_and_features.R")  # Get regression utilities
 ```
 
+```{r load_low_p}
+# Also import the new low pressure data
+low_p_h2_data <- read_tsv(
+  "BigData/tobacco-20171114/clean-gcmc/comb-volume-77k.tsv",
+  col_names = c("tob.num", "id", "h2.g.L.2.77", "h2.err.g.L.2.77"),  # TODO: verify that this is 2 bar, 77 K data for H2, and GCMC errors
+  col_types = "icnn"
+  )
+tobacco_data <- tobacco_data %>% inner_join(low_p_h2_data, by="id")  # For now, let's only import complete data
+```
 
-We need to get the energy grid results (and low pressure H2 calculations) before we can begin running any type of machine learning analysis.
+```{r load_grids}
+if (!exists("grids_h2")) {
+  grids_h2 <- read_rds("BigData/Robj/tobacco_h2.Rds")
+  # TODO: we should calculate the base histogram with less granularity (0.05 kJ/mol instead of 0.01) to considerably reduce file and processing size
+}
+```
 
 Long-term, we also may consider moving this to a modular, independent R script to generate the figures all separately.  (Save models as R objects and import them individually as necessary, then ggsave the plots as their publication-ready formats)
 
+NEED TO CONVERT VOL TO G/L (kg/m3 loading)
 
+## ANALYSIS
 
 

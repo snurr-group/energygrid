@@ -21,3 +21,9 @@ BigData/ccdc_500_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/500cifs-CCDC
 	# Process test subset of CCDC MOFs from Scotty 2017-11-07
 
+BigData/Robj/tobacco_h2.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/h2grids
+
+BigData/Robj/tobacco_ch4.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids
+
