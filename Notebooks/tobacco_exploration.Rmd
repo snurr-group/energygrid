@@ -132,6 +132,7 @@ y_to_join <- gcmc_data %>%
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))
 hist_sets <- partition_data_subsets(hmof_grid, y_to_join, DATA_SPLIT)
+# Note: since we're starting with 2500 hMOFs, 40% for training is still 1000, so that works out great.
 # FINISH ME AND RUN THE HMOF BASE CASE
 
 
@@ -191,19 +192,17 @@ for (perf_alpha in c(1, 0)) {
 }
 ```
 
-Can we fit a better model?
 
 ```{r tobacco_diagnostic}
-hist(y_to_join$g.L)
-
-# TODO: try the hMOF model on the ToBaCCo data for sampling
-# First, how does its distribution of y values vary?  I think the model above is overfitting, given its mean capacity of 38 g/L
+# Try the hMOF model on the ToBaCCo data for sampling
 
 
 # CRUDE ATTEMPT
 # Let's use the above hMOF model on the ToBaCCo set.  How is the performance??
-tob_hist_sets <- hist_sets
-tob_y <- y_to_join
+hist_sets <- tob_hist_sets
+y_to_join <- tob_y
+# First, how does its distribution of y values vary?  I think the model above is overfitting, given its mean capacity of 38 g/L
+hist(y_to_join$g.L)
 
 # COPIED FROM ABOVE: MAKE THIS A SUBROUTINE.
 # MAYBE WE NEED A MODEL SETUP OBJECT, INCLUDING BINS AND OTHER PARAMS?
@@ -221,11 +220,22 @@ tob_y <- y_to_join
   y_pred <- pred_glmnet(trained_mod, testing_desc)
   postResample(pred=y_pred, obs=y_act) %>% print
 
-  p <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted uptake (", perf_model,")"))
+  # NEW FOR COLORING
+  has_hmof_topology <- testing_ids %>%
+    select(id) %>% 
+    left_join(tobacco_data, by="id")
+  has_hmof_topology <- (has_hmof_topology$topology %in% c("pcu", "sra", "diab", "tbo", "nbo", "fcu"))
+
+  p <- parity_plot(y_act, y_pred, ifelse(has_hmof_topology, "red", "gray"), 0.25)
+  p <- p + ylab(paste0("Predicted uptake (", perf_model,")"))
   print(p)
 
   hist(y_act - y_pred)
 
+  
+  
+# For diagnosis, we might consider plotting the various distributions to see how similar they are between the hMOFs and ToBaCCo MOFs
+standardize(trained_mod, testing_desc) %>% .$`Inf` %>% hist
 ```
 
 
