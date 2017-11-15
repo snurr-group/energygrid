@@ -139,6 +139,7 @@ for (perf_alpha in c(1, 0)) {
   trained_model <- hmof_partitioned_mod$trained_model
   trained_mod <- hmof_partitioned_mod$trained_mod
 }
+plot(hmof_partitioned_mod$plots$parity_bw)
 ```
 
 

@@ -5,6 +5,8 @@ library(purrr)
 library(glmnet)
 library(caret)
 
+# TODO: long-term, consider writing a data frame with beta, bin number, bin extremes, etc., for easy transfer of models
+
 ### FEATURE GENERATION ###
 
 stepped_hist <- function(df, step, width, from, to, bin_above=TRUE) {
@@ -26,6 +28,34 @@ stepped_hist <- function(df, step, width, from, to, bin_above=TRUE) {
   
   # < 2 sec per bin calculation  Just run metric_from_hists (an integral-type equation)
   result_hist
+}
+
+stepped_hist_spec <- function(df, binspec, ...) {
+  # Runs stepped_hist given a binspec instead of manually specifying the arguments
+  stepped_hist(df, binspec["step"], binspec["width"], binspec["from"], binspec["to"], ...)
+}
+
+bin_loc_from_spec <- function(binspec, bin_above=TRUE) {
+  # Retrieves the locations of bins specified from stepped_hists
+  # TODO: consider merging code with stepped_hists
+  lower_bounds <- seq(binspec["from"], binspec["to"] - binspec["width"], binspec["step"])
+  upper_bounds <- lower_bounds + binspec["width"]
+  bins <- tibble(
+    lower = lower_bounds,
+    upper = upper_bounds,
+    bin = as.character(1:length(upper_bounds))
+    )
+  bins <- bins %>% mutate(loc = (lower + upper)/2.0)
+  if (bin_above) {
+    bins <- bins %>%
+      add_row(
+        lower = binspec["to"],
+        upper = Inf,
+        bin = "Inf",
+        loc = binspec["to"] + 0.5*binspec["width"]
+        )
+  }
+  bins
 }
 
 ### DATA PROCESSING ###
