@@ -27,3 +27,6 @@ BigData/Robj/tobacco_h2.Rds:
 BigData/Robj/tobacco_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids
 
+BigData/Robj/hmof_h2.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/2500hmof-data/h2grids
+

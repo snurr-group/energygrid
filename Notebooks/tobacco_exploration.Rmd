@@ -79,8 +79,8 @@ tobacco_data <- tobacco_data %>% mutate(h2.deliv.77 = h2.g.L.100.77 - h2.g.L.2.7
 ```
 
 ```{r load_grids}
-if (!exists("grids_h2")) {
-  grids_h2 <- read_rds("BigData/Robj/tobacco_h2.Rds")
+if (!exists("raw_grids_h2")) {
+  raw_grids_h2 <- read_rds("BigData/Robj/tobacco_h2.Rds")
   # TODO: we should calculate the base histogram with less granularity (0.05 kJ/mol instead of 0.01) to considerably reduce file and processing size
 }
 ```
@@ -90,12 +90,142 @@ y_to_join <- tobacco_data %>%
   rename(g.L = h2.deliv.77) %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))  # Clean up unphysical MOFs
+complete_ids <- raw_grids_h2 %>% 
+  select(id) %>% 
+  unique() %>% 
+  inner_join(y_to_join, by="id") %>% 
+  select(id) %>% 
+  unlist
+
+y_to_join <- y_to_join %>% filter(id %in% complete_ids)
+grids_h2 <- raw_grids_h2 %>% filter(id %in% complete_ids)
 
 hist_sets <- partition_data_subsets(grids_h2, y_to_join, DATA_SPLIT)
 ```
 
 Long-term, we also may consider moving this to a modular, independent R script to generate the figures all separately.  (Save models as R objects and import them individually as necessary, then ggsave the plots as their publication-ready formats)
 
-## ANALYSIS
+## Proof-of-concept modeling
+Let's run a quick ridge regression model on the ToBaCCo MOF set to see if the performance is similar to the hMOF results presented at AIChE.
+
+Note: had to temporarily test with the hMOFs instead of ToBaCCo: the ToBaCCo MOFs lack sufficient diversity in volumetric uptake: they're considerably higher than the hMOFs, but also more tightly clustered which prevents the model from sufficiently generalizing.  Training on hMOFs and testing on ToBaCCo MOFs works great, unless we use some advanced sampling techniques on the ToBaCCo MOFs.
+
+```{r model_proof_of_concept}
+# Based on analysis from 10/27, etc.
+# Added LASSO analysis 10/24, but the final results end up as ridge, still
+
+source("R/plot_hists.R")
+source("R/regression_and_features.R")
+source("R/get_energy_stats.R")
+
+
+# TEMP BLOCK: test the hMOF results, overwriting ToBaCCo training/test:
+source("R/load_data.R")
+tob_hist_sets <- hist_sets
+tob_y <- y_to_join
+hmof_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
+hmof_grid <- hmof_grid %>%
+  mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
+  mutate(id = as.integer(str_id)) %>% 
+  select(-str_id)
+y_to_join <- gcmc_data %>% 
+  select(id, g.L) %>% 
+  filter(!(is.na(g.L) | g.L < 0))
+hist_sets <- partition_data_subsets(hmof_grid, y_to_join, DATA_SPLIT)
+# FINISH ME AND RUN THE HMOF BASE CASE
+
+
+
+for (perf_alpha in c(1, 0)) {
+  perf_models <- c("ridge regression", "LASSO")
+  perf_model <- perf_models[perf_alpha+1]  # R is one-indexed
+  print(paste("Running analysis for alpha =", perf_alpha, perf_model))
+  # Training a model, given our histogram parameters of 1.0 and 1.0
+  trained_model <- run_bin_model(hist_sets$training, y_to_join, 1.0, 1.0, c(-20, 1.0), alpha=perf_alpha)
+  trained_mod <- trained_model$fitted_model[[1]]
+  
+  # What is Q2 for this model?
+  trained_model$q2 %>% print  # Content within a loop must be explicitly printed (due to scoping?)
+  
+  # Performance on the test data, which hasn't yet been used for anything
+  testing_desc <- hist_sets$testing %>% 
+    stepped_hist(1.0, 1.0, -20, 1.0) %>% 
+    spread(key=bin, value=metric)
+  y_act <- testing_desc %>%
+    left_join(y_to_join, by="id") %>% 
+    rename(y = g.L) %>% 
+    .$y
+  testing_ids <- testing_desc %>% select(id)
+  testing_desc <- testing_desc %>% select(-id)
+  
+  y_pred <- pred_glmnet(trained_mod, testing_desc)
+  postResample(pred=y_pred, obs=y_act) %>% print
+  
+  # What are the coefficients?
+  coef(trained_mod$mod) %>% print
+
+  p <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted uptake (", perf_model,")"))
+    
+  print(p)
+  
+  # What is R2 of the original model? (on the training data)
+  postResample(pred=predict(trained_mod$mod, as.matrix(trained_mod$x)), obs=trained_mod$y) %>% print
+  
+  # Let's add two more plots, one with just the training data, and another with both training and test (color-coded)
+  p2 <-
+    parity_plot(
+      trained_mod$y,
+      pred_glmnet(trained_mod, trained_mod$orig_x),
+      "#CA7C1B"
+      ) +
+    ylab(paste0("Predicted uptake (", perf_model,")"))
+  print(p2)
+  p3 <- p2 +
+    geom_point(
+      data=tibble(act=y_act, pred=y_pred[,1]),
+      aes(act, pred),
+      alpha=I(0.10),  # Make slightly darker
+      color=I("#0070C0")
+      )
+  print(p3)
+}
+```
+
+Can we fit a better model?
+
+```{r tobacco_diagnostic}
+hist(y_to_join$g.L)
+
+# TODO: try the hMOF model on the ToBaCCo data for sampling
+# First, how does its distribution of y values vary?  I think the model above is overfitting, given its mean capacity of 38 g/L
+
+
+# CRUDE ATTEMPT
+# Let's use the above hMOF model on the ToBaCCo set.  How is the performance??
+tob_hist_sets <- hist_sets
+tob_y <- y_to_join
+
+# COPIED FROM ABOVE: MAKE THIS A SUBROUTINE.
+# MAYBE WE NEED A MODEL SETUP OBJECT, INCLUDING BINS AND OTHER PARAMS?
+# Performance on the test data, which hasn't yet been used for anything
+  testing_desc <- tob_hist_sets$testing %>% 
+    stepped_hist(1.0, 1.0, -20, 1.0) %>% 
+    spread(key=bin, value=metric)
+  y_act <- testing_desc %>%
+    left_join(tob_y, by="id") %>% 
+    rename(y = g.L) %>% 
+    .$y
+  testing_ids <- testing_desc %>% select(id)
+  testing_desc <- testing_desc %>% select(-id)
+  
+  y_pred <- pred_glmnet(trained_mod, testing_desc)
+  postResample(pred=y_pred, obs=y_act) %>% print
+
+  p <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted uptake (", perf_model,")"))
+  print(p)
+
+  hist(y_act - y_pred)
+
+```
 
 

@@ -53,7 +53,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   close(pb)
   
   # Assign a numeric ID column to hMOFs, character otherwise
-  if (all(str_detect(dirs, "^h"))) {
+  if (all(str_detect(dirs, "^h[^M]"))) {  # prevent false detection of hMOF-number
     ids <- as.integer(str_sub(dirs, 2, -1))  # strip off leading "h" for hMOF designation
   } else {
     ids <- as.character(dirs)

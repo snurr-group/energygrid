@@ -28,8 +28,8 @@ R_GAS_KJ <- 8.314 / 1000
 if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
   DATA_SPLIT <- c(0.4, 0.4, 0.2)  # Split for hyperparams, training, and test data
   # Minimum histogram parameters, in kJ/mol
-  min_bin_width <- 0.01
-  hist_range <- c(-10, 1)  # about 1.5kT in the positive direction, at 77 K
+  min_bin_width <- 0.05
+  hist_range <- c(-20, 5)
 }
 
 
