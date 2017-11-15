@@ -242,6 +242,23 @@ plot_bin_z_vs_y(trained_mod$x, trained_mod$y, coef_tbl(trained_mod$mod))
 plot_bin_z_vs_y(standardize(trained_mod, testing_desc), y_act, coef_tbl(trained_mod$mod))
 # What happens if we compare against the model instead of GCMC?  What does the "Inf" bin look like?
 plot_bin_z_vs_y(standardize(trained_mod, testing_desc), y_pred, coef_tbl(trained_mod$mod))
+
+# Finally, what are the distributions of z-scores (and actual values) between ToBaCCo and hMOFs?
+x_distr <- function(x) {
+  x %>% 
+    gather(key="bin", value="value") %>% 
+    ggplot(aes(value)) +
+    geom_histogram() +
+    facet_wrap(~bin, scales="free") +
+    theme(text = element_text(size = 8))
+}
+
+x_distr(trained_mod$x)
+x_distr(standardize(trained_mod, testing_desc))
+# And the non-trainsformed versions
+x_distr(select(trained_mod$orig_x, c("17", "18", "19", "20", "21", "Inf")))
+x_distr(select(testing_desc, c("17", "18", "19", "20", "21", "Inf")))
+
 ```
 
 
