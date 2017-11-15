@@ -3,6 +3,7 @@
 library(ggplot2)
 library(dplyr)
 
+default_binspec <- c(from=-20, to=1.0, step=1.0, width=1.0)
 
 parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
@@ -39,13 +40,104 @@ plot_bin_z_vs_y <- function(zs, y, betas) {
 }
 # Example: # plot_bin_z_vs_y(p_test_mod$x, p_test_mod$y, coef_tbl(p_test_mod$mod))
 
-# run_model_on_partitions
+run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha) {
+  # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
+  # Returns a large object with several plots
+  
+  results <- list(
+    binspec = binspec, alpha = alpha,
+    data = partitioned_hists, y = y_with_id,
+    plots=list()
+    )
+  class(results) <- "partitioned_glmnet"
+  
+  if (alpha %in% c(1, 0)) {
+    perf_models <- c("ridge regression", "LASSO")
+    perf_model <- perf_models[alpha+1]  # R is one-indexed
+  } else {
+    perf_model <- "elasticnet"
+  }
+  results$model_name <- perf_model
 
+  # Training a model, given our histogram parameters of 0.5 and 0.5
+  trained_model <- run_bin_model(
+    partitioned_hists$training, y_with_id,
+    binspec["step"], binspec["width"],
+    binspec[c("from", "to")],
+    alpha=alpha
+    )
+  trained_mod <- trained_model$fitted_model[[1]]
+  results$trained_model <- trained_model
+  results$trained_mod <- trained_mod
+  
+  # Performance on the test data, which hasn't yet been used for anything
+  testing_desc <- partitioned_hists$testing %>% 
+    stepped_hist(binspec["step"], binspec["width"], binspec["from"], binspec["to"]) %>% 
+    spread(key=bin, value=metric)
+  y_act <- testing_desc %>%
+    left_join(y_to_join, by="id") %>% 
+    rename(y = g.L) %>% 
+    .$y
+  testing_ids <- testing_desc %>% select(id)
+  testing_desc <- testing_desc %>% select(-id)
+  
+  y_pred <- pred_glmnet(trained_mod, testing_desc)
 
-# More functions:
-# Code that runs the model on training and test data partitions (for loop with ridge and LASSO, with the corresponding plots)
-## Maybe make that loop return an even larger data structure/class with a print.classname type helper function?
-## run_model_on_partitions
+  results$predictions <- list(
+    y_act = y_act,
+    y_pred = y_pred,
+    test_ids = testing_ids
+  )
+  
+  # What are the stats for R2, MAE, RMSE?
+  results$training_fit <- postResample(pred=predict(trained_mod$mod, as.matrix(trained_mod$x)), obs=trained_mod$y)
+  results$testing_fit <- postResample(pred=y_pred, obs=y_act)
+
+  # Begin the plots
+  results$plots$parity_bw <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted uptake (", perf_model,")"))
+  
+  # Let's add two more plots, one with just the training data, and another with both training and test (color-coded)
+  results$plots$parity_training <-
+    parity_plot(
+      trained_mod$y,
+      pred_glmnet(trained_mod, trained_mod$orig_x),
+      "#CA7C1B"
+    ) +
+    ylab(paste0("Predicted uptake (", perf_model,")"))
+  # Add test data
+  results$plots$parity_full <- results$plots$parity_training +
+    geom_point(
+      data=tibble(act=y_act, pred=y_pred[,1]),
+      aes(act, pred),
+      alpha=I(0.10),  # Make slightly darker
+      color=I("#0070C0")
+    )
+  
+  results  # return the partitioned_glmnet object
+}
+
+print.partitioned_glmnet <- function(x) {
+  # Pretty-print results from run_model_on_partitions, in case we just want to view instead of saving
+  #attach(x)
+  cat(paste("Analysis for alpha =", x$alpha, x$model_name, "\n\n"))
+  
+  cat(paste("Q2 for the trained model is", x$trained_model$q2), fill=TRUE)
+  cat("Fit of the training data\n")
+  print(x$training_fit)
+  
+  cat("\nModel coefficients\n")
+  coef(x$trained_mod$mod) %>% print
+  
+  cat("\nAccuracy of the test data\n")
+  print(x$testing_fit)
+  
+  print(x$plots$parity_training)
+  print(x$plots$parity_full)
+  
+  cat("\n")
+  
+  #detach("x")
+}
 
 # Other plots in old notebooks:
 # Q2 vs. bin settings (short code and doesn't need to be generalized)
