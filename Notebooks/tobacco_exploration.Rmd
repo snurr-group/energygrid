@@ -86,21 +86,21 @@ if (!exists("raw_grids_h2")) {
 ```
 
 ```{r partition_data}
-y_to_join <- tobacco_data %>% 
+tob_y_to_join <- tobacco_data %>% 
   rename(g.L = h2.deliv.77) %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))  # Clean up unphysical MOFs
 complete_ids <- raw_grids_h2 %>% 
   select(id) %>% 
   unique() %>% 
-  inner_join(y_to_join, by="id") %>% 
+  inner_join(tob_y_to_join, by="id") %>% 
   select(id) %>% 
   unlist
 
-y_to_join <- y_to_join %>% filter(id %in% complete_ids)
+tob_y_to_join <- tob_y_to_join %>% filter(id %in% complete_ids)
 grids_h2 <- raw_grids_h2 %>% filter(id %in% complete_ids)
 
-hist_sets <- partition_data_subsets(grids_h2, y_to_join, DATA_SPLIT)
+tob_hist_sets <- partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT)
 ```
 
 Long-term, we also may consider moving this to a modular, independent R script to generate the figures all separately.  (Save models as R objects and import them individually as necessary, then ggsave the plots as their publication-ready formats)
@@ -114,27 +114,26 @@ Note: had to temporarily test with the hMOFs instead of ToBaCCo: the ToBaCCo MOF
 source("R/plot_hists.R")
 source("R/regression_and_features.R")
 source("R/get_energy_stats.R")
+source("R/plot_diagnostics.R")
 
-# TEMP BLOCK: test the hMOF results, overwriting ToBaCCo training/test:
 source("R/load_data.R")
-tob_hist_sets <- hist_sets
-tob_y <- y_to_join
 hmof_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
 hmof_grid <- hmof_grid %>%
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
   mutate(id = as.integer(str_id)) %>% 
   select(-str_id)
-y_to_join <- gcmc_data %>% 
+hmof_y_to_join <- gcmc_data %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))
-hist_sets <- partition_data_subsets(hmof_grid, y_to_join, DATA_SPLIT)
+hmof_hist_sets <- partition_data_subsets(hmof_grid, hmof_y_to_join, DATA_SPLIT)
 # Note: since we're starting with 2500 hMOFs, 40% for training is still 1000, so that works out great.
 
-
+# First, let's plot a ridge regression model against ToBaCCo
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
 
 # Final saved results are ridge (alpha = 0)
 for (perf_alpha in c(1, 0)) {
-  hmof_partitioned_mod <- run_model_on_partitions(hist_sets, y_to_join, default_binspec, perf_alpha)
+  hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, perf_alpha)
   print(hmof_partitioned_mod)
   trained_model <- hmof_partitioned_mod$trained_model
   trained_mod <- hmof_partitioned_mod$trained_mod
@@ -146,41 +145,36 @@ plot(hmof_partitioned_mod$plots$parity_bw)
 ```{r tobacco_diagnostic}
 # Try the hMOF model on the ToBaCCo data for sampling
 
-
-# CRUDE ATTEMPT
-# Let's use the above hMOF model on the ToBaCCo set.  How is the performance??
-hist_sets <- tob_hist_sets
-y_to_join <- tob_y
 # First, how does its distribution of y values vary?  I think the model above is overfitting, given its mean capacity of 38 g/L
-hist(y_to_join$g.L)
+hist(tob_y_to_join$g.L)
 
 # COPIED FROM ABOVE: MAKE THIS A SUBROUTINE.
 # MAYBE WE NEED A MODEL SETUP OBJECT, INCLUDING BINS AND OTHER PARAMS?
 # Performance on the test data, which hasn't yet been used for anything
-  testing_desc <- tob_hist_sets$testing %>% 
-    stepped_hist(1.0, 1.0, -20, 1.0) %>% 
-    spread(key=bin, value=metric)
-  y_act <- testing_desc %>%
-    left_join(tob_y, by="id") %>% 
-    rename(y = g.L) %>% 
-    .$y
-  testing_ids <- testing_desc %>% select(id)
-  testing_desc <- testing_desc %>% select(-id)
-  
-  y_pred <- pred_glmnet(trained_mod, testing_desc)
-  postResample(pred=y_pred, obs=y_act) %>% print
+testing_desc <- tob_hist_sets$testing %>% 
+  stepped_hist(1.0, 1.0, -20, 1.0) %>% 
+  spread(key=bin, value=metric)
+y_act <- testing_desc %>%
+  left_join(tob_y_to_join, by="id") %>% 
+  rename(y = g.L) %>% 
+  .$y
+testing_ids <- testing_desc %>% select(id)
+testing_desc <- testing_desc %>% select(-id)
 
-  # NEW FOR COLORING
-  has_hmof_topology <- testing_ids %>%
-    select(id) %>% 
-    left_join(tobacco_data, by="id")
-  has_hmof_topology <- (has_hmof_topology$topology %in% c("pcu", "sra", "diab", "tbo", "nbo", "fcu"))
+y_pred <- pred_glmnet(trained_mod, testing_desc)
+postResample(pred=y_pred, obs=y_act) %>% print
 
-  p <- parity_plot(y_act, y_pred, ifelse(has_hmof_topology, "red", "gray"), 0.25)
-  p <- p + ylab(paste0("Predicted uptake (", perf_model,")"))
-  print(p)
+# NEW FOR COLORING
+has_hmof_topology <- testing_ids %>%
+  select(id) %>% 
+  left_join(tobacco_data, by="id")
+has_hmof_topology <- (has_hmof_topology$topology %in% c("pcu", "sra", "diab", "tbo", "nbo", "fcu"))
 
-  hist(y_act - y_pred)
+p <- parity_plot(y_act, y_pred, ifelse(has_hmof_topology, "red", "gray"), 0.25)
+p <- p + ylab(paste0("Predicted uptake (ridge regression)"))
+print(p)
+
+hist(y_act - y_pred)
 
   
   

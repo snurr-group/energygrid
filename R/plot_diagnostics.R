@@ -75,7 +75,7 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
     stepped_hist(binspec["step"], binspec["width"], binspec["from"], binspec["to"]) %>% 
     spread(key=bin, value=metric)
   y_act <- testing_desc %>%
-    left_join(y_to_join, by="id") %>% 
+    left_join(y_with_id, by="id") %>% 
     rename(y = g.L) %>% 
     .$y
   testing_ids <- testing_desc %>% select(id)
