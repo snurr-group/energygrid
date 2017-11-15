@@ -24,6 +24,8 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 theme_set(theme_bw(base_size=16) + theme(aspect.ratio=1))  # Default ggplot2 params
 ```
 
+## Data import and processing
+
 ```{r load.data, include=FALSE}
 h2_types <- paste0("h2.", c("g.L", "mol.kg", "wtp"))
 tobacco_data <- read_xlsx(
@@ -66,10 +68,14 @@ source("R/regression_and_features.R")  # Get regression utilities
 # Also import the new low pressure data
 low_p_h2_data <- read_tsv(
   "BigData/tobacco-20171114/clean-gcmc/comb-volume-77k.tsv",
-  col_names = c("tob.num", "id", "h2.g.L.2.77", "h2.err.g.L.2.77"),  # TODO: verify that this is 2 bar, 77 K data for H2, and GCMC errors
+  col_names = c("tob.num", "id", "h2.v.v.2.77", "h2.err.v.v.2.77"),  # TODO: verify that this is 2 bar, 77 K data for H2, and GCMC errors
   col_types = "icnn"
   )
+low_p_h2_data <- low_p_h2_data %>% 
+  mutate(`h2.g.L.2.77` = `h2.v.v.2.77` * 2.02 / 22.4) %>% 
+  mutate(`h2.err.g.L.2.77` = `h2.err.v.v.2.77` * 2.02 / 22.4)
 tobacco_data <- tobacco_data %>% inner_join(low_p_h2_data, by="id")  # For now, let's only import complete data
+tobacco_data <- tobacco_data %>% mutate(h2.deliv.77 = h2.g.L.100.77 - h2.g.L.2.77)
 ```
 
 ```{r load_grids}
@@ -79,9 +85,16 @@ if (!exists("grids_h2")) {
 }
 ```
 
-Long-term, we also may consider moving this to a modular, independent R script to generate the figures all separately.  (Save models as R objects and import them individually as necessary, then ggsave the plots as their publication-ready formats)
+```{r partition_data}
+y_to_join <- tobacco_data %>% 
+  rename(g.L = h2.deliv.77) %>% 
+  select(id, g.L) %>% 
+  filter(!(is.na(g.L) | g.L < 0))  # Clean up unphysical MOFs
 
-NEED TO CONVERT VOL TO G/L (kg/m3 loading)
+hist_sets <- partition_data_subsets(grids_h2, y_to_join, DATA_SPLIT)
+```
+
+Long-term, we also may consider moving this to a modular, independent R script to generate the figures all separately.  (Save models as R objects and import them individually as necessary, then ggsave the plots as their publication-ready formats)
 
 ## ANALYSIS
 
