@@ -220,5 +220,9 @@ calc_q2 <- function(x, y, lambda = NULL, alpha = 0) {
   1 - press/tss  # Definition of Q2
 }
 
-
+coef_tbl <- function(mod_ridge) {
+  # Extract beta coefficients from a trained (ridge/LASSO) regression model
+  intermediate_coef <- coef(mod_ridge) %>% as.matrix
+  tibble(bin = row.names(intermediate_coef), beta = as.numeric(intermediate_coef))
+}
 
