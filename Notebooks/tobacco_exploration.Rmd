@@ -117,19 +117,21 @@ source("R/get_energy_stats.R")
 source("R/plot_diagnostics.R")
 
 source("R/load_data.R")
-hmof_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
-hmof_grid <- hmof_grid %>%
+hmof_h2_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
+hmof_h2_grid <- hmof_h2_grid %>%
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
   mutate(id = as.integer(str_id)) %>% 
   select(-str_id)
 hmof_y_to_join <- gcmc_data %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))
-hmof_hist_sets <- partition_data_subsets(hmof_grid, hmof_y_to_join, DATA_SPLIT)
+hmof_hist_sets <- partition_data_subsets(hmof_h2_grid, hmof_y_to_join, DATA_SPLIT)
 # Note: since we're starting with 2500 hMOFs, 40% for training is still 1000, so that works out great.
 
 # First, let's plot a ridge regression model against ToBaCCo
-run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+temp_tob_part_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+print(temp_tob_part_mod)
+parity_plot(temp_tob_part_mod$trained_mod$y, pred_glmnet(temp_tob_part_mod$trained_mod, temp_tob_part_mod$trained_mod$orig_x), "#CA7C1B", alpha=0.5)
 
 # Final saved results are ridge (alpha = 0)
 for (perf_alpha in c(1, 0)) {
@@ -202,7 +204,68 @@ x_distr(standardize(trained_mod, testing_desc))
 # And the non-trainsformed versions
 x_distr(select(trained_mod$orig_x, c("17", "18", "19", "20", "21", "Inf")))
 x_distr(select(testing_desc, c("17", "18", "19", "20", "21", "Inf")))
+```
+
+What ToBaCCo MOFs have the most egregious error?
+
+```{r top_tobacco_err}
+which(abs(y_pred - y_act) > 10) %>% length
+length(y_pred)  # okay, so it's a pretty big number of them
+testing_ids %>% 
+  bind_cols(y_pred = as.numeric(y_pred), y_act = y_act) %>% 
+  mutate(abs_err = abs(y_pred - y_act)) %>% 
+  arrange(desc(abs_err)) %>% 
+  inner_join(tobacco_data, by="id") %>% 
+  select(id, abs_err, y_pred, y_act, filename) %>% 
+  #filter(str_detect(filename, "ith_sym_4_on_6*")) %>% 
+  View
 
 ```
 
 
+## Revisiting AIChE figures
+At any rate, we should see what the hMOF model looks like for betas, multiple pressures, different gases, etc.
+
+```{r hmof_betas}
+# Deliverable capacity
+base_hist <- hmof_h2_grid %>% 
+  filter(id == 71) %>% 
+  plot_hist_bins(default_binspec)
+
+base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
+
+# Individual components on hydrogen (repeat the full model analysis workflow)
+# Relevant code from plot_diagnostics.R:run_model_on_partitions
+# trained_model <- run_bin_model(
+#     partitioned_hists$training, y_with_id,
+#     binspec["step"], binspec["width"],
+#     binspec[c("from", "to")],
+#     alpha=alpha
+#     )
+#   trained_mod <- trained_model$fitted_model[[1]]
+#   results$trained_model <- trained_model
+#   results$trained_mod <- trained_mod
+p_hi_model <- hmof_y_to_join %>% 
+  select(id) %>% 
+  left_join(gcmc_data, by="id") %>% 
+  select(id, va100bar) %>% 
+  rename(g.L = va100bar) %>% 
+  run_bin_model(hmof_hist_sets$training, ., default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")])
+
+p_lo_model <- hmof_y_to_join %>% 
+  select(id) %>% 
+  left_join(gcmc_data, by="id") %>% 
+  select(id, va2bar) %>% 
+  rename(g.L = va2bar) %>% 
+  run_bin_model(hmof_hist_sets$training, ., default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")])
+
+list(`100 bar` = p_hi_model$fitted_model[[1]]$mod, `2 bar` = p_lo_model$fitted_model[[1]]$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(base_hist, ., default_binspec)
+
+```
+
+## New content
+
+TODO: methane
+Cool plot showing histogram bin parameters
