@@ -56,6 +56,10 @@ tobacco_codes <- read_table2("BigData/mofs_map.dat", col_names = c("MOF.ID", "py
 
 tobacco_data <- tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
 
+tobacco_data <- tobacco_data %>% 
+  mutate("n1.name" = str_c("sym", n1.sym, ifelse(n1.character=="organic", "on", "mc"), n1.ID, sep="_")) %>% 
+  mutate("n2.name" = str_c("sym", n2.sym, ifelse(n2.character=="organic", "on", "mc"), n2.ID, sep="_"))
+
 # Translate between Scotty's ID and the traditional ToBaCCo filename
 scotty_codes <- read_tsv("BigData/tobacco-20171114/key.tsv", col_names = c("filename", "id"), col_types="cc")
 scotty_codes <- scotty_codes %>% mutate(python.id = str_sub(filename, 1, -5))  # trim .cif suffix
@@ -401,6 +405,87 @@ ad_hoc_raw_bins %>%
 ad_hoc_h2_grid %>% 
   group_by(id) %>% 
   summarize(sum(counts))
+```
+
+### Plotting by color
+Next, let's see if we can figure out the discrepancy in high pressure loading from a graphical argument.  We have several MOF textural properties in the tobacco_data spreadsheet.  Based on the previous block, it also might be worthwhile double checking the level of sampling for each MOF.  This block will use the model and data mentioned in the block `transfer_high_p` above.
+
+
+```{r plot_err_trends}
+hi_data <- hi_testing_ids %>% 
+  select(id) %>% 
+  left_join(tobacco_data, by="id")
+hi_data <- tob_hist_sets$testing %>% 
+  group_by(id) %>% 
+  summarize(sampling = sum(counts)) %>% 
+  select(id, sampling) %>% 
+  ungroup %>% 
+  inner_join(hi_data, by="id")
+
+summary(hi_data$sampling)
+# Manually use parity plot so we have more fine grained control
+
+qplot(hi_y_act, hi_y_pred, col=ifelse(hi_data$sampling > 30000, 30000, hi_data$sampling), alpha=I(0.4)) +
+  xlab("'Actual' uptake (GCMC simulations)") +
+  ylab("Predicted uptake (ridge regression)") +
+  expand_limits(x = 0, y = 0) +
+  scale_x_continuous(limits = c(0,70)) +
+  scale_y_continuous(limits = c(0,70)) +
+  scale_color_gradientn(colors=c("red", "black", "blue"), name=NULL) +
+  parity_line
+# Based on this analysis, let's revisit the apparently worst points
+hi_testing_ids %>% 
+  bind_cols(hi_y_pred = as.numeric(hi_y_pred), hi_y_act = hi_y_act) %>% 
+  mutate(abs_err = abs(hi_y_pred - hi_y_act)) %>% 
+  arrange(desc(abs_err)) %>% 
+  #inner_join(tobacco_data, by="id") %>% 
+  inner_join(hi_data, by="id") %>% 
+  select(id, abs_err, hi_y_pred, hi_y_act, filename, sampling) %>% 
+  View
+# Alternatively,
+hi_errs_with_data <- hi_testing_ids %>% 
+  bind_cols(hi_y_pred = as.numeric(hi_y_pred), hi_y_act = hi_y_act) %>% 
+  mutate(abs_err = abs(hi_y_pred - hi_y_act)) %>% 
+  inner_join(hi_data, by="id")
+hi_errs_with_data %>% 
+  mutate(sampling = ifelse(sampling > 30000, 30000, sampling)) %>% 
+  ggplot(aes(abs_err, sampling, col=vf)) +
+  geom_point()
+# Or this way, with two plots
+hi_errs_with_data %>% 
+  mutate(num_pts = if_else(sampling < 15000, "Low number of points", "At least 25^3")) %>% 
+  ggplot(aes(hi_y_act, hi_y_pred, col=abs_err)) +
+  geom_point() + 
+  facet_wrap(~num_pts) +
+  parity_line
+```
+
+This plot reminds me that there's a simple way to increase the number of variables I can view simultaneously, especially when factors are involved: summary!  However, it's hard to compare proportions to look for differences in representativenesss, other than noticing things like the null linker being a problem.
+
+```{r summary_err_hi}
+hi_err_for_summary <- hi_errs_with_data %>% 
+  #select(abs_err, vf, n1.sym, n1.character, n1.ID, n2.sym, n2.character, n2.ID, cbb.ID, pld, vsa) %>% 
+  select(abs_err, vf, n1.name, n2.name, cbb.ID, pld, vsa) %>% 
+  mutate_at(3:5, factor)
+cat("Full set of tested ToBaCCo MOFs:\n")
+summary(hi_err_for_summary)
+cat("ToBaCCo MOFs with high error (> 10g/L):\n")
+summary(filter(hi_err_for_summary, abs_err > 10))
+```
+
+Now let's look at a few other plots I was intending to view.
+```{r misc_plots}
+ggplot(hi_errs_with_data, aes(abs_err, vf)) + geom_point()
+ggplot(hi_errs_with_data, aes(abs_err, vsa)) + geom_point()
+ggplot(hi_errs_with_data, aes(abs_err, pld)) + geom_point()
+
+# Also plot y_err vs. z to see if specific bins are causing problems
+plot_bin_z_vs_y(
+  standardize(p_hi_mod, hi_testing_desc),
+  hi_errs_with_data$abs_err,
+  coef_tbl(p_hi_mod$mod)
+  ) +
+  ylab("Absolute error in y")
 ```
 
 
