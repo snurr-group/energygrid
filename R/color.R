@@ -2,6 +2,7 @@
 
 library(viridis)  # Use the "inferno" colormap, which has nice printing properties, etc.
 library(dplyr)
+library(purrr)
 
 full_e_colormap <- viridis.map %>% 
   filter(opt == "B") %>%   #inferno
@@ -26,7 +27,7 @@ interpolate_row <- function(df, double_row, allow_overflow = TRUE) {
 # full_e_colormap[2:3,]
 # full_e_colormap %>% interpolate_row(2.99)
 
-color_from_binloc <- function(binloc, threshold = 5, top_col = 200) {
+color_from_binloc <- function(binloc, threshold = 10, top_col = 200) {
   # Assigns RGB colors to binloc, likely generated from regression_and_features.R:bin_loc_from_spec.
   # threshold specifies the lower energy bound (kJ/mol) for maxing out the color intensity.
   # top_col (if not false) specifies which color (1-256) should be used for an Inf bin.

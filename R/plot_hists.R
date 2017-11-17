@@ -75,8 +75,54 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_ma
   p
 }
 
-# More functions:
-# histogram density: merge content from partial_plot_histogram_for_hists.R (figures in model explanation)
+theme_diagram_min <- 
+  theme_classic() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_line(size=2)
+  )
+
+make_minimal <- function(p, ymax = 0.25) {
+  p +
+    theme_diagram_min +
+    scale_y_continuous() +
+    coord_cartesian(ylim = c(0, ymax))
+}
+
+plot_hist_curve <- function(one_grid) {
+  # Plots an abstract depiction of the potential energy distribution in a single MOF.
+  # Note: there used to be a related geom_histogram, but that's been deprecated for the main histogram function above
+  truncated_grid <- one_grid %>% 
+    mutate(dens = counts / sum(counts))
+  top_dens <- truncated_grid[nrow(truncated_grid), "dens"]
+  truncated_grid <- truncated_grid[-nrow(truncated_grid),]
+  truncated_grid %>% 
+    ggplot(aes(lower, weight = dens)) +
+    stat_density(
+      aes(col=I(rgb(78, 42, 132, maxColorValue=255))),
+      adjust = 1/5,
+      size = 3,
+      geom = "line"  # Can't use geom_density directly without an ugly line along the x axis
+      )
+}
+
+plot_mof_minimal <- function(all_grid, mof_id, binspec, ymax = 0.25) {
+  # Plots the energy distribution and histogram cartoons for a given id
+  mof_data <- all_grid %>% filter(id == mof_id)
+  mof_data %>% 
+    plot_hist_curve %>% 
+    make_minimal(ymax) %>% 
+    print  # this will raise a warning about densities!=1.
+  # Can hide the warnings/messages by saving the plot and wrapping print with suppressWarnings, etc.
+  mof_data %>% 
+    plot_hist_bins(binspec) %>% 
+    make_minimal(ymax) %>% 
+    print
+  invisible(NULL)  # return something so the second plot isn't shown twice
+}
+# Example: plot_mof_minimal(hmof_h2_grid, 1, default_binspec)
 
 # Other plots in old notebooks:
 # Heatmap randomization cartoon
