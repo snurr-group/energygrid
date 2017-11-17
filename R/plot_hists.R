@@ -3,19 +3,18 @@
 library(ggplot2)
 library(dplyr)
 
+source("R/regression_and_features.R")
+
 # e.g. plot_hist_bins(filter(hist_vals, id==55), default_binspec)
 plot_hist_bins <- function(one_grid, binspec) {
   # Returns an energy histogram plot, possibly as a base layer to beta coefficients
-  # TODO: add in colors for the histogram bin fill, which will require calculating them first
   one_grid %>% 
     stepped_hist_spec(binspec) %>% 
     mutate(height = metric) %>%
-    inner_join(bin_loc_from_spec(binspec), by="bin") %>% 
-    # also join on a color matrix, or at least cbind it
-    # left_join(trained_betas, by="bin") %>% 
+    inner_join(color_from_binloc(bin_loc_from_spec(binspec)), by="bin") %>% 
     ggplot(aes(loc, height)) +
-    geom_col() +
-    #geom_col(fill=rgb(HIST_COLORS_JUNK)) +  # THIS WILL REQUIRE QUITE SOME EFFORT TO GENERALIZE
+    geom_col(aes(fill = I(color))) +  # need I() so ggplot doesn't think the rgb strings are a factor
+    guides(fill = FALSE) +
     labs(
       x = "Energy (kJ/mol)",
       y = NULL
