@@ -509,6 +509,9 @@ plot_bin_z_vs_y(
 # (see above.  We had to use DPD since that's all we have in the spreadsheet)
 ```
 
+### Retry a single point
+See revised `ad_hoc_raw_bins` definition and data.frame above. It's getting a prediction of 51.91267 vs. an actual value of 54.553571 for `ith_sym_4_on_7_sym_13_mc_12_L_40.cif`, so that's all the problem was.  For some reason, the file on the testing folder has 2197 lines versus 21952 in my version.
+
 
 ### Other ideas to try and action items
 
