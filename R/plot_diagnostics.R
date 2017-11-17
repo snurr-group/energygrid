@@ -7,7 +7,7 @@ default_binspec <- c(from=-20, to=1.0, step=1.0, width=1.0)
 
 parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
-parity_plot <- function(act, pred, color=1, alpha=0.05) {
+parity_plot <- function(act, pred, color=1, alpha=0.10) {
   # Parity plot between actual and predicted data, on square axes for g/L H2
   qplot(act, pred, alpha=I(alpha), color=I(color)) +
     xlab("'Actual' uptake (GCMC simulations)") +
