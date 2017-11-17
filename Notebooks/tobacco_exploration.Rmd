@@ -359,6 +359,50 @@ hi_testing_ids[(hi_y_act > 45 & hi_y_pred < 40),] %>%
   select(id, topology, filename)
 ```
 
+### Consistency between overlapping structures (MOF-5)
+One of the best diagnostics will be inspecting MOFs that we expect to be in common between the two databases (e.g. hMOF-0 and tobmof6018).  Later, we could consider expanding this to a whole set of MOFs. in common, if of interest.
+
+```{r db_consistency}
+ad_hoc_h2_grid <- read_rds("BigData/Robj/ad_hoc.Rds")
+# id "Bad" refers to a corrupted CIF for a completely different MOF.
+plot_mof_minimal(ad_hoc_h2_grid, "hypotheticalMOF0", default_binspec)
+plot_mof_minimal(ad_hoc_h2_grid, "pcu_sym_6_mc_3_L_12", default_binspec)
+
+# First try a density plot.  The stats are acting strange, so let's generate it manually
+#ad_hoc_h2_grid %>%
+#  group_by(id) %>% mutate(dens = counts / sum(counts)) %>% ungroup() %>%
+#  ggplot(aes(lower, weight=dens, col=id)) +
+#  stat_density(adjust = 1/5, size = 2, geom = "line")
+
+# Next let's look at the hist bins directly, so we can also see what's going on with "Inf"
+ad_hoc_h2_grid %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  mutate(height = metric) %>% 
+  inner_join(color_from_binloc(bin_loc_from_spec(default_binspec)), by="bin") %>% 
+  ggplot(aes(loc, height, col=id)) +
+  #geom_line(size = 1.5, alpha = 0.7) +
+  geom_point(alpha = 0.7) + geom_line(size=0.5) +
+  labs(x="Energy (kJ/mol)")
+# What are the 100 bar uptakes for these MOFs?
+gcmc_data %>% filter(id == 0) %>% select(va100bar)
+tobacco_data %>% filter(filename=="pcu_sym_6_mc_3__L_12.cif") %>% select(h2.g.L.100.77)
+
+# What about the predictions on these MOFs?
+ad_hoc_raw_bins <- ad_hoc_h2_grid %>% 
+  filter(id != "bad") %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  spread(key=bin, value=metric)
+ad_hoc_raw_bins
+ad_hoc_raw_bins %>% 
+  select(-id) %>% 
+  pred_glmnet(p_hi_mod, .)
+
+# How consistent is the number of grid points/samples on these two materials?
+ad_hoc_h2_grid %>% 
+  group_by(id) %>% 
+  summarize(sum(counts))
+```
+
 
 ### Other ideas to try and action items
 
