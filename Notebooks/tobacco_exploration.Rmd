@@ -284,6 +284,23 @@ base_hist <- hmof_h2_grid %>%
 
 base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
 
+# New figure 11/17 to look at effect of PLD
+hmof_training_dat_with_id <- hmof_hist_sets$training %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  spread(key=bin, value=metric)
+hmof_training_dat_with_id %>% 
+  select(-id) %>% 
+  pred_glmnet(trained_mod, .) %>%
+  bind_cols(y_pred=., id=select(hmof_training_dat_with_id, id)) %>% 
+  #left_join(hmof_y_to_join, by="id") %>% 
+  left_join(gcmc_data, by="id") %>% 
+  mutate(y_err = abs(y_pred - g.L)) %>% 
+  #arrange(desc(y_err)) %>% 
+  ggplot(aes(y_err, dpd)) + geom_point()
+
+#stepped_hist_spec()
+#parity_plot(temp_tob_part_mod$trained_mod$y, pred_glmnet(temp_tob_part_mod$trained_mod, #temp_tob_part_mod$trained_mod$orig_x), "#CA7C1B", alpha=0.5)
+
 # Individual components on hydrogen (repeat the full model analysis workflow)
 # Relevant code from plot_diagnostics.R:run_model_on_partitions
 # trained_model <- run_bin_model(
@@ -486,6 +503,10 @@ plot_bin_z_vs_y(
   coef_tbl(p_hi_mod$mod)
   ) +
   ylab("Absolute error in y")
+
+# But if it's a convergence issue, why don't we see it as bad in the hMOFs?
+# Let's take a look at the PLD plot
+# (see above.  We had to use DPD since that's all we have in the spreadsheet)
 ```
 
 
