@@ -513,6 +513,89 @@ plot_bin_z_vs_y(
 See revised `ad_hoc_raw_bins` definition and data.frame above. It's getting a prediction of 51.91267 vs. an actual value of 54.553571 for `ith_sym_4_on_7_sym_13_mc_12_L_40.cif`, so that's all the problem was.  For some reason, the file on the testing folder has 2197 lines versus 21952 in my version.
 
 
+### Figure showing bin robustness
+Eventually, we could move this to a separate function in plot_hists.R, but it doesn't seem like there's much point in doing that since we only need a single figure.
+
+```{r bin_robusness}
+if (!exists("hyper_tuned_hist")) {
+  hyper_tuned_hist <-
+    seq(0.25, 2.5, 0.25) %>% # eventually consider 0.25-2.5 in quarter increments
+    map_dfr(
+      function(x) run_bin_model(
+        e_data = hmof_hist_sets$hyperparam,
+        y_with_id = hmof_y_to_join,
+        step = x, width = x,
+        bin_lims = c(default_binspec["from"], default_binspec["to"]),
+        lambda = NULL, alpha = 0
+        )
+      ) %>% 
+    # Warning: the above output cannot be viewed without deleting the fitted_model and id_list list columns
+    (function(x) {
+      y <- tibble()
+      for (rownum in 1:nrow(x)) {
+        curr_row <- x[rownum,]
+        y <- coef_tbl(curr_row[[1,"fitted_model"]]$mod) %>% 
+          mutate(q2 = curr_row$q2, binwidth = curr_row$width) %>% 
+          inner_join(
+            bin_loc_from_spec(c(
+              from=curr_row$bin_lo,
+              to=curr_row$bin_hi,
+              step=curr_row$step,
+              width=curr_row$width
+              )),
+            by="bin"
+            ) %>% 
+          bind_rows(y, .)
+      }
+      y
+    })(.)  # run the anonymous function
+}
+
+plot_robustness_bin_gap <- 0.05
+plot_robustness_beta_max <- 5
+hyper_tuned_hist %>% 
+  mutate(beta = ifelse(beta > plot_robustness_beta_max, plot_robustness_beta_max, beta)) %>% 
+  mutate(beta = ifelse(beta < -plot_robustness_beta_max, -plot_robustness_beta_max, beta)) %>% 
+  mutate(lower = lower + plot_robustness_bin_gap, upper = upper - plot_robustness_bin_gap) %>% 
+  ggplot(aes(
+    x = binwidth,
+    ymin = lower,
+    ymax = upper,
+    color = beta
+  )) +
+  geom_linerange(size=2) +
+  coord_flip() +
+  scale_color_gradientn(
+    colors = c("red", "darkgray", "blue"),
+    limits = c(-plot_robustness_beta_max, plot_robustness_beta_max),
+    breaks = c(-plot_robustness_beta_max, 0, plot_robustness_beta_max),
+    labels = c(paste0(-plot_robustness_beta_max,"-"), "0", paste0(plot_robustness_beta_max,"+")),
+    name=expression(beta[ridge])
+    ) +
+  labs(
+    y = "Energy (kJ/mol)",
+    x = "Width of histogram bins (kJ/mol)"
+  )
+# See relevant ggplot documentation at http://ggplot2.tidyverse.org/reference/geom_linerange.html
+
+# This figure highlights a suspicion I had, that upper bound is based on where there aren't any bins
+# remaining in the binspec.  An alternate approach would be centering this to zero instead of the lower
+# bound, then only including one bin (or up to bin max??) before cutting it off.
+
+# Now ask, how consistent is the performance among the different models?
+hyper_tuned_hist %>% 
+  select(binwidth, q2) %>% 
+  unique
+# TODO: consider reporting RMSE and/or MAE, possibly from the training data?
+
+```
+
+Three things stand out to me as particularly noteworthy from this analysis.
+
+1. As hypothesized/hoped, the model is quite robust to the histogram parameter selection.  As bin size decreases, the magnitude of beta decreases since the effect is spread out over multiple adjacent bins.
+2. The left hand side cuts out at approximately the same place, because that's where the variation in the hMOF database goes to zero.
+3. Performance, at least as characterized by Q2, slightly decreases with coarser bins, but remains quite good (0.95+).
+
 ### Other ideas to try and action items
 
 TODO: methane
