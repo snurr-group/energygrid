@@ -174,7 +174,7 @@ pred_glmnet <- function(glm_mod, x_tbl) {
   #x <- x_tbl[,!(names(x_tbl) %in% glm_mod$removed_cols)]
   #x <- (x - glm_mod$meanz[rep(1,times=nrow(x)),]) / (glm_mod$stdz[rep(1,times=nrow(x)),])
   x <- standardize(glm_mod, x_tbl)
-  predict(glm_mod$mod, as.matrix(x))
+  predict(glm_mod$mod, as.matrix(x)) %>% as.numeric
 }
 
 run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha = 0) {

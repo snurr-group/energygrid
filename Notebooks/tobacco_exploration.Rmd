@@ -598,5 +598,5 @@ Three things stand out to me as particularly noteworthy from this analysis.
 
 ### Other ideas to try and action items
 
-TODO: methane
-Cool plot showing histogram bin parameters
+TODO: methane, top CCDC MOFs, re-implement predictions in C++?
+

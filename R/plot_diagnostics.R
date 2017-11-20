@@ -40,6 +40,29 @@ plot_bin_z_vs_y <- function(zs, y, betas) {
 }
 # Example: # plot_bin_z_vs_y(p_test_mod$x, p_test_mod$y, coef_tbl(p_test_mod$mod))
 
+pred_grid <- function(glmnet_mod, test_grid, binspec) {
+  # Runs predictions on grids by using binspec to calculate the energy histogram
+  # and pred_glmnet(glmnet_mod, x) for z-scoring and evaluation.
+  grid_desc <- test_grid %>%
+    stepped_hist_spec(binspec) %>% 
+    spread(key=bin, value=metric)
+  
+  grid_ids <- grid_desc$id
+  grid_desc <- grid_desc %>% select(-id)
+  
+  grid_y_pred <- pred_glmnet(glmnet_mod, grid_desc)
+  
+  tibble(id = grid_ids, y_pred = grid_y_pred)
+}
+
+eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
+  # Runs pred_grid and calculates statistics/plots on model predictivity.
+  # Requires a base grid and data.frame including a (renamed) y_act column.
+  # TODO: what do do about color?
+  # TODO: implement, then refactor run_model_on_partitions
+  NULL
+}
+
 run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha) {
   # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
   # Returns a large object with several plots
@@ -71,17 +94,13 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   results$trained_mod <- trained_mod
   
   # Performance on the test data, which hasn't yet been used for anything
-  testing_desc <- partitioned_hists$testing %>% 
-    stepped_hist(binspec["step"], binspec["width"], binspec["from"], binspec["to"]) %>% 
-    spread(key=bin, value=metric)
-  y_act <- testing_desc %>%
+  predictions <- pred_grid(trained_mod, partitioned_hists$testing, binspec)
+  testing_ids <- predictions$id
+  y_act <- tibble(id = testing_ids) %>% 
     left_join(y_with_id, by="id") %>% 
     rename(y = g.L) %>% 
     .$y
-  testing_ids <- testing_desc %>% select(id)
-  testing_desc <- testing_desc %>% select(-id)
-  
-  y_pred <- pred_glmnet(trained_mod, testing_desc)
+  y_pred <- predictions$y_pred
 
   results$predictions <- list(
     y_act = y_act,
@@ -107,7 +126,7 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   # Add test data
   results$plots$parity_full <- results$plots$parity_training +
     geom_point(
-      data=tibble(act=y_act, pred=y_pred[,1]),
+      data=tibble(act=y_act, pred=y_pred),
       aes(act, pred),
       alpha=I(0.10),  # Make slightly darker
       color=I("#0070C0")
