@@ -13,8 +13,8 @@ parity_plot <- function(act, pred, color=1, alpha=0.10) {
     xlab("'Actual' uptake (GCMC simulations)") +
     ylab("Predicted uptake (ridge regression)") +
     expand_limits(x = 0, y = 0) +
-    scale_x_continuous(limits = c(0,50)) +
-    scale_y_continuous(limits = c(0,50)) +
+    scale_x_continuous(limits = c(0,60)) +
+    scale_y_continuous(limits = c(0,60)) +
     parity_line
 }
 
@@ -43,6 +43,7 @@ plot_bin_z_vs_y <- function(zs, y, betas) {
 pred_grid <- function(glmnet_mod, test_grid, binspec) {
   # Runs predictions on grids by using binspec to calculate the energy histogram
   # and pred_glmnet(glmnet_mod, x) for z-scoring and evaluation.
+  # TODO: consider incorporating binspec as part of glmnet_mod
   grid_desc <- test_grid %>%
     stepped_hist_spec(binspec) %>% 
     spread(key=bin, value=metric)
@@ -58,60 +59,41 @@ pred_grid <- function(glmnet_mod, test_grid, binspec) {
 eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
   # Runs pred_grid and calculates statistics/plots on model predictivity.
   # Requires a base grid and data.frame including a (renamed) y_act column.
-  # TODO: what do do about color?
-  # TODO: implement, then refactor run_model_on_partitions
-  NULL
-}
-
-run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha) {
-  # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
-  # Returns a large object with several plots
+  # TODO: what do do about color?  Custom color for the dataframe?  Maybe just a manual parity plot.
+  
+  alpha_glm <- glmnet_mod$alpha
+  trained_mod <- glmnet_mod
   
   results <- list(
-    binspec = binspec, alpha = alpha,
-    data = partitioned_hists, y = y_with_id,
+    binspec = binspec,
+    alpha = alpha_glm,
+    trained_mod = glmnet_mod,
     plots=list()
-    )
+  )
   class(results) <- "partitioned_glmnet"
   
-  if (alpha %in% c(1, 0)) {
+  if (alpha_glm %in% c(1, 0)) {
     perf_models <- c("ridge regression", "LASSO")
-    perf_model <- perf_models[alpha+1]  # R is one-indexed
+    perf_model <- perf_models[alpha_glm+1]  # R is one-indexed
   } else {
     perf_model <- "elasticnet"
   }
   results$model_name <- perf_model
 
-  # Training a model, given our histogram parameters of 0.5 and 0.5
-  trained_model <- run_bin_model(
-    partitioned_hists$training, y_with_id,
-    binspec["step"], binspec["width"],
-    binspec[c("from", "to")],
-    alpha=alpha
-    )
-  trained_mod <- trained_model$fitted_model[[1]]
-  results$trained_model <- trained_model
-  results$trained_mod <- trained_mod
+  predictions <- pred_grid(glmnet_mod, test_grid, binspec)
+  df_with_ys <- predictions %>% 
+    inner_join(df_with_y_act, by="id") %>% 
+    mutate(y_err = abs(y_pred - y_act))
+  results$pred_df <- df_with_ys
   
-  # Performance on the test data, which hasn't yet been used for anything
-  predictions <- pred_grid(trained_mod, partitioned_hists$testing, binspec)
-  testing_ids <- predictions$id
-  y_act <- tibble(id = testing_ids) %>% 
-    left_join(y_with_id, by="id") %>% 
-    rename(y = g.L) %>% 
-    .$y
-  y_pred <- predictions$y_pred
-
-  results$predictions <- list(
-    y_act = y_act,
-    y_pred = y_pred,
-    test_ids = testing_ids
-  )
+  # Convenience variables for plotting, etc.
+  y_act <- df_with_ys$y_act
+  y_pred <- df_with_ys$y_pred
   
   # What are the stats for R2, MAE, RMSE?
   results$training_fit <- postResample(pred=predict(trained_mod$mod, as.matrix(trained_mod$x)), obs=trained_mod$y)
   results$testing_fit <- postResample(pred=y_pred, obs=y_act)
-
+  
   # Begin the plots
   results$plots$parity_bw <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted uptake (", perf_model,")"))
   
@@ -131,8 +113,28 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
       alpha=I(0.10),  # Make slightly darker
       color=I("#0070C0")
     )
-  
   results  # return the partitioned_glmnet object
+}
+
+run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha) {
+  # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
+  # Returns a large object with several plots
+  
+  # Training a model, given our histogram parameters
+  trained_model <- run_bin_model(
+    partitioned_hists$training, y_with_id,
+    binspec["step"], binspec["width"],
+    binspec[c("from", "to")],
+    alpha=alpha
+    )
+  trained_mod <- trained_model$fitted_model[[1]]
+  
+  # Performance on the test data, which hasn't yet been used for anything
+  predictions <- y_with_id %>% 
+    mutate(y_act = g.L) %>%
+    eval_test_grid(trained_mod, partitioned_hists$testing, binspec, .)
+  predictions$trained_model <- trained_model
+  predictions  # return the partitioned_glmnet object
 }
 
 print.partitioned_glmnet <- function(x) {

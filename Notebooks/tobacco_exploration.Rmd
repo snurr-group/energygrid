@@ -196,6 +196,7 @@ As a diagnostic, I tried training the ToBaCCo data on 6 bar, 77 K data that may 
 
 ```{r tobacco_diagnostic}
 # Try the hMOF model on the ToBaCCo data for sampling
+# TODO: we could likely rewrite this in terms of pred_grid and eval_test_grid, but it's a one-off type analysis
 
 # First, how does its distribution of y values vary?  I think the model above is overfitting, given its mean capacity of 38 g/L
 hist(tob_y_to_join$g.L)
@@ -278,40 +279,21 @@ At any rate, we should see what the hMOF model looks like for betas, multiple pr
 
 ```{r hmof_betas}
 # Deliverable capacity
+source("R/color.R")
 base_hist <- hmof_h2_grid %>% 
   filter(id == 71) %>% 
   plot_hist_bins(default_binspec)
 
 base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
 
-# New figure 11/17 to look at effect of PLD
-hmof_training_dat_with_id <- hmof_hist_sets$training %>% 
-  stepped_hist_spec(default_binspec) %>% 
-  spread(key=bin, value=metric)
-hmof_training_dat_with_id %>% 
-  select(-id) %>% 
-  pred_glmnet(trained_mod, .) %>%
-  bind_cols(y_pred=., id=select(hmof_training_dat_with_id, id)) %>% 
-  #left_join(hmof_y_to_join, by="id") %>% 
-  left_join(gcmc_data, by="id") %>% 
-  mutate(y_err = abs(y_pred - g.L)) %>% 
-  #arrange(desc(y_err)) %>% 
+# New figure 11/17 to look at effect of PLD, simplified on 11/20
+gcmc_data %>% 
+  mutate(y_act = g.L) %>% 
+  run_model_on_partitions(hmof_hist_sets, ., default_binspec, 0) %>% 
+  .$pred_df %>% 
   ggplot(aes(y_err, dpd)) + geom_point()
 
-#stepped_hist_spec()
-#parity_plot(temp_tob_part_mod$trained_mod$y, pred_glmnet(temp_tob_part_mod$trained_mod, #temp_tob_part_mod$trained_mod$orig_x), "#CA7C1B", alpha=0.5)
-
 # Individual components on hydrogen (repeat the full model analysis workflow)
-# Relevant code from plot_diagnostics.R:run_model_on_partitions
-# trained_model <- run_bin_model(
-#     partitioned_hists$training, y_with_id,
-#     binspec["step"], binspec["width"],
-#     binspec[c("from", "to")],
-#     alpha=alpha
-#     )
-#   trained_mod <- trained_model$fitted_model[[1]]
-#   results$trained_model <- trained_model
-#   results$trained_mod <- trained_mod
 p_hi_model <- hmof_y_to_join %>% 
   select(id) %>% 
   left_join(gcmc_data, by="id") %>% 
@@ -338,45 +320,26 @@ list(`100 bar` = p_hi_model$fitted_model[[1]]$mod, `2 bar` = p_lo_model$fitted_m
 Perhaps ToBaCCo will work better only on one pressure, since we already have data available for 100 bar for both hMOFs and ToBaCCo.  Let's see how the model looks while waiting to fill in the low pressure 2 bar data (since we only have 6 bar available).
 
 ```{r transfer_high_p}
+library(magrittr)
 p_hi_mod <- p_hi_model$fitted_model[[1]]
 
-# MODIFIED FROM COPY ABOVE: MAKE THIS A SUBROUTINE.
-# MAYBE WE NEED A MODEL SETUP OBJECT, INCLUDING BINS AND OTHER PARAMS?
-# Performance on the test data, which hasn't yet been used for anything
-hi_testing_desc <- tob_hist_sets$testing %>% 
-  stepped_hist(1.0, 1.0, -20, 1.0) %>% 
-  spread(key=bin, value=metric)
-tob_y_hi_to_join <- tobacco_data %>% 
-  rename(g.L = h2.g.L.100.77) %>% 
-  select(id, g.L) %>% 
-  filter(!(is.na(g.L) | g.L < 0))  # Clean up unphysical MOFs
-tob_y_hi_to_join <- tob_y_hi_to_join %>% filter(id %in% complete_ids)
-hi_y_act <- hi_testing_desc %>%
-  left_join(tob_y_hi_to_join, by="id") %>% 
-  rename(y = g.L) %>% 
-  .$y
-hi_testing_ids <- hi_testing_desc %>% select(id)
-hi_testing_desc <- hi_testing_desc %>% select(-id)
+hi_testing_tob <- tobacco_data %>% 
+  mutate(y_act = h2.g.L.100.77) %>% 
+  filter(!(is.na(y_act) | y_act <0)) %>%  # Clean up unphysical MOFs
+  eval_test_grid(p_hi_mod, tob_hist_sets$testing, default_binspec, .)
+print(hi_testing_tob)
+#hi_y_pred <- pred_glmnet(p_hi_mod, hi_testing_desc)
 
-hi_y_pred <- pred_glmnet(p_hi_mod, hi_testing_desc)
-postResample(pred=hi_y_pred, obs=hi_y_act) %>% print
+hi_data <- hi_testing_tob$pred_df %>% 
+  mutate(has_hmof_topology = (topology %in% c("pcu", "sra", "diab", "tbo", "nbo", "fcu")))
+hi_data %$%  # pipe the names from this tibble
+  parity_plot(y_act, y_pred, color=ifelse(has_hmof_topology, "red", "gray"), alpha=0.3)
+hi_data %$%
+  hist(y_act - y_pred)
 
-### older NEW FOR COLORING
-hi_has_hmof_topology <- hi_testing_ids %>%
-  select(id) %>% 
-  left_join(tobacco_data, by="id")
-hi_has_hmof_topology <- (hi_has_hmof_topology$topology %in% c("pcu", "sra", "diab", "tbo", "nbo", "fcu"))
-
-p <- parity_plot(hi_y_act, hi_y_pred, ifelse(has_hmof_topology, "red", "gray"), 0.3)
-p <- p + ylab(paste0("Predicted uptake (ridge regression)"))
-print(p)
-
-hist(hi_y_act - hi_y_pred)
-
-hi_testing_ids %>% nrow
-
-hi_testing_ids[(hi_y_act > 45 & hi_y_pred < 40),] %>% 
-  left_join(tobacco_data, by="id") %>% 
+hi_data %>% nrow
+hi_data %>% 
+  filter(y_act > 45 & y_pred < 40) %>% 
   select(id, topology, filename)
 ```
 
@@ -429,10 +392,7 @@ Next, let's see if we can figure out the discrepancy in high pressure loading fr
 
 
 ```{r plot_err_trends}
-hi_data <- hi_testing_ids %>% 
-  select(id) %>% 
-  left_join(tobacco_data, by="id")
-hi_data <- tob_hist_sets$testing %>% 
+hi_data_w_sampling <- tob_hist_sets$testing %>% 
   group_by(id) %>% 
   summarize(sampling = sum(counts)) %>% 
   select(id, sampling) %>% 
@@ -442,7 +402,8 @@ hi_data <- tob_hist_sets$testing %>%
 summary(hi_data$sampling)
 # Manually use parity plot so we have more fine grained control
 
-qplot(hi_y_act, hi_y_pred, col=ifelse(hi_data$sampling > 30000, 30000, hi_data$sampling), alpha=I(0.4)) +
+hi_data_w_sampling %$%
+  qplot(y_act, y_pred, col=ifelse(sampling > 30000, 30000, sampling), alpha=I(0.4)) +
   xlab("'Actual' uptake (GCMC simulations)") +
   ylab("Predicted uptake (ridge regression)") +
   expand_limits(x = 0, y = 0) +
@@ -451,27 +412,19 @@ qplot(hi_y_act, hi_y_pred, col=ifelse(hi_data$sampling > 30000, 30000, hi_data$s
   scale_color_gradientn(colors=c("red", "black", "blue"), name=NULL) +
   parity_line
 # Based on this analysis, let's revisit the apparently worst points
-hi_testing_ids %>% 
-  bind_cols(hi_y_pred = as.numeric(hi_y_pred), hi_y_act = hi_y_act) %>% 
-  mutate(abs_err = abs(hi_y_pred - hi_y_act)) %>% 
-  arrange(desc(abs_err)) %>% 
-  #inner_join(tobacco_data, by="id") %>% 
-  inner_join(hi_data, by="id") %>% 
-  select(id, abs_err, hi_y_pred, hi_y_act, filename, sampling) %>% 
+hi_data_w_sampling %>% 
+  arrange(desc(y_err)) %>% 
+  select(id, y_err, y_pred, y_act, filename, sampling) %>% 
   View
 # Alternatively,
-hi_errs_with_data <- hi_testing_ids %>% 
-  bind_cols(hi_y_pred = as.numeric(hi_y_pred), hi_y_act = hi_y_act) %>% 
-  mutate(abs_err = abs(hi_y_pred - hi_y_act)) %>% 
-  inner_join(hi_data, by="id")
-hi_errs_with_data %>% 
+hi_data_w_sampling %>% 
   mutate(sampling = ifelse(sampling > 30000, 30000, sampling)) %>% 
-  ggplot(aes(abs_err, sampling, col=vf)) +
+  ggplot(aes(y_err, sampling, col=vf)) +
   geom_point()
 # Or this way, with two plots
-hi_errs_with_data %>% 
+hi_data_w_sampling %>% 
   mutate(num_pts = if_else(sampling < 15000, "Low number of points", "At least 25^3")) %>% 
-  ggplot(aes(hi_y_act, hi_y_pred, col=abs_err)) +
+  ggplot(aes(y_act, y_pred, col=y_err)) +
   geom_point() + 
   facet_wrap(~num_pts) +
   parity_line
@@ -480,29 +433,20 @@ hi_errs_with_data %>%
 This plot reminds me that there's a simple way to increase the number of variables I can view simultaneously, especially when factors are involved: summary!  However, it's hard to compare proportions to look for differences in representativenesss, other than noticing things like the null linker being a problem.
 
 ```{r summary_err_hi}
-hi_err_for_summary <- hi_errs_with_data %>% 
-  #select(abs_err, vf, n1.sym, n1.character, n1.ID, n2.sym, n2.character, n2.ID, cbb.ID, pld, vsa) %>% 
-  select(abs_err, vf, n1.name, n2.name, cbb.ID, pld, vsa) %>% 
+hi_err_for_summary <- hi_data %>% 
+  select(y_err, vf, n1.name, n2.name, cbb.ID, pld, vsa) %>% 
   mutate_at(3:5, factor)
 cat("Full set of tested ToBaCCo MOFs:\n")
 summary(hi_err_for_summary)
 cat("ToBaCCo MOFs with high error (> 10g/L):\n")
-summary(filter(hi_err_for_summary, abs_err > 10))
+summary(filter(hi_err_for_summary, y_err > 10))
 ```
 
 Now let's look at a few other plots I was intending to view.
 ```{r misc_plots}
-ggplot(hi_errs_with_data, aes(abs_err, vf)) + geom_point()
-ggplot(hi_errs_with_data, aes(abs_err, vsa)) + geom_point()
-ggplot(hi_errs_with_data, aes(abs_err, pld)) + geom_point()
-
-# Also plot y_err vs. z to see if specific bins are causing problems
-plot_bin_z_vs_y(
-  standardize(p_hi_mod, hi_testing_desc),
-  hi_errs_with_data$abs_err,
-  coef_tbl(p_hi_mod$mod)
-  ) +
-  ylab("Absolute error in y")
+ggplot(hi_data, aes(y_err, vf)) + geom_point()
+ggplot(hi_data, aes(y_err, vsa)) + geom_point()
+ggplot(hi_data, aes(y_err, pld)) + geom_point()
 
 # But if it's a convergence issue, why don't we see it as bad in the hMOFs?
 # Let's take a look at the PLD plot
