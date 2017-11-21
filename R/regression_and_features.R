@@ -184,7 +184,7 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
     stepped_hist(step, width, from=bin_lims[1], to=bin_lims[2]) %>% 
     spread(key=bin, value=metric)
   y <- x %>% 
-    left_join(y_with_id, by="id") %>% 
+    left_join(y_with_id, by="id") %>%
     rename(y = g.L) %>% 
     .$y
   x_id <- x %>% select(id)

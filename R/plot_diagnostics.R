@@ -113,6 +113,10 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
       alpha=I(0.10),  # Make slightly darker
       color=I("#0070C0")
     )
+  # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
+  results$plots$resid_normality <- df_with_ys %>% 
+    ggplot(aes(y_pred - y_act)) +
+    geom_histogram(bins = 30)
   results  # return the partitioned_glmnet object
 }
 
@@ -154,6 +158,7 @@ print.partitioned_glmnet <- function(x) {
   
   print(x$plots$parity_training)
   print(x$plots$parity_full)
+  print(x$plots$resid_normality)
   
   cat("\n")
   
