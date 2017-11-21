@@ -646,11 +646,16 @@ raw_hmof_grids_ch4 <- read_rds("BigData/Robj/hmof_ch4.Rds") %>% rename(dirname =
 p_ch4_grids <- raw_hmof_grids_ch4 %>% 
   mutate(id = as.integer(str_sub(dirname, 6))) %>% 
   filter(id %in% p_2bar_data$id)
+
+# Expand lower limits for CH4 until the bottom bins are completely unpopulated
+ch4_binspec <- c(from=-40, to=2.0, step=2.0, width=2.0)
+
 p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT)
 p_ch4_vol <- p_2bar_data %>% 
   mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
-  run_model_on_partitions(p_ch4_sets, ., default_binspec, 0)
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0)
 print(p_ch4_vol)
+
 p_ch4_vol$plots$parity_full +
   scale_x_continuous(limits = c(0,250)) +
   scale_y_continuous(limits = c(0,250))
@@ -659,8 +664,8 @@ p_ch4_vol$plots$parity_full +
 # Consider using a different colormap for the different gas?  Or at least label the figure very clearly
 ch4_base_hist <- p_ch4_grids %>% 
   filter(dirname == "hMOF-71") %>%  # Using the same MOF as the sample H2 histogram
-  plot_hist_bins(default_binspec)
-ch4_base_hist %>% overlay_cat_betas(coef_tbl(p_ch4_vol$trained_mod$mod), default_binspec)
+  plot_hist_bins(ch4_binspec)
+ch4_base_hist %>% overlay_cat_betas(coef_tbl(p_ch4_vol$trained_mod$mod), ch4_binspec, scaling = 20.0)
 # Based on this plot, we see that we need (a) separate high/low P plots for additional interpretation, and (b) should at least consider extending the range of minimum adsorption, which there's a chance may explain the poor model performance at low loading.
 # Based on changes to binspec, we should consider how to incorporate that information in the model definition file.  Also what format to use for that data?  JSON for loading/interpretability?
 # For help on NSE in dplyr, see vignette("programming")
@@ -671,11 +676,10 @@ mutate_col_to_gL <- function(newcol) {
 #mutate_col_to_gL("ch4.cm3.cm3.65.298") %>% View
 list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
   map(mutate_col_to_gL) %>%
-  map(function(x) run_model_on_partitions(p_ch4_sets, x, default_binspec, 0)) %>% 
+  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  overlay_cat_betas(base_hist, ., default_binspec, scaling = 20.0)
-# TODO: expand lower limits for CH4, perhaps to -40 (step 2) or lower, until the bottom bins are completely unpopulated?
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
 
 
 # We should also calculate this on a gravimetric basis for direct comparison against Pardakhti et al., 2017
@@ -684,8 +688,34 @@ list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>%
 # TODO: if so, I should also calculate MAPE.  Shouldn't be difficult: it's just y_err / y_act * 100
 p_2bar_data %>% 
   mutate(g.L = ch4.g.kg.65.298 - ch4.g.kg.5_8.298) %>% 
-  run_model_on_partitions(p_ch4_sets, ., default_binspec, 0)
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0)
 
+```
+
+```{r ch4_tobacco}
+# Repeat the CH4 hMOF analysis for ToBaCCo.  Does it behave like H2 deliverable capacity?
+# First, attempt training/testing only on ToBaCCo data
+grids_ch4_tobacco <- read_rds("BigData/Robj/tobacco_ch4.Rds")
+tob_ch4_sets <- partition_data_subsets(grids_ch4_tobacco, tobacco_data, DATA_SPLIT)
+mod_ch4_tobacco <- tobacco_data %>% 
+  mutate(g.L = ch4.v.v.65.298 - ch4.v.v.6.298) %>% 
+  run_model_on_partitions(tob_ch4_sets, ., ch4_binspec, 0)
+print(mod_ch4_tobacco)
+
+mod_ch4_tobacco$plots$parity_full +
+  scale_x_continuous(limits = c(0,250)) +
+  scale_y_continuous(limits = c(0,250))
+
+# Then, like we had to do for the hMOFs, use the trained hMOF model on ToBaCCo.
+
+mod_hmof_ch4_on_tob <- tobacco_data %>% 
+  mutate(y_act = ch4.v.v.65.298 - ch4.v.v.6.298) %>% 
+  filter(!(is.na(y_act) | y_act < 0)) %>%  # Clean up unphysical MOFs
+  eval_test_grid(p_ch4_vol$trained_mod, tob_ch4_sets$testing, ch4_binspec, .)
+print(mod_hmof_ch4_on_tob)
+mod_hmof_ch4_on_tob$plots$parity_full +
+  scale_x_continuous(limits = c(0,250)) +
+  scale_y_continuous(limits = c(0,250))
 ```
 
 ## Other action items and ideas to explore

@@ -32,6 +32,15 @@ if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
   hist_range <- c(-20, 5)
 }
 
+if (args[length(args)] == "use_ch4") {
+  # Last argument is a flag to change the histogram parameters.
+  # This could also be implemented with a double dash flag eventually
+  write("Overriding H2 parameters for the energy histogram with an extended range for CH4", "")
+  min_bin_width <- 0.10
+  hist_range <- c(-40, 10)
+  ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+}
+
 
 # Through testing, the default params for a function (tidy_energy_hists) evaluate the global variables at runtime, not "compile"/assignment, so we can reset the appropriate parameters here.
 # Also convert J/mol to original K units reported in the energy grid scripts.

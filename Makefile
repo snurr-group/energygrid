@@ -25,13 +25,13 @@ BigData/Robj/tobacco_h2.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/h2grids
 
 BigData/Robj/tobacco_ch4.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids
+	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids use_ch4
 
 BigData/Robj/hmof_h2.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/2500hmof-data/h2grids
 
 BigData/Robj/hmof_ch4.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/2500hmof-data/ch4grids
+	${RUN_R} R/save_h2_hists.R $@ BigData/2500hmof-data/ch4grids use_ch4
 
 BigData/Robj/ad_hoc.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/AdHoc
