@@ -22,7 +22,7 @@ BigData/ccdc_500_hist_vals.Rds:
 	# Process test subset of CCDC MOFs from Scotty 2017-11-07
 
 BigData/Robj/tobacco_h2.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/h2grids
+	${RUN_R} R/save_h2_hists.R $@ BigData/Convergence/h100
 
 BigData/Robj/tobacco_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids use_ch4
@@ -35,3 +35,8 @@ BigData/Robj/hmof_ch4.Rds:
 
 BigData/Robj/ad_hoc.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/AdHoc
+	
+BigData/Convergence/top_20171122.Rds:
+	rmdir --ignore-fail-on-non-empty BigData/Convergence/top_h05_20171122/*  # remove empty directories
+	${RUN_R} R/save_h2_hists.R $@ BigData/Convergence/top_h05_20171122
+

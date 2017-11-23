@@ -302,9 +302,33 @@ testing_ids %>%
   arrange(desc(abs_err)) %>% 
   inner_join(tobacco_data, by="id") %>% 
   select(id, abs_err, y_pred, y_act, filename) %>% 
-  #filter(str_detect(filename, "ith_sym_4_on_6*")) %>% 
   View
+  # filter(abs_err > 10) %>% write_tsv("tob_err_gt_10.tsv")
+  # Can export these results then copy the relevant energy files from turquoise at finer grid spacing
+  # mkdir ../fine; for i in $(tail -n +2 ~/tob_err_gt_10_20171122.tsv | cut -f1); do cp -r $i ../fine; done; rm ../fine/*/{atomcoords.txt,Energy_Values.txt,*.cif}
 
+# Now let's take another look at the worst errors with a finer grid of 0.5 Angstrom.  Is it a grid spacing convergence issue or something potentially more fundamental?
+test_tob_conv_grids <- read_rds("BigData/Convergence/top_20171122.Rds")
+print("Original 1.0 Angstrom grid")
+test_conv_100 <- tob_hist_sets$testing %>% 
+  filter(id %in% unique(test_tob_conv_grids$id)) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, rename(tob_y_to_join, y_act=g.L))
+print(test_conv_100)
+print("Finer 0.5 Angstrom grid")
+test_conv_50 <- test_tob_conv_grids %>% 
+  eval_test_grid(trained_mod, ., default_binspec, rename(tob_y_to_join, y_act=g.L))
+print(test_conv_50)
+print("Comparison")
+test_conv_diff <- test_conv_100$pred_df %>% 
+  select(id, y_pred) %>% 
+  rename(y_100 = y_pred) %>% 
+  full_join(test_conv_50$pred_df, by="id") %>% 
+  rename(y_50 = y_pred) %>% 
+  select(-y_err)
+test_conv_diff %>% 
+  ggplot(aes(y_50, y_100)) +
+  geom_point()
+test_conv_diff %$% hist(y_100 - y_50)
 ```
 
 
