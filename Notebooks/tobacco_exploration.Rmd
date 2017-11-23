@@ -617,10 +617,11 @@ Then, we can insert a block looking at the betas from different temperatures.
 ```{r tobacco_training_from_weak}
 # First identify what distributions of absolute uptake look promising
 tobacco_data %>% 
-  mutate(g.L = h2.g.L.6.77) %>% 
+  mutate(g.L = h2.g.L.2.77) %>% 
   run_model_on_partitions(tob_hist_sets, ., default_binspec, 0)
-hist(tobacco_data$h2.g.L.6.77)
+hist(tobacco_data$h2.g.L.2.77)
 # This section hints that the model is having serious trouble learning the low pressure data.  Is that also true of the hMOFs?
+# Update 11/23: that's only true for the 6 bar data, not 2 bar
 weak_hmof <- gcmc_data %>% 
   mutate(g.L = va2bar) %>% 
   run_model_on_partitions(hmof_hist_sets, ., default_binspec, 0)
@@ -629,7 +630,9 @@ hist(gcmc_data$va2bar)
 # No, the hMOFs are fine, and the beta coefficients are more intuitive (negative effect of the Inf bin, etc.)
 
 # How well does the low P hMOF model work on the ToBaCCo MOFs?
-# First we need to obtain the revised data for 2 bar, 77 K, with the proper unit cells.
+tobacco_data %>% 
+  mutate(y_act = h2.g.L.2.77) %>% 
+  eval_test_grid(weak_hmof$trained_mod, tob_hist_sets$testing, default_binspec, .)
 ```
 
 But first, can we improve ToBaCCo predictivity by resampling before training?  Imbalanced data can potentially be a problem even for regression ([ref `krawczyk_learning_2016`](https://link.springer.com/article/10.1007/s13748-016-0094-0)), so we could consider downsampling the ToBaCCo MOFs.  But as mentioned on [stack exchange](https://stats.stackexchange.com/questions/30162/sampling-for-imbalanced-data-in-regression), there's problems with just sampling against y.
@@ -744,13 +747,89 @@ mod_hmof_ch4_on_tob$plots$parity_full +
   scale_y_continuous(limits = c(0,250))
 ```
 
+### More break down of ToBaCCo errors
+```{r tobbaco_by_composition}
+tob_deliv_from_hmof <- tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(trained_mod, tob_hist_sets$testing, default_binspec, .)
+
+print(tob_deliv_from_hmof)
+
+# Look at dependence on composition, topology, etc.
+
+base_tob_deliv_p <- 
+  tob_deliv_from_hmof$pred_df %>% 
+  ggplot(aes(y_act, y_pred)) +
+  geom_point() + 
+  parity_line
+
+base_tob_deliv_p +
+  facet_wrap(~ cbb.ID) +
+  theme(text = element_text(size = 4))
+
+#tob_deliv_from_hmof$pred_df %>% 
+#  group_by(topology) %>% summarize(freq = n()) %>% ungroup %>% 
+#  right_join(tob_deliv_from_hmof$pred_df, by="topology") %>% 
+base_tob_deliv_p +
+  facet_wrap(~ topology) +
+  theme(text = element_text(size = 10)) +
+  theme(axis.text = element_blank(), axis.ticks = element_blank()) #+
+#  geom_label(aes(x=50, y=0, label=freq), size = 4)
+
+# Also consider training hMOFs/predictions by topology, similar linkers, etc.?
+tob_deliv_from_hmof$pred_df %>% 
+  group_by(topology) %>% 
+  summarize(n())
+
+base_tob_deliv_p +
+  facet_grid(n1.character ~ n2.character)
+base_tob_deliv_p +
+  facet_grid(n1.sym ~ n2.sym)
+
+# Is performance dependent on linker/node similarity to the hMOFs?
+# Hard to quantify due to differences in how the nodes and linkers are represented.
+# Stats on overlap/polymorphism could be interesting for other work, though.
+# tob_deliv_from_hmof$pred_df %>% 
+#   mutate(
+#     hmof_linker = (CBB.ID %in% c(12, 8, 10, 3, 34, 41, 40, 2, 14, 15, 17, 8, 31, 22, 16, 27, 11, 33, 7, 32, 39, 44))
+#     ) %>% 
+#   ggplot(aes(y_act, y_pred)) +
+#   geom_point() + 
+#   parity_line +
+#   facet_grid(NODE_AVAIL ~ LINKER)
+
+# Finally, how well does the model rank the materials?
+tob_deliv_from_hmof$pred_df %>% 
+  select(y_act, y_pred) %>% 
+  cor(method = "spearman")
+
+tob_deliv_from_hmof$pred_df %>% 
+  mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
+  ggplot(aes(r_act, r_pred)) +
+  geom_point()
+
+hmof_deliv_from_hmof <- hmof_y_to_join %>% 
+  rename(y_act = g.L) %>% 
+  eval_test_grid(trained_mod, hmof_hist_sets$testing, default_binspec, .)
+
+hmof_deliv_from_hmof$pred_df %>% 
+  select(y_act, y_pred) %>% 
+  cor(method = "spearman")
+hmof_deliv_from_hmof$pred_df %>% 
+  mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
+  ggplot(aes(r_act, r_pred)) +
+  geom_point()
+```
+
+
+
+```
+
 ## Other action items and ideas to explore
 
 TODO: top CCDC MOFs, re-implement predictions in C++?
 
 ### Data that still needs a final version
-* ToBaCCo grids (with a script to verify line count)
-* ToBaCCo 2 bar, 77 K data, with correct number of unit cells for RASPA (thus replacing 6 bar for deliverable capacity)
 * Revised grids on the CCDC MOFs?  Full hMOFs?  Discuss plan with Scotty.
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
