@@ -821,9 +821,162 @@ hmof_deliv_from_hmof$pred_df %>%
   geom_point()
 ```
 
+## Training hMOFs vs. ToBaCCo
+Some (hopefully) final analysis behind why the ToBaCCo MOFs don't train as well.  The cause is likely rooted in the differences in x- and y- distributions, but let's diagnose a few more questions, first.
 
+### Use ToBaCCo model on hMOFs
+So far, we've been focusing on using the hMOF model to predict ToBaCCo MOFs.  How well does it work in reverse?  Meaning, is the problem with training on the diverse ToBaCCo set, too much density at high uptake, self-similarity in hMOFs, or something else?
 
+```{r tobacco_to_hmof}
+gcmc_data %>% 
+  mutate(y_act = g.L) %>% 
+  eval_test_grid(temp_tob_part_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)
 ```
+
+These results are interesting: despite the challenges of ToBaCCo at high loading, overall the model captures the overall trend from y = 10 to max g/L (albeit underpredicting because the ToBaCCo model is trying to compensate for the overprediction on most points).  Below that, far away from the ToBaCCo density, the model fit is poorest (and way overpredicting).
+
+### Comparing coefficients for both models
+```{r compare_coefs}
+beta_comparison <- coef_tbl(hmof_partitioned_mod$trained_mod$mod) %>% 
+  rename(hmof = beta) %>% 
+  left_join(coef_tbl(temp_tob_part_mod$trained_mod$mod), by="bin") %>% 
+  rename(tobacco = beta)
+beta_comparison %>% 
+  gather(cat, beta, tobacco, hmof) %>% 
+  overlay_cat_betas(base_hist, ., default_binspec)
+
+# Compare not only betas but also the normalization mean and std
+bind_rows(
+  t_mean = temp_tob_part_mod$trained_mod$meanz,
+  h_mean = hmof_partitioned_mod$trained_mod$meanz,
+  t_std = temp_tob_part_mod$trained_mod$stdz,
+  h_std = hmof_partitioned_mod$trained_mod$stdz,
+  .id = "calc"
+  ) %>% 
+  gather(bin, value, -calc) %>% 
+  spread(calc, value) %>% 
+  right_join(beta_comparison, by="bin") %>% 
+  rename(t_beta = tobacco, h_beta = hmof) %>% 
+  left_join(bin_loc_from_spec(default_binspec), by="bin") %>% 
+  arrange(loc) %>% 
+  mutate_if(is.numeric, format, digits=2)
+# This table shows that there is quite a bit of difference in the standardized mean/std location for the different betas, which could also account for the differences in betas
+```
+
+### Training without standardization
+Could some of the problems be caused by the z-scoring normalization process?  The distributions of the two databases are different, though the coefficients are overall in the same general probability space (zero to one).  It probably won't work, but it's worth a shot at least, especially given the huge differences in the table above.
+
+```{r no_standardization}
+# For now, let's just lightly modify fit_glmnet and friends.  TODO: this can be generalized later if interesting
+
+no_std_fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
+  # Fits a ridge regression model to a dataframe of predictors, sans normalization
+  # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
+  
+  orig_x <- x
+  # Remove columns with zero std dev
+  removed_cols <- x %>% 
+    summarize_all(funs(sd)) %>% 
+    gather("bin", "sd") %>% 
+    filter(sd == 0) %>% # Could also replace with a tolerance
+    .$bin
+  x <- x[,!(names(x) %in% removed_cols)]
+
+  # Mean-center
+  meanz <- x %>% summarize_all(function(a) {0})
+  # Thanks to this gem on the mailing list: https://stat.ethz.ch/pipermail/r-help/2006-May/104690.html
+  x <- x - meanz[rep(1, times=nrow(x)),]
+  
+  # Unit variance
+  varz <- x %>% summarize_all(function(a) {1})
+  x <- x / varz[rep(1, times=nrow(x)),]
+  
+  # If lambda is not defined, let's calculate the largest (most regularized) value within one SE of the min. cross-validated error
+  cvfit <- NULL
+  if (is.null(lambda)) {
+    trial_lambdas <- 10^seq(10, -2, length = 100)  # Idea from https://www.r-bloggers.com/ridge-regression-and-the-lasso/
+    cvfit <- cv.glmnet(as.matrix(x), y, alpha=alpha, nfolds=10, type.measure="mse", lambda=trial_lambdas)
+    lambda <- cvfit$lambda.1se
+  }
+  
+  # Actually run the model
+  mod <- glmnet(as.matrix(x), y, alpha=alpha, lambda=lambda)  # alpha=0 is ridge regression
+  
+  # Return the relevant model details
+  list(
+    mod = mod,
+    x = x,
+    y = y,
+    orig_x = orig_x,
+    removed_cols = removed_cols,
+    meanz = meanz,
+    stdz = varz,
+    lambda = lambda,
+    alpha = alpha,
+    coefs = NULL,
+    cv_for_lambda = cvfit
+  )
+}
+
+no_std_run_fit <- function(x_grid, y_act_with_id, binspec, alpha=0) {
+  # Modification of run_bin_model
+  x <- x_grid %>% 
+    stepped_hist_spec(binspec) %>% 
+    spread(key=bin, value=metric)
+  y <- x %>% 
+    left_join(y_act_with_id, by="id") %>% 
+    rename(y = y_act) %>% 
+    .$y
+  x_id <- x %>% select(id)
+  x <- x %>% select(-id)
+  
+  fitted_mod <- no_std_fit_glmnet(x, y, alpha=alpha)
+  tibble(
+    fitted_model = list(fitted_mod),
+    id_list = list(x_id),
+    q2=NA,
+    lambda = fitted_mod$lambda, 
+    imported_binspec = binspec
+  )
+}
+
+
+# Test fitting the hMOF and ToBaCCo separately, but without normalization
+no_std_hmof_mod <- no_std_run_fit(
+  hmof_hist_sets$training,
+  mutate(gcmc_data, y_act=g.L),
+  default_binspec
+  )$fitted_model[[1]]
+gcmc_data %>% 
+  mutate(y_act = g.L) %>% 
+  eval_test_grid(no_std_hmof_mod, hmof_hist_sets$testing, default_binspec, .)
+
+no_std_tob_mod <- no_std_run_fit(
+  tob_hist_sets$training,
+  mutate(tobacco_data, y_act=h2.deliv.77),
+  default_binspec
+  )$fitted_model[[1]]
+tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(no_std_tob_mod, tob_hist_sets$testing, default_binspec, .)
+
+# Now with the hMOF training:
+tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(no_std_hmof_mod, tob_hist_sets$testing, default_binspec, .)
+# How does this compare with the original, normalized model?  Nearly identical
+tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(trained_mod, tob_hist_sets$testing, default_binspec, .)
+```
+
+Conclusion: the model performance is nearly identical on test data or hMOF to ToBaCCo.  The real difference is that the model interpretation actually becomes clearer with z-scoring: otherwise the model coefficients arrive on different scales, which makes interpretation of the numbers considerably more difficult.
+
+
+### Diversity sampling
+This is the most likely to succeed.  Previous ML studies in the MOF literature have generated the initial training set via maximum diversity selection from all of the parent databases, with a broad range including hMOFs, IZA, and CoRE.
+
+TODO: see [caret documentation](http://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors) and other resources on how to perform this sampling.
 
 ## Other action items and ideas to explore
 
@@ -833,3 +986,5 @@ TODO: top CCDC MOFs, re-implement predictions in C++?
 * Revised grids on the CCDC MOFs?  Full hMOFs?  Discuss plan with Scotty.
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
+### Other possible directions
+* Trying out traditional textural properties, or adding them to my set of energy-based features
