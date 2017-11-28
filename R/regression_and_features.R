@@ -99,12 +99,39 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split)
 standardize_from_props <- function(x, remove_cols, meanz, stdz) {
   # Apply standardization procedures
   x <- x[,!(names(x) %in% remove_cols)]
+  # Thanks to this gem on the mailing list: https://stat.ethz.ch/pipermail/r-help/2006-May/104690.html
   x <- (x - meanz[rep(1,times=nrow(x)),]) / (stdz[rep(1,times=nrow(x)),])
   x
 }
 
 standardize <- function(glm_mod, x) {
   standardize_from_props(x, glm_mod$removed_cols, glm_mod$meanz, glm_mod$stdz)
+}
+
+standardization_from_x <- function(x) {
+  # Gets the standardization properties for an x matrix (removed_cols, meanz, and stdz)
+  
+  # Remove columns with zero std dev
+  removed_cols <- x %>%
+    summarize_all(funs(sd)) %>% 
+    gather("bin", "sd") %>% 
+    filter(sd == 0) %>% # Could also replace with a tolerance
+    .$bin
+  x <- x[,!(names(x) %in% removed_cols)]
+  
+  # Mean-center
+  meanz <- x %>% summarize_all(funs(mean))
+  x <- x - meanz[rep(1, times=nrow(x)),]
+  
+  # Unit variance
+  varz <- x %>% summarize_all(funs(sd))
+  x <- x / varz[rep(1, times=nrow(x)),]  # unused, but kept for completeness
+  
+  list(
+    removed_cols = removed_cols,
+    meanz = meanz,
+    stdz = varz
+    )
 }
 
 shuffle <- function(vec) {
@@ -124,22 +151,13 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
   # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
   
   orig_x <- x
-  # Remove columns with zero std dev
-  removed_cols <- x %>% 
-    summarize_all(funs(sd)) %>% 
-    gather("bin", "sd") %>% 
-    filter(sd == 0) %>% # Could also replace with a tolerance
-    .$bin
-  x <- x[,!(names(x) %in% removed_cols)]
-
-  # Mean-center
-  meanz <- x %>% summarize_all(funs(mean))
-  # Thanks to this gem on the mailing list: https://stat.ethz.ch/pipermail/r-help/2006-May/104690.html
-  x <- x - meanz[rep(1, times=nrow(x)),]
   
-  # Unit variance
-  varz <- x %>% summarize_all(funs(sd))
-  x <- x / varz[rep(1, times=nrow(x)),]
+  # Standardize x with mean-centering, unit variance, and no columns without variance
+  x_standardization <- standardization_from_x(x)
+  removed_cols <- x_standardization$removed_cols
+  meanz <- x_standardization$meanz
+  stdz <- x_standardization$stdz
+  x <- standardize_from_props(x, removed_cols, meanz, stdz)
   
   # If lambda is not defined, let's calculate the largest (most regularized) value within one SE of the min. cross-validated error
   cvfit <- NULL
@@ -160,7 +178,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
     orig_x = orig_x,
     removed_cols = removed_cols,
     meanz = meanz,
-    stdz = varz,
+    stdz = stdz,
     lambda = lambda,
     alpha = alpha,
     coefs = NULL,

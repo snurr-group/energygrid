@@ -15,6 +15,7 @@ library(stringr)
 
 library(purrr)
 library(readxl)
+library(magrittr)
 
 library(testthat)
 
@@ -976,15 +977,97 @@ Conclusion: the model performance is nearly identical on test data or hMOF to To
 ### Diversity sampling
 This is the most likely to succeed.  Previous ML studies in the MOF literature have generated the initial training set via maximum diversity selection from all of the parent databases, with a broad range including hMOFs, IZA, and CoRE.
 
-TODO: see [caret documentation](http://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors) and other resources on how to perform this sampling.
+See [caret documentation](http://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors) and other resources on how to perform this sampling.  The diversity algorithms are reviewed in `willett_dissimilarity-based_1999`.  The simplest one (default for caret) is based on an older paper (`kennard_computer_1969`) and was actually used in Cory Simon's Xe/Kr paper (`simon_what_2015`), albeit diversity sampling for each class of nanoporous material.  Note that this is similar to the [DUPLEX algorithm](http://amstat.tandfonline.com/doi/abs/10.1080/00401706.1977.10489581).  The review `borovicka_selecting_2012` is also a great resource for model training strategies.
+
+```{r diversity_sampling_tobacco}
+# First, let's begin with only training and testing on ToBaCCo.
+# Then we can come back and do something smarter--see how Cory Simon and others handled multiple similar databases
+
+run_model_on_diversity <- function(
+  grid_x, y_act_with_id,
+  binspec, alpha = 0,
+  num_training = 1000, random_init_points = 5  # FIXME: make it 1000 for num_training
+  ) {
+  # Similar to run_model_on_partitions, but also paritions the data by diversity selection
+  # Calculates the ridge or LASSO model on the developed training data, then evaluates the performance on the test data.
+  # Returns a partitioned_glmnet object, plus the source data
+  # Could also consider changing num_training to use data_split instead, though we'd have to figure out how to subdivide the data into hyperparameter and training.
+  
+  # Generate training subset.  We have to first scale the relevant columns to ensure the distance calculations are reasonable.
+  x <- grid_x %>% 
+    stepped_hist_spec(binspec) %>% 
+    spread(key = bin, value = metric)
+  y <- x %>% 
+    left_join(y_act_with_id, by="id") %>% 
+    rename(y = y_act) %>% 
+    .$y
+  x_id <- x %>% select(id)
+  x <- x %>% select(-id)
+  
+  x_orig <- x
+  x_std_props <- standardization_from_x(x)
+  x <- standardize_from_props(x, x_std_props$removed_cols, x_std_props$meanz, x_std_props$stdz)
+  
+  ### Now do the diversity section ###
+  
+  # See caret documentation: http://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors
+  set.seed(20171128)
+  start_set <- sample(1:nrow(x), random_init_points)
+  start_points <- x[start_set,]
+  sample_pool <- x[-start_set,]
+  dissim_training <- maxDissim(start_points, sample_pool, n=num_training)
+  
+  # Associate points with the corresponding IDs
+  start_ids <- x_id[start_set,]
+  pool_ids <- x_id[-start_set,]
+  dissim_ids <- pool_ids[dissim_training,]
+  
+  # Then divide the original grids into the appropriate bins
+  partitioned_data <- list(
+    training = right_join(grid_x, dissim_ids, by="id"),
+    testing = anti_join(grid_x, dissim_ids, by="id")
+    )
+  
+  # Run the model on the diverse sample set
+  predictions_with_data <- y_act_with_id %>% 
+    mutate(g.L = y_act) %>% 
+    run_model_on_partitions(partitioned_data, ., binspec, alpha)
+  
+  predictions_with_data$partitioned_hists <- partitioned_data
+  predictions_with_data$y_orig <- y_act_with_id
+  
+  predictions_with_data
+}
+
+# Find diverse subset for training.  This calculation is expensive.
+if (!exists("diverse_results_tob")) {
+  diverse_results_tob <- tobacco_data %>% 
+    mutate(y_act = h2.deliv.77) %>% 
+    run_model_on_diversity(grids_h2, ., default_binspec)
+}
+print(diverse_results_tob)
+
+# Try to use the ToBaCCo-trained model against the hMOFs
+gcmc_data %>% 
+  mutate(y_act = g.L) %>% 
+  eval_test_grid(diverse_results_tob$trained_mod, hmof_hist_sets$testing, default_binspec, .)
+
+```
+
 
 ## Other action items and ideas to explore
 
-TODO: top CCDC MOFs, re-implement predictions in C++?
+### TODO
+
+* Rerun ToBaCCo analysis with the full folder with 1.0 Angstrom grids
+* Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
+* CCDC: test predictivity on subset and suggest the top candiates
+* Re-implement prediction workflow in C++?
 
 ### Data that still needs a final version
-* Revised grids on the CCDC MOFs?  Full hMOFs?  Discuss plan with Scotty.
+* Complete hydrogen adsorption data at 2 bar, 77 K in the ToBaCCo MOFs
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
 ### Other possible directions
 * Trying out traditional textural properties, or adding them to my set of energy-based features
+* Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
