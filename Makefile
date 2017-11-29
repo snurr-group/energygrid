@@ -14,15 +14,15 @@ backup:
 BigData/init_h2_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/10k-hMOFs/part1/CIF_FILES BigData/10k-hMOFs/part2/CIF_FILES
 
-BigData/ccdc_hist_vals.Rds:
-	$(RUN_R) R/save_h2_hists.R $@ BigData/P1-Scotty/Together
+BigData/Robj/ccdc_hist_vals.Rds:
+	$(RUN_R) R/save_h2_hists.R $@ BigData/CSD/csddata/CIF_FILES
 
 BigData/ccdc_500_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/500cifs-CCDC
 	# Process test subset of CCDC MOFs from Scotty 2017-11-07
 
 BigData/Robj/tobacco_h2.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/Convergence/h100
+	${RUN_R} R/save_h2_hists.R $@ BigData/Convergence/tob-1.0-complete
 
 BigData/Robj/tobacco_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids use_ch4

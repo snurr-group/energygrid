@@ -602,9 +602,6 @@ Three things stand out to me as particularly noteworthy from this analysis.
 
 ## Model generality
 
-### CCDC applicability
-TODO: redo this analysis with revised data on the full database.  Then make a list of the top candidates for Scotty's GCMC.
-
 ### Different temperatures
 
 Conclusion?  Limited data currently to perform this analysis (only H2 at two temperatures, 2 bar)
@@ -820,6 +817,16 @@ hmof_deliv_from_hmof$pred_df %>%
   mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
   ggplot(aes(r_act, r_pred)) +
   geom_point()
+
+# What about the ToBaCCo model on the ToBaCCo MOFs?
+temp_tob_part_mod$pred_df %>% 
+  select(y_act, y_pred) %>% 
+  cor(method = "spearman")
+temp_tob_part_mod$pred_df %>% 
+  mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
+  ggplot(aes(r_act, r_pred)) +
+  geom_point()
+# TODO: consider adding the ranking analysis to the main partitioning analysis object
 ```
 
 ## Training hMOFs vs. ToBaCCo
@@ -1054,12 +1061,77 @@ gcmc_data %>%
 
 ```
 
+### Hybrid hMOF/ToBaCCo model
+Let's attempt to generate a model consisting of a random selection of training data from both databases.
+
+```{r hybrid_hmof_tobacco}
+# Use 1000 MOFs from each database as a starting baseline, since there's not a particularly rigorous method of assigning how many MOFs we need
+# Note: ideally we'd use a maximum diversity method as above, but it's fairly computationally expensive and been shown here not to have too much of an effect on model predictions.
+
+hybrid_gcmc_data <- gcmc_data %>% 
+  mutate(id = str_c("h", id)) %>% 
+  rename(vf = void.frac) %>% 
+  select(id, g.L, vf)
+hybrid_tobacco_data <- tobacco_data %>% 
+  mutate(g.L = h2.deliv.77) %>% 
+  select(id, g.L, vf)
+hybrid_data <- bind_rows(hmof = hybrid_gcmc_data, tobacco = hybrid_tobacco_data, .id="database")
+
+set.seed(20171128-1)
+hybrid_training_grids <- hmof_h2_grid %>% 
+  mutate(id = str_c("h", id)) %>% 
+  filter(id %in% sample(unique(.$id), 1000)) %>% 
+  bind_rows(filter(grids_h2, id %in% sample(unique(grids_h2$id), 1000)))
+hybrid_testing_grids <- hmof_h2_grid %>% 
+  mutate(id = str_c("h", id)) %>% 
+  bind_rows(grids_h2)
+hybrid_grid_sets <- list(training = hybrid_training_grids, testing = hybrid_testing_grids)
+
+hybrid_part_mod <- run_model_on_partitions(hybrid_grid_sets, hybrid_data, default_binspec, 0)
+print(hybrid_part_mod)
+hybrid_part_mod$pred_df %>% 
+  ggplot(aes(y_act, y_pred, color=vf)) +
+  geom_point(alpha = 0.6) +
+  parity_line +
+  facet_wrap(~database) +
+  scale_x_continuous(limits = c(0,60)) +
+  scale_y_continuous(limits = c(0,60))
+```
+
+
+
+## CCDC applicability
+
+First, let's test the generality of the hMOF model to predict the CSD MOFs.
+
+```{r ccdc_applicability}
+# Derived from notebook 20171106_immediate_followup.Rmd
+ccdc_h2_grids <- read_rds("BigData/Robj/ccdc_hist_vals.Rds")
+ccdc_gcmc <- read_tsv(
+  "BigData/500-CSDmofs.tsv",
+  na = c("", "null", "#NAME?", "#VALUE!")
+  ) %>% 
+  rename(id = MOF, g.L = `deliv g/L`)
+
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+```
+
+Then, using the model, what are the top CCDC candidates?  Separately, it might also be good to attempt to train a model against the CCDC GCMC data.  What are the coefficients?  Are the predictions for the top candidates the same?
+
+```{r ccdc_predictions}
+pred_grid(trained_mod, ccdc_h2_grids, default_binspec) %>% .$y_pred %>% hist()
+
+```
+
+
 
 ## Other action items and ideas to explore
 
 ### TODO
 
-* Rerun ToBaCCo analysis with the full folder with 1.0 Angstrom grids
+* Test a hybrid hMOF/ToBaCCo model on both databases.  Is it more general than the two separate models?
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
 * CCDC: test predictivity on subset and suggest the top candiates
 * Re-implement prediction workflow in C++?
