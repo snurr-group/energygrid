@@ -117,6 +117,18 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
   results$plots$resid_normality <- df_with_ys %>% 
     ggplot(aes(y_pred - y_act)) +
     geom_histogram(bins = 30)
+  
+  # How well do the models rank the test data
+  results$test_spearman <- results$pred_df %>% 
+    select(y_act, y_pred) %>% 
+    cor(method = "spearman")
+  results$plots$test_ranking <- results$pred_df %>% 
+    mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
+    ggplot(aes(r_act, r_pred)) +
+    geom_point() +
+    xlab("'Actual' ranking (GCMC simulations)") +
+    ylab(paste0("Predicted ranking (", perf_model,")"))
+  
   results  # return the partitioned_glmnet object
 }
 
@@ -159,6 +171,10 @@ print.partitioned_glmnet <- function(x) {
   print(x$plots$parity_training)
   print(x$plots$parity_full)
   print(x$plots$resid_normality)
+  
+  cat(paste("Spearman correlation for ranking of the test data is", x$test_spearman["y_pred", "y_act"]), fill=TRUE)
+  cat("\n(On the ranking plot, a higher number indicates higher capacity)\n")
+  print(x$plots$test_ranking)
   
   cat("\n")
   

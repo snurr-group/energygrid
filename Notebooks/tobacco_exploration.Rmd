@@ -795,38 +795,6 @@ base_tob_deliv_p +
 #   geom_point() + 
 #   parity_line +
 #   facet_grid(NODE_AVAIL ~ LINKER)
-
-# Finally, how well does the model rank the materials?
-tob_deliv_from_hmof$pred_df %>% 
-  select(y_act, y_pred) %>% 
-  cor(method = "spearman")
-
-tob_deliv_from_hmof$pred_df %>% 
-  mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
-  ggplot(aes(r_act, r_pred)) +
-  geom_point()
-
-hmof_deliv_from_hmof <- hmof_y_to_join %>% 
-  rename(y_act = g.L) %>% 
-  eval_test_grid(trained_mod, hmof_hist_sets$testing, default_binspec, .)
-
-hmof_deliv_from_hmof$pred_df %>% 
-  select(y_act, y_pred) %>% 
-  cor(method = "spearman")
-hmof_deliv_from_hmof$pred_df %>% 
-  mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
-  ggplot(aes(r_act, r_pred)) +
-  geom_point()
-
-# What about the ToBaCCo model on the ToBaCCo MOFs?
-temp_tob_part_mod$pred_df %>% 
-  select(y_act, y_pred) %>% 
-  cor(method = "spearman")
-temp_tob_part_mod$pred_df %>% 
-  mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
-  ggplot(aes(r_act, r_pred)) +
-  geom_point()
-# TODO: consider adding the ranking analysis to the main partitioning analysis object
 ```
 
 ## Training hMOFs vs. ToBaCCo
@@ -1116,13 +1084,26 @@ ccdc_gcmc <- read_tsv(
 ccdc_h2_grids %>% 
   filter(id %in% ccdc_gcmc$id) %>% 
   eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  eval_test_grid(hybrid_part_mod$trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
 ```
 
 Then, using the model, what are the top CCDC candidates?  Separately, it might also be good to attempt to train a model against the CCDC GCMC data.  What are the coefficients?  Are the predictions for the top candidates the same?
 
 ```{r ccdc_predictions}
-pred_grid(trained_mod, ccdc_h2_grids, default_binspec) %>% .$y_pred %>% hist()
+if (!exists("ccdc_predicted")) {
+  ccdc_predicted <- pred_grid(trained_mod, ccdc_h2_grids, default_binspec)
+}
+ccdc_predicted %>% .$y_pred %>% hist()
+paste("Number of MOFs predicted over 40 g/L:", ccdc_predicted %>% filter(y_pred > 40) %>% nrow, "of", nrow(ccdc_predicted))
+paste("Over 45 g/L:", ccdc_predicted %>% filter(y_pred > 45) %>% nrow)
+paste("Over 10 g/L:", ccdc_predicted %>% filter(y_pred > 10) %>% nrow)
+print("Summary of top 1000:")
+ccdc_predicted$y_pred %>% sort(decreasing=TRUE) %>% .[1:1000] %>% summary
 
+ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
 ```
 
 
@@ -1130,10 +1111,7 @@ pred_grid(trained_mod, ccdc_h2_grids, default_binspec) %>% .$y_pred %>% hist()
 ## Other action items and ideas to explore
 
 ### TODO
-
-* Test a hybrid hMOF/ToBaCCo model on both databases.  Is it more general than the two separate models?
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
-* CCDC: test predictivity on subset and suggest the top candiates
 * Re-implement prediction workflow in C++?
 
 ### Data that still needs a final version
