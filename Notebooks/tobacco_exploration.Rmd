@@ -290,6 +290,15 @@ x_distr(standardize(trained_mod, testing_desc))
 # And the non-trainsformed versions
 x_distr(select(trained_mod$orig_x, c("17", "18", "19", "20", "21", "Inf")))
 x_distr(select(testing_desc, c("17", "18", "19", "20", "21", "Inf")))
+
+#How do the distributions of the top-performing MOFs compare?
+testing_desc %>%
+  bind_cols(id = testing_ids$id) %>% 
+  left_join(tob_y_to_join, by="id") %>% 
+  rename(y_act = g.L) %>% 
+  filter(y_act > 45) %>% 
+  select(c("17", "18", "19", "20", "21", "Inf")) %>% 
+  x_distr()
 ```
 
 What ToBaCCo MOFs have the most egregious error?
@@ -1135,5 +1144,7 @@ ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
 ### Other possible directions
+* Consider generating parity plots, faceted by bin and colored by beta*z (the model contribution).  Do these appear consistent between the hMOFs and ToBaCCo?  Maybe the problem is bin 19 and the difference between a z of 0.5-2.0 (hMOFs) and -1 to 0 (ToBaCCo). Maybe a different bin would help?
+* Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
 * Trying out traditional textural properties, or adding them to my set of energy-based features
 * Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
