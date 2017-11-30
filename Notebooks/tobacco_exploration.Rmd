@@ -745,6 +745,19 @@ mod_hmof_ch4_on_tob$plots$parity_full +
   scale_y_continuous(limits = c(0,250))
 ```
 
+One more analysis, based on some hypotheses that Randy semi-frequently mentions about methane adsorption.
+
+```{r h2_vs_ch4_ads}
+tobacco_data %>% 
+  gather(pressure, uptake, starts_with("h2.g.L.100.")) %>% 
+  ggplot(aes(ch4.v.v.100.298, uptake, color=vf)) +
+  facet_wrap(~pressure, scales="free_y") +
+  geom_point(alpha=0.1) +
+  xlab("Methane uptake (v/v, 100 bar, 298 K)") +
+  ylab("Hydrogen uptake (g/L)")
+
+```
+
 ### More break down of ToBaCCo errors
 ```{r tobbaco_by_composition}
 tob_deliv_from_hmof <- tobacco_data %>% 
@@ -780,7 +793,8 @@ tob_deliv_from_hmof$pred_df %>%
   summarize(n())
 
 base_tob_deliv_p +
-  facet_grid(n1.character ~ n2.character)
+  facet_grid(n1.character ~ n2.character, margins = TRUE) +
+  coord_cartesian(xlim = c(0,60), ylim = c(0,60))
 base_tob_deliv_p +
   facet_grid(n1.sym ~ n2.sym)
 
@@ -1111,6 +1125,8 @@ ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
 ## Other action items and ideas to explore
 
 ### TODO
+* Write a first draft of the outline.
+* Recalculate predictions/fits with corrected energy grids (sigma = 2.958 Ang instead of 2.598)
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
 * Re-implement prediction workflow in C++?
 
