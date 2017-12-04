@@ -820,6 +820,31 @@ base_tob_deliv_p +
 #   facet_grid(NODE_AVAIL ~ LINKER)
 ```
 
+Note that while the Kendall rank correlation coefficient tau is only 0.5 vs. the 0.7 reported in `ahmed_balancing_2017`, Table S4, those data are solely based on the 35 bar data and not deliverable capacity.  Chahine's rule only seems to work at high uptake, not low pressure (thus it's not useful for delivarable capacity).
+
+```{r vs_chahine}
+gcmc_data %>% 
+  select(surf.area..vol., starts_with("va")) %>% 
+  gather(pressure, capacity, c("va2bar", "va100bar")) %>% 
+  ggplot(aes(surf.area..vol., capacity)) +
+  geom_point() +
+  facet_wrap(~pressure)
+```
+
+
+
+```{r tobacco_by_node_type}
+library(plotly)
+(tob_deliv_from_hmof$pred_df %>% 
+  mutate(same_nodes = (n1.name == n2.name)) %>% 
+  mutate(node_info = str_c(id, topology, "\n", n1.name, n2.name, cbb.ID, sep=", ")) %>% 
+  ggplot(aes(y_act, y_pred, text=node_info)) +
+  geom_point() + 
+  parity_line + facet_wrap(~same_nodes) + 
+  coord_cartesian(xlim=c(0,60),ylim=c(0,60))
+  ) %>% ggplotly #%>% highlight(on="plotly_selected")  # This may be a useful resource: https://plotly-book.cpsievert.me/linking-views-without-shiny.html
+```
+
 ## Training hMOFs vs. ToBaCCo
 Some (hopefully) final analysis behind why the ToBaCCo MOFs don't train as well.  The cause is likely rooted in the differences in x- and y- distributions, but let's diagnose a few more questions, first.
 
@@ -1129,13 +1154,14 @@ ccdc_predicted$y_pred %>% sort(decreasing=TRUE) %>% .[1:1000] %>% summary
 ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
 ```
 
+The top candidate, YUCFOS, is interesting because after processing it's just copper atoms distributed in space.  From spot checking, many of the top candidate materials are like this, probably because of the solvent and disorder removal steps.  A GCMC simulation will either show that it's possible to far surpass liquid density of 71 g/L with a hypothetical arrangement of atoms, or a huge error in regression model.  For YUCFOS, the GCMC has an error about unit cells (?) but low loading of 5.60+-0.51 cm3/cm3 absolute and high at 267.78+-15.09, which translates to a deliverable capacity of 23.4 g/L.  The large overestimation is likely overemphasis on void space from the model.
 
+Going back to the unit cell point, RASPA calculates that based on cx/cy/cz in warnings.c:100?
 
 ## Other action items and ideas to explore
 
 ### TODO
 * Write a first draft of the outline.
-* Recalculate predictions/fits with corrected energy grids (sigma = 2.958 Ang instead of 2.598)
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
 * Re-implement prediction workflow in C++?
 
@@ -1144,7 +1170,9 @@ ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
 ### Other possible directions
+* If capacity > liquid is possible, what sort of capacity could you get with a uniform background potential?
 * Consider generating parity plots, faceted by bin and colored by beta*z (the model contribution).  Do these appear consistent between the hMOFs and ToBaCCo?  Maybe the problem is bin 19 and the difference between a z of 0.5-2.0 (hMOFs) and -1 to 0 (ToBaCCo). Maybe a different bin would help?
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
+* Separate hMOF models by topology?  Does the error depend on the number of distinct pores in the various topologies?
 * Trying out traditional textural properties, or adding them to my set of energy-based features
 * Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?

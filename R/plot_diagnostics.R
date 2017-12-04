@@ -122,6 +122,9 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
   results$test_spearman <- results$pred_df %>% 
     select(y_act, y_pred) %>% 
     cor(method = "spearman")
+  results$test_kendall <- results$pred_df %>% 
+    select(y_act, y_pred) %>% 
+    cor(method = "kendall")
   results$plots$test_ranking <- results$pred_df %>% 
     mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
     ggplot(aes(r_act, r_pred)) +
@@ -173,6 +176,7 @@ print.partitioned_glmnet <- function(x) {
   print(x$plots$resid_normality)
   
   cat(paste("Spearman correlation for ranking of the test data is", x$test_spearman["y_pred", "y_act"]), fill=TRUE)
+  cat(paste("Kendall tau is", x$test_kendall["y_pred", "y_act"]), fill=TRUE)
   cat("\n(On the ranking plot, a higher number indicates higher capacity)\n")
   print(x$plots$test_ranking)
   
