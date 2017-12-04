@@ -411,6 +411,24 @@ hi_data %>%
   select(id, topology, filename)
 ```
 
+And low pressure only, for hMOFs on ToBaCCo:
+
+```{r low_p_tob}
+temp_low_tob_pred <- tobacco_data %>%
+  mutate(y_act = h2.g.L.2.77) %>%
+  filter(!(is.na(y_act)) | y_act < 0) %>% 
+  eval_test_grid(p_lo_model$fitted_model[[1]], tob_hist_sets$testing, default_binspec, .)
+print(temp_low_tob_pred)
+
+#temp_low_tob_pred$pred_df %>% 
+#  select(id, y_act, y_pred, y_err) %>% 
+#  rename(y_act_2 = y_act, y_pred_2 = y_pred, y_err_2 = y_err) %>% 
+#  left_join(tob_deliv_from_hmof$pred_df, by="id") %>% 
+#  ggplot(aes(y_err_2, y_err)) + geom_point()
+# Note: tob_deliv_from_hmof is defined below
+```
+
+
 ### Consistency between overlapping structures (MOF-5)
 One of the best diagnostics will be inspecting MOFs that we expect to be in common between the two databases (e.g. hMOF-0 and tobmof6018).  Later, we could consider expanding this to a whole set of MOFs. in common, if of interest.
 
@@ -1162,6 +1180,7 @@ Going back to the unit cell point, RASPA calculates that based on cx/cy/cz in wa
 
 ### TODO
 * Write a first draft of the outline.
+* Somehow filter out all of the metallic CCDC structures.
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
 * Re-implement prediction workflow in C++?
 
@@ -1170,9 +1189,10 @@ Going back to the unit cell point, RASPA calculates that based on cx/cy/cz in wa
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
 ### Other possible directions
-* If capacity > liquid is possible, what sort of capacity could you get with a uniform background potential?
+* What sort of capacity could you get with a uniform background potential?
 * Consider generating parity plots, faceted by bin and colored by beta*z (the model contribution).  Do these appear consistent between the hMOFs and ToBaCCo?  Maybe the problem is bin 19 and the difference between a z of 0.5-2.0 (hMOFs) and -1 to 0 (ToBaCCo). Maybe a different bin would help?
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
 * Separate hMOF models by topology?  Does the error depend on the number of distinct pores in the various topologies?
+* Testing FH on a subset of MOFs (worst performing) to see how sensitive the energy is.
 * Trying out traditional textural properties, or adding them to my set of energy-based features
 * Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
