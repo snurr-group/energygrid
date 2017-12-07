@@ -145,7 +145,7 @@ shuffle <- function(vec) {
 # * My current model uses [glmnet](https://cran.r-project.org/web/packages/glmnet/glmnet.pdf)
 # * See also a helpful [vignette](https://cran.r-project.org/web/packages/glmnet/vignettes/glmnet_beta.pdf) and [blog post](https://www.r-bloggers.com/ridge-regression-and-the-lasso/)
 
-fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
+fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE) {
   # Fits a ridge regression model to a dataframe of predictors
   # Also standardizes the inputs (mean-centered, unit variance)
   # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
@@ -168,7 +168,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0) {
   }
   
   # Actually run the model
-  mod <- glmnet(as.matrix(x), y, alpha=alpha, lambda=lambda)  # alpha=0 is ridge regression
+  mod <- glmnet(as.matrix(x), y, alpha=alpha, lambda=lambda, intercept=fit_intercept)  # alpha=0 is ridge regression
   
   # Return the relevant model details
   list(
@@ -209,7 +209,7 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
   x <- x %>% select(-id)
   
   q2 <- calc_q2(x, y, alpha=alpha)
-  fitted_mod <- fit_glmnet(x, y, alpha=alpha)
+  fitted_mod <- fit_glmnet(x, y, lambda=lambda, alpha=alpha)
   tibble(
     fitted_model = list(fitted_mod),
     id_list = list(x_id),

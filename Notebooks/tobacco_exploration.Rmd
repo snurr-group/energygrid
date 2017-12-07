@@ -1176,6 +1176,40 @@ The top candidate, YUCFOS, is interesting because after processing it's just cop
 
 Going back to the unit cell point, RASPA calculates that based on cx/cy/cz in warnings.c:100?
 
+## Testing a different binspec
+```{r new_binspec}
+# Based on some informal analysis, running the model without an intercept (and without normalization) still works awesome for the hMOFs, though it still doesn't translate to ToBaCCo.
+# And manually dropping the lowest terms doesn't do much either.
+# But bin 21 (0 to 1 kJ/mol) appears to have some difference in the model fits, so what if we play with this region?
+binspec_shrink <- default_binspec
+binspec_shrink["to"] <- 0
+binspec_expand <- default_binspec
+binspec_expand["to"] <- 5  # the maximum we pre-calculated in the original Rds files
+
+shrink_h <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, binspec_shrink, 0)
+expand_h <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, binspec_expand, 0)
+print(shrink_h)
+print(expand_h)
+
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, binspec_shrink, 0)
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, binspec_expand, 0)
+tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(shrink_h$trained_mod, tob_hist_sets$testing, binspec_shrink, .)
+tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(expand_h$trained_mod, tob_hist_sets$testing, binspec_expand, .)
+```
+
+### Adjusting lambda
+Let's see if the diversity on training ToBaCCo failed just because of lambda:
+```{r adjust_lambda}
+tobacco_data %>% mutate(g.L=h2.deliv.77) %>% run_bin_model(diverse_results_tob$partitioned_hists$training, ., default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha = 0, lambda=1e-6) -> testing_diverse_low_lambda
+
+tobacco_data %>% mutate(y_act = h2.deliv.77) %>% eval_test_grid(testing_diverse_low_lambda$fitted_model[[1]], diverse_results_tob$partitioned_hists$testing, default_binspec, .)
+
+```
+
 ## Other action items and ideas to explore
 
 ### TODO

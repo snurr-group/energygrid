@@ -162,6 +162,7 @@ print.partitioned_glmnet <- function(x) {
   cat(paste("Analysis for alpha =", x$alpha, x$model_name, "\n\n"))
   
   cat(paste("Q2 for the trained model is", x$trained_model$q2), fill=TRUE)
+  cat(paste("Lambda for the trained model is", x$trained_mod$lambda), fill=TRUE)
   cat("Fit of the training data\n")
   print(x$training_fit)
   
