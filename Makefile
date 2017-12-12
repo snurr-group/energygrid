@@ -40,3 +40,5 @@ BigData/Convergence/top_20171122.Rds:
 	rmdir --ignore-fail-on-non-empty BigData/Convergence/top_h05_20171122/*  # remove empty directories
 	${RUN_R} R/save_h2_hists.R $@ BigData/Convergence/top_h05_20171122
 
+BigData/Robj/hyper_tuned.Rds: R/hyper_tuned.R Notebooks/setup_data.R
+	${RUN_R} $<

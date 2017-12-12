@@ -1,0 +1,182 @@
+---
+title: "Exploring questions from group meeting 12/6"
+author: "Ben Bucior"
+date: "December 12, 2017"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_data, include=FALSE}
+# Has to be run in a separate block as above
+source("Notebooks/setup_data.R")
+```
+
+## Figures for main text of manuscript
+Recreate (and export) figures in one block.  Possibly will be externalized into a separate script later.
+
+```{r make_figures}
+# Figures on adsorption strength (conceptual) and ML workflow (to update, but external)
+# (likely generated within other software)
+
+# Coefficients for ridge regression model
+hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0)
+trained_mod <- hmof_partitioned_mod$trained_mod
+base_hist <- hmof_h2_grid %>% 
+  filter(id == 71) %>% 
+  plot_hist_bins(default_binspec)
+base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
+
+# Beta coefficients for different pressures and temperatures
+# For help on NSE in dplyr, see vignette("programming")
+library(rlang)  # see also https://github.com/tidyverse/rlang/issues/116
+mutate_col_to_gL <- function(df, newcol) {
+  mutate(df, g.L = !!sym(newcol))
+}
+## Previously used for the CH4 plots, but no reason not to adapt it for T and P of H2
+list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>% 
+  map(mutate_col_to_gL, df = gcmc_data) %>%
+  map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(base_hist, ., default_binspec)
+p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
+p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
+list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>% 
+  map(mutate_col_to_gL, df = p_2bar_data) %>%
+  map(function(x) run_model_on_partitions(p_2bar_sets, x, default_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(base_hist, ., default_binspec)
+
+
+# Model fit for hMOF ridge regression mdoel
+print(hmof_partitioned_mod)
+
+# Robustness to histogram binning strategy
+hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")
+plot_robustness_bin_gap <- 0.05
+plot_robustness_beta_max <- 5
+hyper_tuned_hist %>% 
+  mutate(beta = ifelse(beta > plot_robustness_beta_max, plot_robustness_beta_max, beta)) %>% 
+  mutate(beta = ifelse(beta < -plot_robustness_beta_max, -plot_robustness_beta_max, beta)) %>% 
+  mutate(lower = lower + plot_robustness_bin_gap, upper = upper - plot_robustness_bin_gap) %>% 
+  ggplot(aes(
+    x = binwidth,
+    ymin = lower,
+    ymax = upper,
+    color = beta
+  )) +
+  geom_linerange(size=2) +
+  coord_flip() +
+  scale_color_gradientn(
+    colors = c("red", "darkgray", "blue"),
+    limits = c(-plot_robustness_beta_max, plot_robustness_beta_max),
+    breaks = c(-plot_robustness_beta_max, 0, plot_robustness_beta_max),
+    labels = c(paste0(-plot_robustness_beta_max,"-"), "0", paste0(plot_robustness_beta_max,"+")),
+    name=expression(beta[ridge])
+    ) +
+  labs(
+    y = "Energy (kJ/mol)",
+    x = "Width of histogram bins (kJ/mol)"
+  )
+
+# ToBaCCo plots
+# TODO
+
+# Methane predictions
+p_ch4_vol <- p_2bar_data %>% 
+  mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0)
+p_ch4_vol$plots$parity_full +
+  scale_x_continuous(limits = c(0,250)) +
+  scale_y_continuous(limits = c(0,250))
+ch4_base_hist <- p_ch4_grids %>% 
+  filter(dirname == "hMOF-71") %>%  # Using the same MOF as the sample H2 histogram
+  plot_hist_bins(ch4_binspec)
+list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
+  map(mutate_col_to_gL, df=p_2bar_data) %>%
+  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
+
+# CCDC applicability, etc.
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+```
+
+
+## Answered questions from meetings
+
+> How does glmnet quantify the error for the residual?  What's the default?
+
+I looked through the source code and found that this is determined via options to `cv.glmnet`.  By default, regression errors use the MSE calculated using 10-fold CV.
+
+
+## TODO notes from meetings
+Different things to consider for the analysis and manuscript.
+
+### General
+* Finish a second revision of the outline/manuscript
+* Aggregate TODOs into this document to wrap up exploration and decisions
+
+### ToBaCCo errors
+* Make explicit order of plotting (or use two subplots) for ToBaCCo structures with hMOF topologies.  Some density of red points might be hidden behind the gray mass, and the fit could possibly be better than expected.
+* Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
+* Combining the 1000 + 1000 might be the way to go for the paper, since it also simplifies the story.
+
+### Input accuracy
+* Verify against RASPA grids or energy of points at a specified xyz.
+* Are we using enough unit cells in the energy calculation?
+* FH corrections? (do these actually substantially add to the computational cost?)
+
+### Model formulation
+* Trying MLR only (top priority)
+* Is it possible to fit a good model to ToBaCCo only?
+* Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
+
+### Figures 
+* Set up better infrastructure for automating figure generation
+* Consider only showing the test data (blue) on a plot.  Including the training data can be confusing.
+* Label Q2 (and other stats?) directly on the plot.
+* Make these figures much bigger so we don't have to squint/zoom
+* Set the size of the figures within R to get consistent font sizes and typefaces.
+* "training on a combined database" should use independent data for training and testing
+
+### Other from group meeting 12/7
+* Beta interpretation: Why do strongly attractive energies not have a highly negative beta?  You'd expect it to be wasted pore volume like the "Inf" bin, thus have a similar beta.
+* What about higher T for desorption?
+* vf distribution of the ToBaCCo MOFs?  How similar is it to the hMOFs?
+* Recall the plot on ToBaCCo error vs. LCD.
+* L10 would have a low LCD since it's short.
+* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs?
+* Should the lowest ToBaCCo bins be included with the top bin?
+* Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
+
+### Code
+* Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
+
+### Unfinished from tobacco_exploration.Rmd
+* Somehow filter out all of the metallic CCDC structures.
+* Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
+* Re-implement prediction workflow in C++?
+
+#### Data that still needs a final version
+* Complete hydrogen adsorption data at 2 bar, 77 K in the ToBaCCo MOFs
+* Wilmer's CH4 data to compare against the chemical intutition paper?
+
+#### Other possible directions
+* What sort of capacity could you get with a uniform background potential?
+* Consider generating parity plots, faceted by bin and colored by beta*z (the model contribution).  Do these appear consistent between the hMOFs and ToBaCCo?  Maybe the problem is bin 19 and the difference between a z of 0.5-2.0 (hMOFs) and -1 to 0 (ToBaCCo). Maybe a different bin would help?
+* Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
+* Separate hMOF models by topology?  Does the error depend on the number of distinct pores in the various topologies?
+* Testing FH on a subset of MOFs (worst performing) to see how sensitive the energy is.
+* Trying out traditional textural properties, or adding them to my set of energy-based features
+* Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
+
+
