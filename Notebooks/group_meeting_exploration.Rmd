@@ -118,6 +118,31 @@ ccdc_h2_grids %>%
 I looked through the source code and found that this is determined via options to `cv.glmnet`.  By default, regression errors use the MSE calculated using 10-fold CV.
 
 
+## Questions on model formulation
+
+### Multiple linear regression
+What does a basic MLR model tell you?  Does that fix the issues fitting ToBaCCo?
+
+Note that trying to set lambda to zero doesn't actually match the fit from `lm`, possibly due to the solution method.  It's possible that the `thresh` flag to glmnet may need to be specified to a stricter tolerance to get the coefficients to match more closely.
+
+```{r mlr_test}
+# lambda=0 (unpenalized) ridge regression
+mlr_from_glmnet <- 
+  gcmc_data %>% 
+  mutate(g.L = g.L) %>% 
+  run_model_on_partitions(hmof_hist_sets, ., default_binspec, 0, 0)
+coef_tbl(mlr_from_glmnet$trained_mod$mod)
+print(mlr_from_glmnet)
+
+# R's built-in command `lm` on the standardized data
+bind_cols(y=mlr_from_glmnet$trained_mod$y, mlr_from_glmnet$trained_mod$x) %>% lm(data = .)
+
+# Does glmnet's MLR look better for ToBaCCo than earlier?
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, lambda=0)
+
+```
+
+
 ## TODO notes from meetings
 Different things to consider for the analysis and manuscript.
 
@@ -137,8 +162,10 @@ Different things to consider for the analysis and manuscript.
 
 ### Model formulation
 * Trying MLR only (top priority)
+* Skip standardization AND set the intercept to zero??
 * Is it possible to fit a good model to ToBaCCo only?
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
+* Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
 
 ### Figures 
 * Set up better infrastructure for automating figure generation
@@ -147,6 +174,8 @@ Different things to consider for the analysis and manuscript.
 * Make these figures much bigger so we don't have to squint/zoom
 * Set the size of the figures within R to get consistent font sizes and typefaces.
 * "training on a combined database" should use independent data for training and testing
+* Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
+* Consider drawing in [cowplot](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
 
 ### Other from group meeting 12/7
 * Beta interpretation: Why do strongly attractive energies not have a highly negative beta?  You'd expect it to be wasted pore volume like the "Inf" bin, thus have a similar beta.
@@ -178,5 +207,7 @@ Different things to consider for the analysis and manuscript.
 * Testing FH on a subset of MOFs (worst performing) to see how sensitive the energy is.
 * Trying out traditional textural properties, or adding them to my set of energy-based features
 * Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
+* Is there a relationship between the betas at different P/T?  That could help optimize operating parameters if we can interpolate predictive models.
+* Do we have examples of similar histograms but completely different performance?
 
 
