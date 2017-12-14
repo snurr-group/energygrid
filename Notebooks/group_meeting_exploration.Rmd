@@ -13,9 +13,12 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 ```{r setup_data, include=FALSE}
 # Has to be run in a separate block as above
 source("Notebooks/setup_data.R")
+library(plotly)
 ```
 
-## Figures for main text of manuscript
+## Figures for manuscript
+
+### Main text
 Recreate (and export) figures in one block.  Possibly will be externalized into a separate script later.
 
 ```{r make_figures}
@@ -111,6 +114,34 @@ ccdc_h2_grids %>%
 ```
 
 
+### Supporting Information
+
+This section is still largely TODO but at least can be done in part for some of the more important figures.
+
+```{r si_figures}
+## hMOF vs. ToBaCCo diagnostic
+# When applying the hMOF model to ToBaCCo, is the prediction accuracy related to topological overlap with the hMOFs?
+# Previously this was a single color hidden behind ToBaCCo points.  Faceting is probably clearer and more informative, since we can compare hMOF vs. non-hMOF topologies
+# NOTE: these data will be incomplete until the 2 bar, 77 K data are filled in the (revised) GCMC spreadsheet, hence why **pcu** is missing.
+hmof_predicting_tobacco <- 
+  tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .) %>% 
+  .$pred_df
+tobacco_by_top_plot <- 
+  hmof_predicting_tobacco %>% 
+  mutate(in_hmof = ifelse(topology %in% c("pcu", "sra", "diab", "tbo", "nbo", "fcu"), topology, "other")) %>% 
+  ggplot(aes(y_act, y_pred, text=filename)) +
+  geom_point() +
+  parity_line +
+  facet_wrap(~in_hmof) +
+  #xlim(c(0,60)) + ylim(c(0,60))
+  coord_fixed(xlim=c(0,60), ylim=c(0,60))
+print(tobacco_by_top_plot)
+
+```
+
+
 ## Answered questions from meetings
 
 > How does glmnet quantify the error for the residual?  What's the default?
@@ -118,7 +149,7 @@ ccdc_h2_grids %>%
 I looked through the source code and found that this is determined via options to `cv.glmnet`.  By default, regression errors use the MSE calculated using 10-fold CV.
 
 
-## Questions on model formulation
+## Questions on model formulation and ToBaCCo (dis)agreement
 
 ### Multiple linear regression
 What does a basic MLR model tell you?  Does that fix the issues fitting ToBaCCo?
@@ -172,7 +203,6 @@ Different things to consider for the analysis and manuscript.
 * Aggregate TODOs into this document to wrap up exploration and decisions
 
 ### ToBaCCo errors
-* Make explicit order of plotting (or use two subplots) for ToBaCCo structures with hMOF topologies.  Some density of red points might be hidden behind the gray mass, and the fit could possibly be better than expected.
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
 * Combining the 1000 + 1000 might be the way to go for the paper, since it also simplifies the story.
 
@@ -183,7 +213,7 @@ Different things to consider for the analysis and manuscript.
 
 ### Model formulation
 * Check if glmnet's standardize flag is causing the issues with CV.
-* Skip standardization AND set the intercept to zero??
+* Skip all standardization AND set the intercept to zero??
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
 * Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
 
