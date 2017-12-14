@@ -123,7 +123,7 @@ I looked through the source code and found that this is determined via options t
 ### Multiple linear regression
 What does a basic MLR model tell you?  Does that fix the issues fitting ToBaCCo?
 
-Note that trying to set lambda to zero doesn't actually match the fit from `lm`, possibly due to the solution method.  It's possible that the `thresh` flag to glmnet may need to be specified to a stricter tolerance to get the coefficients to match more closely.
+Note that trying to set lambda to zero doesn't actually match the fit from `lm`, possibly due to the solution method.  It turns out that the `glmnet` command needs the `thresh` flag set to a stricter tolerance to get the coefficients to match more closely.
 
 ```{r mlr_test}
 # lambda=0 (unpenalized) ridge regression
@@ -137,10 +137,31 @@ print(mlr_from_glmnet)
 # R's built-in command `lm` on the standardized data
 bind_cols(y=mlr_from_glmnet$trained_mod$y, mlr_from_glmnet$trained_mod$x) %>% lm(data = .)
 
+# A few more attempts at making glmnet match lm
+# Standardize doesn't do anything differently since I've already scaled the input data
+glmnet(as.matrix(mlr_from_glmnet$trained_mod$x), mlr_from_glmnet$trained_mod$y, alpha=0, lambda=0, standardize=FALSE) %>% coef %>% as.matrix
+# Using LASSO doesn't change anything
+glmnet(as.matrix(mlr_from_glmnet$trained_mod$x), mlr_from_glmnet$trained_mod$y, alpha=1, lambda=0) %>% coef %>% as.matrix
+# Convergence criteria?  Yes, this was the reason for the discrepancies with plain lm.
+glmnet(as.matrix(mlr_from_glmnet$trained_mod$x), mlr_from_glmnet$trained_mod$y, alpha=1, lambda=0, thresh=1e-16) %>% coef %>% as.matrix
+
 # Does glmnet's MLR look better for ToBaCCo than earlier?
 run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, lambda=0)
 
+# Now that the MLR details have been sorted out (and the lambda selection is set to minimum CV MSE), how does the pure ToBaCCo model look?
+test_with_cv_min <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+print(test_with_cv_min)
+test_with_cv_min$trained_mod$cv_for_lambda %>% plot
+# And with a semi-randomly selected lambda?
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, lambda=1e-2)
+
+# Finally, how does LASSO perform?
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 1)
 ```
+
+Even with the knowledge gained from the MLR experiment, it appears that the cv.glmnet function is still having issues properly optimizing lambda the way I want to (poorer Q2 and training data statistics than my manually tuned lambda=0).  This is disappointing because trying a manual lambda of 1e-2 gets a better Q2 as well as the statistics on the testing data.
+
+However, from these runs, we verify that glmnet is indeed using CV error, otherwise the training fit would be better than by semi-randomly selected value.  But maybe part of the reason for the difficulty is that ridge regression is penalizing the important terms too much without excluding the small ones.
 
 
 ## TODO notes from meetings
@@ -157,13 +178,12 @@ Different things to consider for the analysis and manuscript.
 
 ### Input accuracy
 * Verify against RASPA grids or energy of points at a specified xyz.
-* Are we using enough unit cells in the energy calculation?
+* Are we using enough unit cells in the energy calculation?  We should consider calculating this like Yamil and RASPA using perpendicular distances
 * FH corrections? (do these actually substantially add to the computational cost?)
 
 ### Model formulation
-* Trying MLR only (top priority)
+* Check if glmnet's standardize flag is causing the issues with CV.
 * Skip standardization AND set the intercept to zero??
-* Is it possible to fit a good model to ToBaCCo only?
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
 * Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
 
@@ -193,7 +213,7 @@ Different things to consider for the analysis and manuscript.
 ### Unfinished from tobacco_exploration.Rmd
 * Somehow filter out all of the metallic CCDC structures.
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
-* Re-implement prediction workflow in C++?
+* Re-implement prediction workflow in C++? (only necessary if we release an online interface)
 
 #### Data that still needs a final version
 * Complete hydrogen adsorption data at 2 bar, 77 K in the ToBaCCo MOFs

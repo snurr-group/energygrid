@@ -162,13 +162,15 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE) {
   # If lambda is not defined, let's calculate the largest (most regularized) value within one SE of the min. cross-validated error
   cvfit <- NULL
   if (is.null(lambda)) {
-    trial_lambdas <- 10^seq(10, -2, length = 100)  # Idea from https://www.r-bloggers.com/ridge-regression-and-the-lasso/
-    cvfit <- cv.glmnet(as.matrix(x), y, alpha=alpha, nfolds=10, type.measure="mse", lambda=trial_lambdas)
-    lambda <- cvfit$lambda.1se
+    trial_lambdas <- 10^seq(10, -6, length = 81)  # Idea from https://www.r-bloggers.com/ridge-regression-and-the-lasso/
+    cvfit <- cv.glmnet(as.matrix(x), y, alpha=alpha, nfolds=10, type.measure="mse", lambda=trial_lambdas, intercept=fit_intercept)
+    lambda <- cvfit$lambda.min
   }
   
   # Actually run the model
-  mod <- glmnet(as.matrix(x), y, alpha=alpha, lambda=lambda, intercept=fit_intercept)  # alpha=0 is ridge regression
+  # alpha=0 is ridge regression,
+  # We do not need to restandardize x (or y), which glmnet is likely doing.
+  mod <- glmnet(as.matrix(x), y, alpha=alpha, lambda=lambda, intercept=fit_intercept)
   
   # Return the relevant model details
   list(
