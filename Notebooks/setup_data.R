@@ -68,9 +68,11 @@ source("R/regression_and_features.R")  # Get regression utilities
 ### From load_low_p code block
 # Also import the new low pressure data
 
-# Update 11/22: also get 2 bar, 77 K data (incomplete GCMC)
-low_p_h2_data <- read_table2(
-  "BigData/Emails/tobacco-2bar-incomplete-20171121/comb-volume.txt",
+# Update 12/14: import Scotty's (revised, mostly complete) GCMC results for H2 ToBaCCo, low P
+# Also a few columns at higher P for verification
+
+low_p_h2_data <- read_tsv(
+  "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_2bar_77k.tsv",
   col_names = c("tob.num", "id", "h2.v.v.2.77", "h2.err.v.v.2.77"),
   col_types = "icnn"
 )

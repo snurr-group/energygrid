@@ -195,6 +195,104 @@ Even with the knowledge gained from the MLR experiment, it appears that the cv.g
 However, from these runs, we verify that glmnet is indeed using CV error, otherwise the training fit would be better than by semi-randomly selected value.  But maybe part of the reason for the difficulty is that ridge regression is penalizing the important terms too much without excluding the small ones.
 
 
+### Verify agreement between Scotty and Yamil
+Scotty reran ToBaCCo simulations at 5 bar/160 K and 100 bar/77 K to verify consistency between his and Yamil's simulation implementations.  Let's double check that there isn't anything unusual going on here.
+
+```{r scotty_vs_yamil}
+scotty_rerun <- tobacco_data
+scotty_rerun <- read_tsv(
+  "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_5bar_160k.tsv",
+  col_names = c("tob.num", "id", "sc.h2.v.v.5.160", "sc.h2.err.v.v.5.160"),
+  col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`sc.h2.g.L.5.160` = `sc.h2.v.v.5.160` * 2.0 / 22.4) %>% 
+  mutate(`sc.h2.err.g.L.5.160` = `sc.h2.err.v.v.5.160` * 2.0 / 22.4) %>% 
+  left_join(scotty_rerun, ., by="id")
+scotty_rerun <- read_tsv(
+  "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_100bar_77k.tsv",
+  col_names = c("tob.num", "id", "sc.h2.v.v.100.77", "sc.h2.err.v.v.100.77"),
+  col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`sc.h2.g.L.100.77` = `sc.h2.v.v.100.77` * 2.0 / 22.4) %>% 
+  mutate(`sc.h2.err.g.L.100.77` = `sc.h2.err.v.v.100.77` * 2.0 / 22.4) %>% 
+  left_join(scotty_rerun, ., by="id")
+
+scotty_rerun %>% ggplot(aes(h2.g.L.100.77, sc.h2.g.L.100.77)) + geom_point() + coord_equal()
+scotty_rerun %>% ggplot(aes(h2.g.L.5.160, sc.h2.g.L.5.160)) + geom_point() + coord_equal()
+
+# Do these discrepancies account for the strangeness in my model?
+# First, model error vs. GCMC error
+test_with_cv_min$pred_df %>%
+  inner_join(scotty_rerun, by="id") %>%
+  ggplot(aes(y_act-y_pred, sc.h2.g.L.100.77-h2.g.L.100.77)) +
+  geom_point() +
+  coord_fixed() +
+  parity_line
+# Next, does the training work better on the new GCMC data?
+test_sc_tob_grids <- 
+  scotty_rerun %>% 
+  select(sc.h2.g.L.100.77, h2.g.L.2.77, id) %>% 
+  na.omit %>% 
+  .$id %>% 
+  {filter(grids_h2, id %in% .)}  # per Github readme, can use braces to break up magrittr's first argument rule
+test_sc_tob_model <- 
+  run_bin_model(
+    test_sc_tob_grids,
+    mutate(scotty_rerun, g.L=sc.h2.g.L.100.77-h2.g.L.2.77),
+    default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")],
+    alpha=0
+    )
+test_sc_tob_mod <- test_sc_tob_model$fitted_model[[1]]
+# From eval_test_grid:
+parity_plot(
+  test_sc_tob_mod$y,
+  pred_glmnet(test_sc_tob_mod, test_sc_tob_mod$orig_x),
+  "#CA7C1B"
+  )
+cat(paste("Q2 for the trained model is", test_sc_tob_model$q2), fill=TRUE)
+cat(paste("Lambda for the trained model is", test_sc_tob_mod$lambda), fill=TRUE)
+base_hist %>% overlay_cat_betas(coef_tbl(test_sc_tob_mod$mod), default_binspec, scaling=20.0)
+
+# If this trains so well, how well does the hMOF model work??
+scotty_rerun %>% 
+  mutate(y_act = sc.h2.g.L.100.77 - h2.g.L.2.77) %>% 
+  eval_test_grid(hmof_partitioned_mod$trained_mod, test_sc_tob_grids, default_binspec, .)
+  #.$pred_df
+# And ToBaCCo on the hMOF (since some of the bins may not quite align properly)
+gcmc_data %>% 
+  mutate(y_act = g.L) %>% 
+  eval_test_grid(test_sc_tob_mod, hmof_hist_sets$testing, default_binspec, .)
+
+```
+
+```{r ff_scatter}
+# Since we found issues with B and Si forcefield parameters, let's take another look at the scatters.
+# I forget if there was something minor with N, too.
+# See also /projects/p20067/DiegoGomez/RASPA/simulations/share/raspa/forcefield
+# First in Scotty vs. Yamil/Diego, then in the model predictions and fits
+
+bad_nodes <- "sym_13_mc_12|sym_16_mc_6|sym_4_on_14"
+
+(hmof_predicting_tobacco %>% 
+  mutate(in_ff = str_detect(filename, bad_nodes)) %>% 
+  ggplot(aes(y_act, y_pred, text=filename)) +
+  geom_point() +
+  parity_line +
+  facet_wrap(~in_ff) +
+  coord_fixed(xlim=c(0,60), ylim=c(0,60))
+  ) %>% 
+  ggplotly
+
+(scotty_rerun %>% 
+  mutate(in_ff = str_detect(filename, bad_nodes)) %>% 
+  ggplot(aes(h2.g.L.100.77, sc.h2.g.L.100.77, text=filename)) + geom_point() + coord_equal() +
+  facet_wrap(~in_ff)
+  ) %>% 
+  ggplotly
+```
+
 ## TODO notes from meetings
 Different things to consider for the analysis and manuscript.
 
