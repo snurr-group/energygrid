@@ -317,7 +317,6 @@ Different things to consider for the analysis and manuscript.
 
 ### Figures 
 * Set up better infrastructure for automating figure generation
-* Consider only showing the test data (blue) on a plot.  Including the training data can be confusing.
 * Label Q2 (and other stats?) directly on the plot.
 * Make these figures much bigger so we don't have to squint/zoom
 * Set the size of the figures within R to get consistent font sizes and typefaces.
@@ -330,7 +329,7 @@ Different things to consider for the analysis and manuscript.
 * What about higher T for desorption?
 * vf distribution of the ToBaCCo MOFs?  How similar is it to the hMOFs?
 * Recall the plot on ToBaCCo error vs. LCD.
-* L10 would have a low LCD since it's short.
+* L10 would have a low LCD since it's short. (TODO: plot distribution of pore sizes.  Do these tend as significantly smaller?)
 * How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs?
 * Should the lowest ToBaCCo bins be included with the top bin?
 * Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
@@ -344,7 +343,6 @@ Different things to consider for the analysis and manuscript.
 * Re-implement prediction workflow in C++? (only necessary if we release an online interface)
 
 #### Data that still needs a final version
-* Complete hydrogen adsorption data at 2 bar, 77 K in the ToBaCCo MOFs
 * Wilmer's CH4 data to compare against the chemical intutition paper?
 
 #### Other possible directions

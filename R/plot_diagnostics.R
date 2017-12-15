@@ -113,6 +113,9 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
       alpha=I(0.10),  # Make slightly darker
       color=I("#0070C0")
     )
+  results$plots$parity_testing <- 
+    parity_plot(y_act, y_pred, "#0070C0") +
+    ylab(paste0("Predicted uptake (", perf_model,")"))
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 
     ggplot(aes(y_pred - y_act)) +
@@ -174,6 +177,7 @@ print.partitioned_glmnet <- function(x) {
   print(x$testing_fit)
   
   print(x$plots$parity_training)
+  print(x$plots$parity_testing)
   print(x$plots$parity_full)
   print(x$plots$resid_normality)
   
