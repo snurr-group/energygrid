@@ -108,6 +108,7 @@ list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>%
   overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
 
 # CCDC applicability, etc.
+print("Note: revised below in another code block")
 ccdc_h2_grids %>% 
   filter(id %in% ccdc_gcmc$id) %>% 
   eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
@@ -293,12 +294,94 @@ bad_nodes <- "sym_13_mc_12|sym_16_mc_6|sym_4_on_14"
   ggplotly
 ```
 
+
+## Preparing CSD MOFs for screening
+In order to successfully analyze the CSD MOFs, we need to filter out the purely metallic structures.  Those are only pseudo-materials of specially spatially-arranged atoms.  Since they aren't MOFs, the model does not predict them well, either.
+
+Finding MOFs without carbon isn't too difficult.  Open Babel has a convenient [command line option](https://openbabel.org/docs/dev/Command-line_tools/babel.html#append-option) to print out the molecular formula.  Then, we can use some basic text processing tools within R to explore which structures contain carbon, oxygen, etc.
+
+```
+# For whatever reason, the first attempt failed.  So I tried a for loop, but the startup penalty from the symmetry file is too great.
+#for cif in /cygdrive/c/Users/Benjamin/Git/EnergyGrid/BigData/cifs_from_csddata/*.cif; do echo "Processing $cif"; echo "$cif" >> processed_csd_cifs.txt; obabel "$cif" -ab -otxt --append "\tFORMULA" >> csd_formula.txt; done
+# Instead, just run it within the proper directory, and ignore bonding
+cd /cygdrive/c/Users/Benjamin/Git/EnergyGrid/BigData/cifs_from_csddata;
+obabel *.cif -ab -otxt --append "\tFORMULA" >> ../csd_formula.txt
+# Note, the output has multiple warnings about atom labels like '0', '1', and '1.'.
+```
+
+```{r csd_formula}
+raw_csd_formulas <- read_tsv(
+  "BigData/csd_formula.txt",
+  col_names = c("cif", "str_formula"),
+  col_types = "cc"
+  )
+library(CHNOSZ)
+
+# We can convert a purrr list to data.frame using dplyr::bind_rows.
+# See also https://github.com/tidyverse/dplyr/issues/1676 for the as.list invocation,
+# which converts each named vector into its own list
+# TODO: consider using `safely` to parse or hide errors
+csd_formulas <- 
+  raw_csd_formulas$str_formula %>% 
+  as.list %>% 
+  map(makeup) %>% 
+  map(as.list) %>% 
+  bind_rows %>% 
+  bind_cols(raw_csd_formulas, .)
+
+# Let's implement a less stringent form of the CoRE MOF requirements.
+# Here, we'll require MOFs to contain at least one of C, N, P, and S.
+# First, how different are the results if we filter by has_"just C" instead of the whole set?
+csd_formulas %>% filter(is.na(C) & is.na(N) & is.na(P) & is.na(S)) %>% nrow
+csd_formulas %>% filter(is.na(C)) %>% nrow
+# Based on that analysis, it's probably okay for a first pass to be less restrictive
+print("Structures to remove (without C, N, P, or S):")
+csd_formulas <- 
+  csd_formulas %>% 
+  mutate(missing_cnps = (is.na(C) & is.na(N) & is.na(P) & is.na(S)))
+no_cnps <- csd_formulas %>%
+  filter(missing_cnps) %>% 
+  select(cif, str_formula)
+no_cnps
+no_cnps %>% 
+  select(cif) %>% 
+  write_tsv("BigData/Output/csd_mofs_without_cnps.txt", col_names = FALSE)
+
+# Now to look at the CCDC GCMC results and predictions without the pure metals
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  filter(!(id %in% no_cnps$cif)) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+
+if (!exists("ccdc_predicted")) {
+  ccdc_predicted <- pred_grid(trained_mod, ccdc_h2_grids, default_binspec)
+}
+ccdc_predicted %>% .$y_pred %>% hist()
+print("Summary of top 1000:")
+ccdc_predicted %>% 
+  filter(!(id %in% no_cnps$cif)) %>% 
+  .$y_pred %>%
+  sort(decreasing=TRUE) %>% .[1:1000] %>%
+  summary
+
+csd_formulas %>% 
+  filter(!missing_cnps) %>% 
+  select(cif, str_formula) %>% 
+  rename(id = cif) %>% 
+  inner_join(ccdc_predicted, by="id") %>% 
+  arrange(desc(y_pred)) %>% top_n(1000, y_pred)
+# Based on looking at a few of the top structures, the cleaned up versions are 1D rods, so not likely synthesizable.  But that's more a flaw of the database than the screening method, though it's possible the prediction method may not work well for non-MOF structures.
+```
+
+
+
 ## TODO notes from meetings
 Different things to consider for the analysis and manuscript.
 
 ### General
 * Finish a second revision of the outline/manuscript
 * Aggregate TODOs into this document to wrap up exploration and decisions
+* Send Scotty list of top CCDC candidates once we have a (near-final?) model
 
 ### ToBaCCo errors
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
@@ -330,7 +413,7 @@ Different things to consider for the analysis and manuscript.
 * vf distribution of the ToBaCCo MOFs?  How similar is it to the hMOFs?
 * Recall the plot on ToBaCCo error vs. LCD.
 * L10 would have a low LCD since it's short. (TODO: plot distribution of pore sizes.  Do these tend as significantly smaller?)
-* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs?
+* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
 * Should the lowest ToBaCCo bins be included with the top bin?
 * Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
 
@@ -338,7 +421,6 @@ Different things to consider for the analysis and manuscript.
 * Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
 
 ### Unfinished from tobacco_exploration.Rmd
-* Somehow filter out all of the metallic CCDC structures.
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
 * Re-implement prediction workflow in C++? (only necessary if we release an online interface)
 
