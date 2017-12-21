@@ -427,14 +427,14 @@ Different things to consider for the analysis and manuscript.
 * Aggregate TODOs into this document to wrap up exploration and decisions
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model
 
+### New with FH
+* Set up calculations using Scotty's RASPA input file
+* Convert RASPA ASCI_Grids to my old format from the C++ code: `cut -f 4 -d' ' asci_grid_H_com.grid | sed 's/^?$/Inf/'`
+* Run the model using the revised calculations
+
 ### ToBaCCo errors
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
 * Combining the 1000 + 1000 might be the way to go for the paper, since it also simplifies the story.
-
-### Input accuracy
-* Verify against RASPA grids or energy of points at a specified xyz.
-* Are we using enough unit cells in the energy calculation?  We should consider calculating this like Yamil and RASPA using perpendicular distances
-* FH corrections? (do these actually substantially add to the computational cost?)
 
 ### Model formulation
 * Check if glmnet's standardize flag is causing the issues with CV.
@@ -455,15 +455,13 @@ Different things to consider for the analysis and manuscript.
 * Beta interpretation: Why do strongly attractive energies not have a highly negative beta?  You'd expect it to be wasted pore volume like the "Inf" bin, thus have a similar beta.
 * What about higher T for desorption?
 * vf distribution of the ToBaCCo MOFs?  How similar is it to the hMOFs?
-* Recall the plot on ToBaCCo error vs. LCD.
-* L10 would have a low LCD since it's short. (TODO: plot distribution of pore sizes.  Do these tend as significantly smaller?)
 * How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
 * Should the lowest ToBaCCo bins be included with the top bin?
 * Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
 
 ### Code
 * Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
-* Why does RASPA insist on making my H_com atom follow a CFC force field?
+* Why does RASPA insist on making my H_com atom follow a CFC force field?  FH sidesteps this issue, but it may be important for a methane probe.
 
 ### Unfinished from tobacco_exploration.Rmd
 * Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
@@ -474,10 +472,7 @@ Different things to consider for the analysis and manuscript.
 
 #### Other possible directions
 * What sort of capacity could you get with a uniform background potential?
-* Consider generating parity plots, faceted by bin and colored by beta*z (the model contribution).  Do these appear consistent between the hMOFs and ToBaCCo?  Maybe the problem is bin 19 and the difference between a z of 0.5-2.0 (hMOFs) and -1 to 0 (ToBaCCo). Maybe a different bin would help?
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
-* Separate hMOF models by topology?  Does the error depend on the number of distinct pores in the various topologies?
-* Testing FH on a subset of MOFs (worst performing) to see how sensitive the energy is.
 * Trying out traditional textural properties, or adding them to my set of energy-based features
 * Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
 * Is there a relationship between the betas at different P/T?  That could help optimize operating parameters if we can interpolate predictive models.
