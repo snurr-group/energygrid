@@ -24,7 +24,7 @@ theme_set(theme_bw(base_size=16) + theme(aspect.ratio=1))  # Default ggplot2 par
 
 ### From load.data code block
 
-h2_types <- paste0("h2.", c("g.L", "mol.kg", "wtp"))
+h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
 tobacco_data <- read_xlsx(
   "BigData/CrystGrowthDesign_SI.xlsx",
   sheet = "data",
@@ -37,10 +37,10 @@ tobacco_data <- read_xlsx(
     paste0(h2_types, ".100.200"),
     paste0(h2_types, ".100.243"),
     paste0("h2.qst.6.", c(77, 130, 200, 243)),
-    paste0("ch4.", rep(c("v.v.", "mg.g."), 2), c("100.298", "100.298", "65.298", "65.298")),
+    paste0("y.ch4.", rep(c("v.v.", "mg.g."), 2), c("100.298", "100.298", "65.298", "65.298")),
     "ch4.qst.6.298",
-    paste0("xe.kr.1.", c("xe", "kr", "select")),
-    paste0("xe.kr.5.", c("xe", "kr", "select")),
+    paste0("y.xe.kr.1.", c("xe", "kr", "select")),
+    paste0("y.xe.kr.5.", c("xe", "kr", "select")),
     "topology",
     paste0("n1.", c("sym", "character", "ID")),
     paste0("n2.", c("sym", "character", "ID")),
@@ -60,6 +60,52 @@ scotty_codes <- read_tsv("BigData/tobacco-20171114/key.tsv", col_names = c("file
 scotty_codes <- scotty_codes %>% mutate(python.id = str_sub(filename, 1, -5))  # trim .cif suffix
 tobacco_data <- tobacco_data %>% inner_join(scotty_codes, by="python.id")
 
+# Add in Scotty's LJ-only GCMC
+tobacco_data <-
+  read_tsv(
+    "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_5bar_160k.tsv",
+    col_names = c("tob.num", "id", "lj.h2.v.v.5.160", "lj.h2.err.v.v.5.160"),
+    col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`lj.h2.g.L.5.160` = `lj.h2.v.v.5.160` * 2.0 / 22.4) %>% 
+  mutate(`lj.h2.err.g.L.5.160` = `lj.h2.err.v.v.5.160` * 2.0 / 22.4) %>% 
+  left_join(tobacco_data, ., by="id")
+tobacco_data <-
+  read_tsv(
+    "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_100bar_77k.tsv",
+    col_names = c("tob.num", "id", "lj.h2.v.v.100.77", "lj.h2.err.v.v.100.77"),
+    col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`lj.h2.g.L.100.77` = `lj.h2.v.v.100.77` * 2.0 / 22.4) %>% 
+  mutate(`lj.h2.err.g.L.100.77` = `lj.h2.err.v.v.100.77` * 2.0 / 22.4) %>% 
+  left_join(tobacco_data, ., by="id")
+
+# Now with Feynman-Hibbs
+tobacco_data <-
+  read_table2(
+    "BigData/Emails/partial-tobacco-w-fh-20171219/comb-2bar77k-volume.txt",
+    col_names = c("tob.num", "id", "fh.h2.v.v.2.77", "fh.h2.err.v.v.2.77"),
+    col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`fh.h2.g.L.2.77` = `fh.h2.v.v.2.77` * 2.0 / 22.4) %>% 
+  mutate(`fh.h2.err.g.L.2.77` = `fh.h2.err.v.v.2.77` * 2.0 / 22.4) %>% 
+  left_join(tobacco_data, ., by="id")
+tobacco_data <- 
+  read_table2(
+    "BigData/Emails/partial-tobacco-w-fh-20171219/comb-100bar77k-volume.txt",
+    col_names = c("tob.num", "id", "fh.h2.v.v.100.77", "fh.h2.err.v.v.100.77"),
+    col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`fh.h2.g.L.100.77` = `fh.h2.v.v.100.77` * 2.0 / 22.4) %>% 
+  mutate(`fh.h2.err.g.L.100.77` = `fh.h2.err.v.v.100.77` * 2.0 / 22.4) %>% 
+  left_join(tobacco_data, ., by="id")
+
+
+
 DATA_SPLIT <- c(0.4, 0.4, 0.2)
 R_GAS_KJ <- 8.314 / 1000
 source("R/regression_and_features.R")  # Get regression utilities
@@ -73,17 +119,17 @@ source("R/regression_and_features.R")  # Get regression utilities
 
 low_p_h2_data <- read_tsv(
   "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_2bar_77k.tsv",
-  col_names = c("tob.num", "id", "h2.v.v.2.77", "h2.err.v.v.2.77"),
+  col_names = c("tob.num", "id", "nofh.h2.v.v.2.77", "nofh.h2.err.v.v.2.77"),
   col_types = "icnn"
 )
 
 low_p_h2_data <- low_p_h2_data %>% 
-  mutate(`h2.g.L.2.77` = `h2.v.v.2.77` * 2.0 / 22.4) %>% 
-  mutate(`h2.err.g.L.2.77` = `h2.err.v.v.2.77` * 2.0 / 22.4)
+  mutate(`nofh.h2.g.L.2.77` = `nofh.h2.v.v.2.77` * 2.0 / 22.4) %>% 
+  mutate(`nofh.h2.err.g.L.2.77` = `nofh.h2.err.v.v.2.77` * 2.0 / 22.4)
 tobacco_data <- tobacco_data %>% left_join(low_p_h2_data, by="id")
 # Warning: ToBaCCo data will contain rows with missing deliverable capcity.
 # Training and testing code will need to handle these NAs.
-tobacco_data <- tobacco_data %>% mutate(h2.deliv.77 = h2.g.L.100.77 - h2.g.L.2.77)
+tobacco_data <- tobacco_data %>% mutate(redo.h2.deliv.77 = y.h2.g.L.100.77 - nofh.h2.g.L.2.77)
 
 
 # 77 K / 6 bar from EES paper, Yamil, 2017-11-15
@@ -127,7 +173,7 @@ raw_ch4_6_bar <- read_xlsx(
   "BigData/Emails/tobacco-yamil-20171115/6bar.xlsx",
   sheet = "CH4",
   skip = 1, na = "inf",
-  col_names = c("MOF.ID", paste0("ch4.", c("v.v", "mg.g"), ".6.298"))
+  col_names = c("MOF.ID", paste0("y.ch4.", c("v.v", "mg.g"), ".6.298"))
 )
 tobacco_data <- tobacco_data %>% inner_join(raw_ch4_6_bar, by="MOF.ID")
 
@@ -142,7 +188,7 @@ if (!exists("raw_grids_h2")) {
 ### From partition_data code block
 
 tob_y_to_join <- tobacco_data %>% 
-  rename(g.L = h2.deliv.77) %>% 
+  rename(g.L = redo.h2.deliv.77) %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))  # Clean up unphysical MOFs
 complete_ids <- raw_grids_h2 %>% 
@@ -178,7 +224,7 @@ raw_ch4_hmof <- read_tsv(
     paste("ch4", raw_2500_cols, "5_8.298", sep="."),
     paste("ch4", raw_2500_cols, "65.298", sep=".")
   ),
-  col_types = "innnnnnnnn" # TODO FINISH
+  col_types = "innnnnnnnn" # TODO update simulations or grids for the full database
 )
 # Note: some columns only have a "#NAME?" flag in the kJ/mol column, but zero in the other two, so clean them up here:
 # deletes rows without any GCMC and erroneous zero entries associated with a corresponding NA
@@ -191,6 +237,7 @@ raw_ch4_hmof <- raw_ch4_hmof %>%
 gcmc_data <- gcmc_data %>% 
   left_join(raw_ch4_hmof, by="id")
 
+# TODO: update H2 grids including FH for consistency between all H2 data
 hmof_h2_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
 hmof_h2_grid <- hmof_h2_grid %>%
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
