@@ -1,0 +1,464 @@
+---
+title: "Generating figures for the manuscript"
+author: "Ben Bucior"
+date: "December 20, 2017"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r setup_data, include=FALSE}
+# Has to be run in a separate block as above
+source("Notebooks/setup_data.R")
+library(plotly)
+```
+
+## Figures for manuscript
+
+### Main text
+Recreate (and export) figures in one block.  Possibly will be externalized into a separate script later.
+
+```{r make_figures}
+# Figures on adsorption strength (conceptual) and ML workflow (to update, but external)
+# (likely generated within other software)
+
+# Coefficients for ridge regression model
+hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0)
+trained_mod <- hmof_partitioned_mod$trained_mod
+base_hist <- hmof_h2_grid %>% 
+  filter(id == 71) %>% 
+  plot_hist_bins(default_binspec)
+base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
+
+# Beta coefficients for different pressures and temperatures
+# For help on NSE in dplyr, see vignette("programming")
+library(rlang)  # see also https://github.com/tidyverse/rlang/issues/116
+mutate_col_to_gL <- function(df, newcol) {
+  mutate(df, g.L = !!sym(newcol))
+}
+## Previously used for the CH4 plots, but no reason not to adapt it for T and P of H2
+list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>% 
+  map(mutate_col_to_gL, df = gcmc_data) %>%
+  map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(base_hist, ., default_binspec)
+p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
+p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
+list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>% 
+  map(mutate_col_to_gL, df = p_2bar_data) %>%
+  map(function(x) run_model_on_partitions(p_2bar_sets, x, default_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(base_hist, ., default_binspec)
+
+
+# Model fit for hMOF ridge regression mdoel
+print(hmof_partitioned_mod)
+
+# Robustness to histogram binning strategy
+hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")
+plot_robustness_bin_gap <- 0.05
+plot_robustness_beta_max <- 5
+hyper_tuned_hist %>% 
+  mutate(beta = ifelse(beta > plot_robustness_beta_max, plot_robustness_beta_max, beta)) %>% 
+  mutate(beta = ifelse(beta < -plot_robustness_beta_max, -plot_robustness_beta_max, beta)) %>% 
+  mutate(lower = lower + plot_robustness_bin_gap, upper = upper - plot_robustness_bin_gap) %>% 
+  ggplot(aes(
+    x = binwidth,
+    ymin = lower,
+    ymax = upper,
+    color = beta
+  )) +
+  geom_linerange(size=2) +
+  coord_flip() +
+  scale_color_gradientn(
+    colors = c("red", "darkgray", "blue"),
+    limits = c(-plot_robustness_beta_max, plot_robustness_beta_max),
+    breaks = c(-plot_robustness_beta_max, 0, plot_robustness_beta_max),
+    labels = c(paste0(-plot_robustness_beta_max,"-"), "0", paste0(plot_robustness_beta_max,"+")),
+    name=expression(beta[ridge])
+    ) +
+  labs(
+    y = "Energy (kJ/mol)",
+    x = "Width of histogram bins (kJ/mol)"
+  )
+
+# ToBaCCo plots
+# TODO
+
+# Methane predictions
+p_ch4_vol <- p_2bar_data %>% 
+  mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0)
+p_ch4_vol$plots$parity_full +
+  scale_x_continuous(limits = c(0,250)) +
+  scale_y_continuous(limits = c(0,250))
+ch4_base_hist <- p_ch4_grids %>% 
+  filter(dirname == "hMOF-71") %>%  # Using the same MOF as the sample H2 histogram
+  plot_hist_bins(ch4_binspec)
+list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
+  map(mutate_col_to_gL, df=p_2bar_data) %>%
+  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
+
+# CCDC applicability, etc.
+print("Note: revised below in another code block")
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+```
+
+
+### Supporting Information
+
+This section is still largely TODO but at least can be done in part for some of the more important figures.
+
+```{r si_figures}
+## hMOF vs. ToBaCCo diagnostic
+## TODO: revised from old version of document
+hmof_predicting_tobacco <- 
+  tobacco_data %>% 
+  mutate(y_act = h2.deliv.77) %>% 
+  eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .) %>% 
+  .$pred_df
+
+
+```
+
+## FIXME: clean up the file I/O and remainder of this notebook
+
+## Questions on model formulation and ToBaCCo (dis)agreement
+
+### Multiple linear regression
+What does a basic MLR model tell you?  Does that fix the issues fitting ToBaCCo?
+
+Note that trying to set lambda to zero doesn't actually match the fit from `lm`, possibly due to the solution method.  It turns out that the `glmnet` command needs the `thresh` flag set to a stricter tolerance to get the coefficients to match more closely.
+
+```{r mlr_test}
+# lambda=0 (unpenalized) ridge regression
+mlr_from_glmnet <- 
+  gcmc_data %>% 
+  mutate(g.L = g.L) %>% 
+  run_model_on_partitions(hmof_hist_sets, ., default_binspec, 0, 0)
+coef_tbl(mlr_from_glmnet$trained_mod$mod)
+print(mlr_from_glmnet)
+
+# R's built-in command `lm` on the standardized data
+bind_cols(y=mlr_from_glmnet$trained_mod$y, mlr_from_glmnet$trained_mod$x) %>% lm(data = .)
+
+# A few more attempts at making glmnet match lm
+# Standardize doesn't do anything differently since I've already scaled the input data
+glmnet(as.matrix(mlr_from_glmnet$trained_mod$x), mlr_from_glmnet$trained_mod$y, alpha=0, lambda=0, standardize=FALSE) %>% coef %>% as.matrix
+# Using LASSO doesn't change anything
+glmnet(as.matrix(mlr_from_glmnet$trained_mod$x), mlr_from_glmnet$trained_mod$y, alpha=1, lambda=0) %>% coef %>% as.matrix
+# Convergence criteria?  Yes, this was the reason for the discrepancies with plain lm.
+glmnet(as.matrix(mlr_from_glmnet$trained_mod$x), mlr_from_glmnet$trained_mod$y, alpha=1, lambda=0, thresh=1e-16) %>% coef %>% as.matrix
+
+# Does glmnet's MLR look better for ToBaCCo than earlier?
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, lambda=0)
+
+# Now that the MLR details have been sorted out (and the lambda selection is set to minimum CV MSE), how does the pure ToBaCCo model look?
+test_with_cv_min <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+print(test_with_cv_min)
+test_with_cv_min$trained_mod$cv_for_lambda %>% plot
+# And with a semi-randomly selected lambda?
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, lambda=1e-2)
+
+# Finally, how does LASSO perform?
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 1)
+```
+
+Even with the knowledge gained from the MLR experiment, it appears that the cv.glmnet function is still having issues properly optimizing lambda the way I want to (poorer Q2 and training data statistics than my manually tuned lambda=0).  This is disappointing because trying a manual lambda of 1e-2 gets a better Q2 as well as the statistics on the testing data.
+
+However, from these runs, we verify that glmnet is indeed using CV error, otherwise the training fit would be better than by semi-randomly selected value.  But maybe part of the reason for the difficulty is that ridge regression is penalizing the important terms too much without excluding the small ones.
+
+
+### Verify agreement between Scotty and Yamil
+Scotty reran ToBaCCo simulations at 5 bar/160 K and 100 bar/77 K to verify consistency between his and Yamil's simulation implementations.  Let's double check that there isn't anything unusual going on here.
+
+```{r scotty_vs_yamil}
+scotty_rerun <- tobacco_data
+scotty_rerun <- read_tsv(
+  "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_5bar_160k.tsv",
+  col_names = c("tob.num", "id", "sc.h2.v.v.5.160", "sc.h2.err.v.v.5.160"),
+  col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`sc.h2.g.L.5.160` = `sc.h2.v.v.5.160` * 2.0 / 22.4) %>% 
+  mutate(`sc.h2.err.g.L.5.160` = `sc.h2.err.v.v.5.160` * 2.0 / 22.4) %>% 
+  left_join(scotty_rerun, ., by="id")
+scotty_rerun <- read_tsv(
+  "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_100bar_77k.tsv",
+  col_names = c("tob.num", "id", "sc.h2.v.v.100.77", "sc.h2.err.v.v.100.77"),
+  col_types = "icnn"
+  ) %>% 
+  select(-tob.num) %>% 
+  mutate(`sc.h2.g.L.100.77` = `sc.h2.v.v.100.77` * 2.0 / 22.4) %>% 
+  mutate(`sc.h2.err.g.L.100.77` = `sc.h2.err.v.v.100.77` * 2.0 / 22.4) %>% 
+  left_join(scotty_rerun, ., by="id")
+
+scotty_rerun %>% ggplot(aes(h2.g.L.100.77, sc.h2.g.L.100.77)) + geom_point() + coord_equal()
+scotty_rerun %>% ggplot(aes(h2.g.L.5.160, sc.h2.g.L.5.160)) + geom_point() + coord_equal()
+
+# Do these discrepancies account for the strangeness in my model?
+# First, model error vs. GCMC error
+test_with_cv_min$pred_df %>%
+  inner_join(scotty_rerun, by="id") %>%
+  ggplot(aes(y_act-y_pred, sc.h2.g.L.100.77-h2.g.L.100.77)) +
+  geom_point() +
+  coord_fixed() +
+  parity_line
+# Next, does the training work better on the new GCMC data?
+test_sc_tob_grids <- 
+  scotty_rerun %>% 
+  select(sc.h2.g.L.100.77, h2.g.L.2.77, id) %>% 
+  na.omit %>% 
+  .$id %>% 
+  {filter(grids_h2, id %in% .)}  # per Github readme, can use braces to break up magrittr's first argument rule
+test_sc_tob_model <- 
+  run_bin_model(
+    test_sc_tob_grids,
+    mutate(scotty_rerun, g.L=sc.h2.g.L.100.77-h2.g.L.2.77),
+    default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")],
+    alpha=0
+    )
+test_sc_tob_mod <- test_sc_tob_model$fitted_model[[1]]
+# From eval_test_grid:
+parity_plot(
+  test_sc_tob_mod$y,
+  pred_glmnet(test_sc_tob_mod, test_sc_tob_mod$orig_x),
+  "#CA7C1B"
+  )
+cat(paste("Q2 for the trained model is", test_sc_tob_model$q2), fill=TRUE)
+cat(paste("Lambda for the trained model is", test_sc_tob_mod$lambda), fill=TRUE)
+base_hist %>% overlay_cat_betas(coef_tbl(test_sc_tob_mod$mod), default_binspec, scaling=20.0)
+
+# If this trains so well, how well does the hMOF model work??
+scotty_rerun %>% 
+  mutate(y_act = sc.h2.g.L.100.77 - h2.g.L.2.77) %>% 
+  eval_test_grid(hmof_partitioned_mod$trained_mod, test_sc_tob_grids, default_binspec, .)
+  #.$pred_df
+# And ToBaCCo on the hMOF (since some of the bins may not quite align properly)
+gcmc_data %>% 
+  mutate(y_act = g.L) %>% 
+  eval_test_grid(test_sc_tob_mod, hmof_hist_sets$testing, default_binspec, .)
+
+```
+
+```{r ff_scatter}
+# Since we found issues with B and Si forcefield parameters, let's take another look at the scatters.
+# I forget if there was something minor with N, too.
+# See also /projects/p20067/DiegoGomez/RASPA/simulations/share/raspa/forcefield
+# First in Scotty vs. Yamil/Diego, then in the model predictions and fits
+
+bad_nodes <- "sym_13_mc_12|sym_16_mc_6|sym_4_on_14"
+
+(hmof_predicting_tobacco %>% 
+  mutate(in_ff = str_detect(filename, bad_nodes)) %>% 
+  ggplot(aes(y_act, y_pred, text=filename)) +
+  geom_point() +
+  parity_line +
+  facet_wrap(~in_ff) +
+  coord_fixed(xlim=c(0,60), ylim=c(0,60))
+  ) %>% 
+  ggplotly
+
+(scotty_rerun %>% 
+  mutate(in_ff = str_detect(filename, bad_nodes)) %>% 
+  ggplot(aes(h2.g.L.100.77, sc.h2.g.L.100.77, text=filename)) + geom_point() + coord_equal() +
+  facet_wrap(~in_ff)
+  ) %>% 
+  ggplotly
+```
+
+Now, Scotty has run some additional calculations using Feynman-Hibbs.  How well do they agree with Yamil's (or Scotty's old calculations)?
+
+```{r revised_fh}
+partial_fh_sc <- scotty_rerun
+partial_fh_sc <-
+  read_table2(
+    "BigData/Emails/partial-tobacco-w-fh-20171219/comb-2bar77k-volume.txt",
+    col_names = c("tob.num", "id", "scfh.h2.v.v.2.77", "scfh.h2.err.v.v.2.77"),
+    col_types = "icnn"
+    ) %>% 
+  select(-tob.num) %>% 
+  mutate(`scfh.h2.g.L.2.77` = `scfh.h2.v.v.2.77` * 2.0 / 22.4) %>% 
+  mutate(`scfh.h2.err.g.L.2.77` = `scfh.h2.err.v.v.2.77` * 2.0 / 22.4) %>% 
+  left_join(partial_fh_sc, ., by="id")
+partial_fh_sc <- 
+    read_table2(
+    "BigData/Emails/partial-tobacco-w-fh-20171219/comb-100bar77k-volume.txt",
+    col_names = c("tob.num", "id", "scfh.h2.v.v.100.77", "scfh.h2.err.v.v.100.77"),
+    col_types = "icnn"
+    ) %>% 
+  select(-tob.num) %>% 
+  mutate(`scfh.h2.g.L.100.77` = `scfh.h2.v.v.100.77` * 2.0 / 22.4) %>% 
+  mutate(`scfh.h2.err.g.L.100.77` = `scfh.h2.err.v.v.100.77` * 2.0 / 22.4) %>% 
+  left_join(partial_fh_sc, ., by="id")
+
+partial_fh_sc %>% ggplot(aes(h2.g.L.2.77, scfh.h2.g.L.2.77)) + geom_point() + coord_fixed() + parity_line + xlab("2 bar data from Scotty, Dec. 14 (no FH)") + ylab("FH test with mixing rules, 2 bar, 77 K")
+
+#(
+partial_fh_sc %>%
+  mutate(in_ff = ifelse(str_detect(filename, bad_nodes), "Contains B or Si", "Others")) %>%
+  mutate(in_ff = ifelse((in_ff=="Others") & (cbb.ID==0 | cbb.ID==10), "L_10 or no linker", in_ff)) %>% 
+  mutate(in_ff = ifelse((in_ff=="Others") & str_detect(filename, "sym_8_mc_8"), "sym_8_mc_8", in_ff)) %>% 
+  filter(!is.na(in_ff)) %>% 
+  ggplot(aes(h2.g.L.100.77, scfh.h2.g.L.100.77, text=filename)) +
+  geom_point() + coord_fixed() + parity_line + 
+  xlab("Yamil, 100 bar, 77 K") + ylab("FH test with mixing rules, 100 bar, 77 K") + 
+  facet_wrap(~in_ff)#) %>% ggplotly
+
+partial_fh_sc %>% ggplot(aes(sc.h2.g.L.100.77, scfh.h2.g.L.100.77)) + geom_point() + coord_fixed() + parity_line + xlab("100 bar data from Scotty, Dec. 14 (no FH)") + ylab("FH test with mixing rules, 100 bar, 77 K")
+
+# I can try to associate the errors with void fraction and other textural properties, but it's difficult to draw conclusions
+partial_fh_sc %>% filter(!str_detect(filename, bad_nodes)) %>% mutate(in_ff = str_detect(filename, "L_10|__.cif")) %>% arrange(in_ff) %>% ggplot(aes(lcd, abs(h2.g.L.100.77-scfh.h2.g.L.100.77), col=in_ff)) + geom_point()
+```
+
+
+## Preparing CSD MOFs for screening
+In order to successfully analyze the CSD MOFs, we need to filter out the purely metallic structures.  Those are only pseudo-materials of specially spatially-arranged atoms.  Since they aren't MOFs, the model does not predict them well, either.
+
+Finding MOFs without carbon isn't too difficult.  Open Babel has a convenient [command line option](https://openbabel.org/docs/dev/Command-line_tools/babel.html#append-option) to print out the molecular formula.  Then, we can use some basic text processing tools within R to explore which structures contain carbon, oxygen, etc.
+
+```
+# For whatever reason, the first attempt failed.  So I tried a for loop, but the startup penalty from the symmetry file is too great.
+#for cif in /cygdrive/c/Users/Benjamin/Git/EnergyGrid/BigData/cifs_from_csddata/*.cif; do echo "Processing $cif"; echo "$cif" >> processed_csd_cifs.txt; obabel "$cif" -ab -otxt --append "\tFORMULA" >> csd_formula.txt; done
+# Instead, just run it within the proper directory, and ignore bonding
+cd /cygdrive/c/Users/Benjamin/Git/EnergyGrid/BigData/cifs_from_csddata;
+obabel *.cif -ab -otxt --append "\tFORMULA" >> ../csd_formula.txt
+# Note, the output has multiple warnings about atom labels like '0', '1', and '1.'.
+```
+
+```{r csd_formula}
+raw_csd_formulas <- read_tsv(
+  "BigData/csd_formula.txt",
+  col_names = c("cif", "str_formula"),
+  col_types = "cc"
+  )
+library(CHNOSZ)
+
+# We can convert a purrr list to data.frame using dplyr::bind_rows.
+# See also https://github.com/tidyverse/dplyr/issues/1676 for the as.list invocation,
+# which converts each named vector into its own list
+# TODO: consider using `safely` to parse or hide errors
+csd_formulas <- 
+  raw_csd_formulas$str_formula %>% 
+  as.list %>% 
+  map(makeup) %>% 
+  map(as.list) %>% 
+  bind_rows %>% 
+  bind_cols(raw_csd_formulas, .)
+
+# Let's implement a less stringent form of the CoRE MOF requirements.
+# Here, we'll require MOFs to contain at least one of C, N, P, and S.
+# First, how different are the results if we filter by has_"just C" instead of the whole set?
+csd_formulas %>% filter(is.na(C) & is.na(N) & is.na(P) & is.na(S)) %>% nrow
+csd_formulas %>% filter(is.na(C)) %>% nrow
+# Based on that analysis, it's probably okay for a first pass to be less restrictive
+print("Structures to remove (without C, N, P, or S):")
+csd_formulas <- 
+  csd_formulas %>% 
+  mutate(missing_cnps = (is.na(C) & is.na(N) & is.na(P) & is.na(S)))
+no_cnps <- csd_formulas %>%
+  filter(missing_cnps) %>% 
+  select(cif, str_formula)
+no_cnps
+no_cnps %>% 
+  select(cif) %>% 
+  write_tsv("BigData/Output/csd_mofs_without_cnps.txt", col_names = FALSE)
+
+# Now to look at the CCDC GCMC results and predictions without the pure metals
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  filter(!(id %in% no_cnps$cif)) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+
+if (!exists("ccdc_predicted")) {
+  ccdc_predicted <- pred_grid(trained_mod, ccdc_h2_grids, default_binspec)
+}
+ccdc_predicted %>% .$y_pred %>% hist()
+print("Summary of top 1000:")
+ccdc_predicted %>% 
+  filter(!(id %in% no_cnps$cif)) %>% 
+  .$y_pred %>%
+  sort(decreasing=TRUE) %>% .[1:1000] %>%
+  summary
+
+csd_formulas %>% 
+  filter(!missing_cnps) %>% 
+  select(cif, str_formula) %>% 
+  rename(id = cif) %>% 
+  inner_join(ccdc_predicted, by="id") %>% 
+  arrange(desc(y_pred)) %>% top_n(1000, y_pred)
+# Based on looking at a few of the top structures, the cleaned up versions are 1D rods, so not likely synthesizable.  But that's more a flaw of the database than the screening method, though it's possible the prediction method may not work well for non-MOF structures.
+```
+
+
+
+## TODO notes from meetings
+Different things to consider for the analysis and manuscript.
+
+### General
+* Finish a second revision of the outline/manuscript
+* Aggregate TODOs into this document to wrap up exploration and decisions
+* Send Scotty list of top CCDC candidates once we have a (near-final?) model
+
+### New with FH
+* Set up calculations using Scotty's RASPA input file
+* Convert RASPA ASCI_Grids to my old format from the C++ code: `cut -f 4 -d' ' asci_grid_H_com.grid | sed 's/^?$/Inf/'`
+* Run the model using the revised calculations
+
+### ToBaCCo errors
+* Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
+* Combining the 1000 + 1000 might be the way to go for the paper, since it also simplifies the story.
+
+### Model formulation
+* Check if glmnet's standardize flag is causing the issues with CV.
+* Skip all standardization AND set the intercept to zero??
+* Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
+* Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
+
+### Figures 
+* Set up better infrastructure for automating figure generation
+* Label Q2 (and other stats?) directly on the plot.
+* Make these figures much bigger so we don't have to squint/zoom
+* Set the size of the figures within R to get consistent font sizes and typefaces.
+* "training on a combined database" should use independent data for training and testing
+* Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
+* Consider drawing in [cowplot](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
+
+### Other from group meeting 12/7
+* Beta interpretation: Why do strongly attractive energies not have a highly negative beta?  You'd expect it to be wasted pore volume like the "Inf" bin, thus have a similar beta.
+* What about higher T for desorption?
+* vf distribution of the ToBaCCo MOFs?  How similar is it to the hMOFs?
+* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
+* Should the lowest ToBaCCo bins be included with the top bin?
+* Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
+
+### Code
+* Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
+* Why does RASPA insist on making my H_com atom follow a CFC force field?  FH sidesteps this issue, but it may be important for a methane probe.
+
+### Unfinished from tobacco_exploration.Rmd
+* Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
+* Re-implement prediction workflow in C++? (only necessary if we release an online interface)
+
+#### Data that still needs a final version
+* Wilmer's CH4 data to compare against the chemical intutition paper?
+
+#### Other possible directions
+* What sort of capacity could you get with a uniform background potential?
+* Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
+* Trying out traditional textural properties, or adding them to my set of energy-based features
+* Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
+* Is there a relationship between the betas at different P/T?  That could help optimize operating parameters if we can interpolate predictive models.
+* Do we have examples of similar histograms but completely different performance?
+
+
