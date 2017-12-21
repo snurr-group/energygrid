@@ -16,9 +16,8 @@ source("Notebooks/setup_data.R")
 library(plotly)
 ```
 
-## Figures for manuscript
+## Figures for manuscript: main text
 
-### Main text
 Recreate (and export) figures in one block.  Possibly will be externalized into a separate script later.
 
 ```{r make_figures}
@@ -115,21 +114,28 @@ ccdc_h2_grids %>%
 ```
 
 
-### Supporting Information
+## Supporting Information for manuscript
 
 This section is still largely TODO but at least can be done in part for some of the more important figures.
 
-```{r si_figures}
-## hMOF vs. ToBaCCo diagnostic
-## FIXME: copied over from old version of document.  Need to revise this analysis, especially wrt FH
-hmof_predicting_tobacco <- 
-  tobacco_data %>% 
-  mutate(y_act = redo.h2.deliv.77) %>% 
-  eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .) %>% 
-  .$pred_df
+### Outline
+Before working on SI revisions, I should take a step back to organize what content now belongs there.  Until then, here's a few new (random) figures I thought about that will be important for the (SI) story.
+
+```{r unsorted_si_figures}
+# In general, there should be an inverse relationship between void fraction and the infinite bin.
+# The match will not be exact because the energy cutoffs are rather different.
+grids_h2 %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  filter(bin == "Inf") %>% 
+  rename(`Inf bin` = metric) %>% 
+  left_join(tobacco_data, by="id") %>%
+  ggplot(aes(vf, `Inf bin`)) +
+  geom_point(alpha=0.5)
+
 
 
 ```
+
 
 
 ## Preparing CSD MOFs for screening
