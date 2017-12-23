@@ -188,7 +188,7 @@ if (!exists("raw_grids_h2")) {
 ### From partition_data code block
 
 tob_y_to_join <- tobacco_data %>% 
-  rename(g.L = redo.h2.deliv.77) %>% 
+  mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))  # Clean up unphysical MOFs
 complete_ids <- raw_grids_h2 %>% 

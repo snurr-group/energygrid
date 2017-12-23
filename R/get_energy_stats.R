@@ -33,6 +33,11 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
     dirs <- dirs[1:100]  # Debugging trick to only run the first 100 folders
   }
   num_cifs <- length(dirs)
+  nested_dirs <- TRUE
+  if (all(str_detect(dirs, "\\.grid$"))) {
+    nested_dirs <- FALSE
+    dirs <- str_sub(dirs, 0, -6)
+  }
   
   # Preallocate a df using an R.utils function: http://r.789695.n4.nabble.com/idiom-for-constructing-data-frame-td4705353.html
   # Names for the dataframe will automatically be copied from the prototype
@@ -42,7 +47,12 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   pb <- txtProgressBar(min = 1, max = num_cifs, style = 3)  # Add a progress bar, courtesy of https://www.r-bloggers.com/r-monitoring-the-function-progress-with-a-progress-bar/
   current_row = 1
   for (cif_dir in dirs) {
-    energy_file <- file.path(data_dir, cif_dir, SIMPLE_ENERGY_FILE)
+    if (nested_dirs) {
+      energy_file <- file.path(data_dir, cif_dir, SIMPLE_ENERGY_FILE)
+    } else {
+      energy_file <- file.path(data_dir, paste0(cif_dir, ".grid"))
+    }
+    
     # print(energy_file)
     energy <- read_tsv(energy_file, col_names = "V1", col_types = "d")$V1
     end_row <- current_row + num_rows - 1

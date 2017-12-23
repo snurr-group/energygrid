@@ -57,6 +57,13 @@ list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>%
 
 # Model fit for hMOF ridge regression mdoel
 print(hmof_partitioned_mod)
+# Print stats for fitting the ToBaCCo data to itself
+# tob_y_to_join and tob_hist_sets are defined in setup_data.R
+run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+# ...and using the hMOF-trained model directly on the ToBaCCo database
+tobacco_data %>% 
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
+  eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .)
 
 # Robustness to histogram binning strategy
 hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")
@@ -223,12 +230,12 @@ Different things to consider for the analysis and manuscript.
 ### General
 * Finish a second revision of the outline/manuscript
 * Aggregate TODOs into this document to wrap up exploration and decisions
-* Send Scotty list of top CCDC candidates once we have a (near-final?) model
+* Organize figures for SI and clean that up
+* Send Scotty list of top CCDC candidates once we have a (near-final?) model, and request the unit cell file for the CCDC MOFs
 
 ### New with FH
-* Set up calculations using Scotty's RASPA input file
-* Convert RASPA ASCI_Grids to my old format from the C++ code: `cut -f 4 -d' ' asci_grid_H_com.grid | sed 's/^?$/Inf/'`
-* Run the model using the revised calculations
+* Compile the revised hMOF and ToBaCCo energies.  Do they work in the model?
+* Generate grids for CH4
 
 ### ToBaCCo errors
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).

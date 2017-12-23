@@ -22,13 +22,13 @@ BigData/ccdc_500_hist_vals.Rds:
 	# Process test subset of CCDC MOFs from Scotty 2017-11-07
 
 BigData/Robj/tobacco_h2.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/Sigma295/tobacco
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/TobH2
 
 BigData/Robj/tobacco_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/tobacco-20171114/ch4grids use_ch4
 
 BigData/Robj/hmof_h2.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/Sigma295/2500hMOFs
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/2500hMOF
 
 BigData/Robj/hmof_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/2500hmof-data/ch4grids use_ch4
