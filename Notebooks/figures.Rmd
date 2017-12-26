@@ -93,8 +93,51 @@ hyper_tuned_hist %>%
     x = "Width of histogram bins (kJ/mol)"
   )
 
-# ToBaCCo plots
-# TODO
+# Models based on textural properties
+# TODO: add density to the MOFs.  We could also consider DPD, though that's only based on PSD
+# TODO: all of the "good" models so far have been based on methane.  Can we reproduce the good predictivity for CH4 using MLR?  Maybe the problem is like hydrogen storage, where high P is predicted by Chahine's rule
+# Serves as a baseline for how well the energy histogram is working.
+# Selected properties based on a quick literature review of ML:
+# We should use rho, VF, VSA/GSA, and potentially LCD or other pore diameters.
+# Cory Simon, EES 2015, 1190-1199: Density, VF, largest included sphere, AVSA
+# Fernandez, JPCC 2013, 7681-7689: DPD, VF, GSA (and VSA)
+# Pardakhti, ACS Comb Sci 2017, 7681-7689: VF, GSA, density, DPD, LCD, Interp. cap, Cat nets
+# Plus chemical properties: element counts, metal type, degree of saturation, metallic %, ratios of atom types
+# Thornton, Chem Mater 2017, 2844-2854: VF, density, adsorption energy (kJ/mol), pore diameter, GSA, VSA
+# First, prepare the input data
+textural_props <- 
+  gcmc_data %>% 
+  mutate(h2.deliv.77 = va100bar - va2bar) %>% 
+  select(id, vf=void.frac, lcd, gsa=surf.area..mass., vsa=surf.area..vol., h2.deliv.77) %>% 
+  mutate(id = str_c("h", id))
+textural_props <- 
+  tobacco_data %>% 
+  mutate(h2.deliv.77 = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
+  select(id, vf, lcd, gsa, vsa, h2.deliv.77) %>% 
+  bind_rows(hMOF = textural_props, ToBaCCo = ., .id = "db") %>% 
+  na.omit
+# Run ridge regression models and generate parity plots in the same style as the energy grid method
+textural_hmofs <- 
+  textural_props %>% 
+  filter(db == "hMOF") %>% 
+  select(-db)
+textural_training_rows <- sample(nrow(textural_hmofs), 1000)
+textural_mod <- 
+  textural_hmofs %>% 
+  .[textural_training_rows,] %>% 
+  select(-id) %>% 
+  {fit_glmnet(select(., -h2.deliv.77), .$h2.deliv.77)}
+# (will probably be the same fit_glmnet function)
+textural_pred <- 
+  textural_hmofs %>% 
+  .[-textural_training_rows,] %>% 
+  select(-id, -h2.deliv.77) %>% 
+  pred_glmnet(textural_mod, .)
+textural_act <- textural_hmofs[-textural_training_rows, "h2.deliv.77"]
+parity_plot(textural_act, textural_pred, alpha=0.1)
+postResample(pred=textural_pred, obs=textural_act)
+textural_mod$lambda
+
 
 # Methane predictions
 p_ch4_vol <- p_2bar_data %>% 
@@ -139,7 +182,21 @@ grids_h2 %>%
   ggplot(aes(vf, `Inf bin`)) +
   geom_point(alpha=0.5)
 
-
+# Geometric property distributions for the databases
+textural_props %>% 
+  select(-id) %>%
+  rename(
+    `Gravimetric\nsurface area` = gsa,
+    `H2 deliverable\ncapacity (g/L)` = h2.deliv.77,
+    `Largest cavity\ndiameter` = lcd,
+    `Void fraction` = vf,
+    `Volumetric\nsurface area` = vsa
+    ) %>% 
+  gather("property", "value", -db) %>% 
+  ggplot(aes(value)) +  # Trying to use ..density.. here results in strange behavior
+  geom_histogram(bins=30) +
+  coord_cartesian() +
+  facet_grid(db ~ property, scales = "free")
 
 ```
 
@@ -231,11 +288,11 @@ Different things to consider for the analysis and manuscript.
 * Finish a second revision of the outline/manuscript
 * Aggregate TODOs into this document to wrap up exploration and decisions
 * Organize figures for SI and clean that up
-* Send Scotty list of top CCDC candidates once we have a (near-final?) model, and request the unit cell file for the CCDC MOFs
-
-### New with FH
-* Compile the revised hMOF and ToBaCCo energies.  Do they work in the model?
-* Generate grids for CH4
+* Run grids for CCDC MOFs
+* Rerun grids for CH4 using RASPA
+* Send Scotty list of top CCDC candidates once we have a (near-final?) model
+* Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
+* See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
 
 ### ToBaCCo errors
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
@@ -251,36 +308,24 @@ Different things to consider for the analysis and manuscript.
 * Set up better infrastructure for automating figure generation
 * Label Q2 (and other stats?) directly on the plot.
 * Make these figures much bigger so we don't have to squint/zoom
-* Set the size of the figures within R to get consistent font sizes and typefaces.
+* Set the size of the figures within R to get consistent font sizes and typefaces. (easiest way would probably measuring the Latex column width in inches, and setting the figure DPI.  Maybe replace png with PDF, too)
 * "training on a combined database" should use independent data for training and testing
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
 * Consider drawing in [cowplot](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
 
 ### Other from group meeting 12/7
-* Beta interpretation: Why do strongly attractive energies not have a highly negative beta?  You'd expect it to be wasted pore volume like the "Inf" bin, thus have a similar beta.
 * What about higher T for desorption?
-* vf distribution of the ToBaCCo MOFs?  How similar is it to the hMOFs?
 * How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
-* Should the lowest ToBaCCo bins be included with the top bin?
 * Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
 
 ### Code
 * Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
 * Why does RASPA insist on making my H_com atom follow a CFC force field?  FH sidesteps this issue, but it may be important for a methane probe.
 
-### Unfinished from tobacco_exploration.Rmd
-* Regenerate plots using traditional textural property descriptors.  Maybe a hybrid model would fix training issues, since it's largely PLD driven?
-* Re-implement prediction workflow in C++? (only necessary if we release an online interface)
-
-#### Data that still needs a final version
-* Wilmer's CH4 data to compare against the chemical intutition paper?
-
 #### Other possible directions
-* What sort of capacity could you get with a uniform background potential?
+* What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
-* Trying out traditional textural properties, or adding them to my set of energy-based features
 * Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
 * Is there a relationship between the betas at different P/T?  That could help optimize operating parameters if we can interpolate predictive models.
-* Do we have examples of similar histograms but completely different performance?
-
+* Use Wilmer's CH4 data to compare against the chemical intutition paper?
 
