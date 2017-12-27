@@ -4,6 +4,7 @@
 # Can always manually git add important scripts, etc.
 Data/
 BigData/
+Figs/
 !README.md
 !notebook.md
 Test/*

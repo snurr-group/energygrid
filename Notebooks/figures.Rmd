@@ -19,16 +19,19 @@ library(plotly)
 ```{r setup_figs}
 # Setup figure parameters
 library(cowplot)
+# See [intro documentation](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html) and [vignette](https://cran.r-project.org/web/packages/cowplot/vignettes/plot_grid.html)
 # Per [RSC guidelines](http://www.rsc.org/journals-books-databases/journal-authors-reviewers/submit-your-article/#figures-graphics-images),
 # figures should be single column (8.3cm) or double column (17.1cm) and no longer than 23.3cm.
 # For final submission, they like 600 dpi TIFF files.  Before then, let's use smaller figs.
 default_dpi <- 300
 theme_set(theme_cowplot(font_size = 10))
-# Example plot that works well:
-# save_plot("test.png", hmof_partitioned_mod$plots$parity_full + xlab("Actual GCMC uptake") + ylab("Predicted uptake"), base_width=8.3/2.54, base_height=8.3/2.54/1.1, dpi=300)
-save_ben_fig <- function(p, filename, ...) {
+default_fig_dir <- "Figs"
+default_subfig_labels <- paste0("(", letters, ")")
+
+mkdirs(default_fig_dir)
+save_ben_fig <- function(p, filename, parent_dir = default_fig_dir, ...) {
   save_plot(
-    filename,
+    file.path(parent_dir, filename),
     p,
     base_width = 8.3 / 2.54,  # RSC width in inches
     base_height = NULL,  # calculate from base_aspect_ratio and the width
@@ -36,9 +39,13 @@ save_ben_fig <- function(p, filename, ...) {
     ...
     )
 }
-# Better example:
-# hmof_partitioned_mod$plots %$% plot_grid(parity_training, parity_testing, ncol=1, labels=paste0("(", letters, ")")) %>% save_ben_fig("test.png", nrow = 2)
-# See also [vignette](https://cran.r-project.org/web/packages/cowplot/vignettes/plot_grid.html)
+make_draft <- function(p, msg="DRAFT!") {
+  # Derived from cowplot intro
+  ggdraw(p) +
+    draw_label(msg, angle = 45, size = 72, alpha = .2)
+}
+# Example:
+# hmof_partitioned_mod$plots %$% plot_grid(parity_training, make_draft(parity_testing), ncol=1, labels=default_subfig_labels, label_size=12) %>% save_ben_fig("test.png", nrow = 2)
 ```
 
 ## Figures for manuscript: main text
@@ -55,7 +62,8 @@ trained_mod <- hmof_partitioned_mod$trained_mod
 base_hist <- hmof_h2_grid %>% 
   filter(id == 71) %>% 
   plot_hist_bins(default_binspec)
-base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
+p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
+p_beta_orig
 
 # Beta coefficients for different pressures and temperatures
 # For help on NSE in dplyr, see vignette("programming")
@@ -64,7 +72,8 @@ mutate_col_to_gL <- function(df, newcol) {
   mutate(df, g.L = !!sym(newcol))
 }
 ## Previously used for the CH4 plots, but no reason not to adapt it for T and P of H2
-list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>% 
+p_beta_diff_p <- 
+  list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>% 
   map(mutate_col_to_gL, df = gcmc_data) %>%
   map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec, 0)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
@@ -72,29 +81,71 @@ list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>%
   overlay_cat_betas(base_hist, ., default_binspec)
 p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
 p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
-list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>% 
+p_beta_diff_t <- 
+  list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>% 
   map(mutate_col_to_gL, df = p_2bar_data) %>%
   map(function(x) run_model_on_partitions(p_2bar_sets, x, default_binspec, 0)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(base_hist, ., default_binspec)
+# Generate the plots
+plot_grid(
+  p_beta_orig,
+  p_beta_diff_p + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
+  make_draft(p_beta_diff_t + theme(legend.position=c(0, 0.2), legend.direction="horizontal")),
+  ncol=1,
+  #align = "v",
+  labels=default_subfig_labels, label_size=12
+  ) %>%
+  save_ben_fig("betas.png", nrow = 3, base_aspect_ratio = 1.5)
 
 
 # Model fit for hMOF ridge regression mdoel
 print(hmof_partitioned_mod)
-# Print stats for fitting the ToBaCCo data to itself
+hmof_partitioned_mod$plots %$%
+plot_grid(
+  parity_training,
+  parity_testing,
+  ncol = 1,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_ben_fig("parity.png", nrow = 2)
+
+# Print stats for other databases, including fitting the ToBaCCo data to itself
 # tob_y_to_join and tob_hist_sets are defined in setup_data.R
-run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+p_tob_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+p_tob_mod
 # ...and using the hMOF-trained model directly on the ToBaCCo database
-tobacco_data %>% 
+p_tob_from_hmof <- 
+  tobacco_data %>% 
   mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
   eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .)
+# CCDC applicability, etc.
+print("Note: revised below in another code block")  # FIXME: revise it directly here, then generate the other code block
+p_ccdc_random <- 
+  ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+# Generate the (large) figure for model generality
+p_tob_mod$plots %$%
+  plot_grid(
+    parity_training,
+    parity_testing,
+    p_tob_from_hmof$plots$parity_testing,
+    make_draft(p_ccdc_random$plots$parity_testing),
+    ncol = 2,
+    labels=default_subfig_labels, label_size=12
+    ) %>% 
+  save_ben_fig("general_parity.png", nrow = 2, ncol = 2)
+
+
 
 # Robustness to histogram binning strategy
 hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")
 plot_robustness_bin_gap <- 0.05
 plot_robustness_beta_max <- 5
-hyper_tuned_hist %>% 
+p_robust <- 
+  hyper_tuned_hist %>% 
   mutate(beta = ifelse(beta > plot_robustness_beta_max, plot_robustness_beta_max, beta)) %>% 
   mutate(beta = ifelse(beta < -plot_robustness_beta_max, -plot_robustness_beta_max, beta)) %>% 
   mutate(lower = lower + plot_robustness_bin_gap, upper = upper - plot_robustness_bin_gap) %>% 
@@ -117,6 +168,9 @@ hyper_tuned_hist %>%
     y = "Energy (kJ/mol)",
     x = "Width of histogram bins (kJ/mol)"
   )
+p_robust
+save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
+
 
 # Models based on textural properties
 # TODO: add density to the MOFs.  We could also consider DPD, though that's only based on PSD
@@ -174,18 +228,31 @@ p_ch4_vol$plots$parity_full +
 ch4_base_hist <- p_ch4_grids %>% 
   filter(dirname == "hMOF-71") %>%  # Using the same MOF as the sample H2 histogram
   plot_hist_bins(ch4_binspec)
-list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
+p_beta_ch4 <- 
+  list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
   map(mutate_col_to_gL, df=p_2bar_data) %>%
   map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
 
-# CCDC applicability, etc.
-print("Note: revised below in another code block")
-ccdc_h2_grids %>% 
-  filter(id %in% ccdc_gcmc$id) %>% 
-  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+p_ch4_vol$plots %$%
+  plot_grid(
+    parity_training +
+      scale_x_continuous(limits = c(0,250)) +
+      scale_y_continuous(limits = c(0,250)),
+    parity_testing +
+      scale_x_continuous(limits = c(0,250)) +
+      scale_y_continuous(limits = c(0,250)),
+    p_beta_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
+    #make_draft(NULL, "TODO"),
+    ncol = 1,
+    rel_heights = c(1, 1, 1.1/1.5),
+    labels=default_subfig_labels, label_size=12
+    ) %>% 
+  #save_ben_fig("ch4_plots.png", nrow = 2, ncol = 2)
+  save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1)
+
 ```
 
 
@@ -331,12 +398,9 @@ Different things to consider for the analysis and manuscript.
 * Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
 
 ### Figures 
-* Set up better infrastructure for automating figure generation
 * Label Q2 (and other stats?) directly on the plot.
-* Set the size of the figures within R to get consistent font sizes and typefaces. (easiest way would probably measuring the Latex column width in inches, and setting the figure DPI.  Maybe replace png with PDF, too)
 * "training on a combined database" should use independent data for training and testing
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
-* Consider drawing in [cowplot](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
 * Ranking plots: rank from 1 to 500 with inverted axes (top right corner is (1,1) for ranking)
 * Fix aspect ratio within R notebook
 

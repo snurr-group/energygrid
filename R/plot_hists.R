@@ -49,7 +49,7 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_ma
     geom_point(
       data = beta_data,
       aes(y = beta, col = color),
-      size = 3
+      size = 2
       ) +
     coord_cartesian(ylim = c(-1.1*hist_max, 1.1*hist_max)) +
     scale_y_continuous(
