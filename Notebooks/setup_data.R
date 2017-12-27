@@ -19,7 +19,7 @@ library(testthat)
 library(caret)
 library(glmnet)
 
-theme_set(theme_bw(base_size=16) + theme(aspect.ratio=1))  # Default ggplot2 params
+#theme_set(theme_bw(base_size=16) + theme(aspect.ratio=1))  # Default ggplot2 params, now overridden with cowplot
 
 
 ### From load.data code block

@@ -15,6 +15,7 @@ parity_plot <- function(act, pred, color=1, alpha=0.10) {
     expand_limits(x = 0, y = 0) +
     scale_x_continuous(limits = c(0,60)) +
     scale_y_continuous(limits = c(0,60)) +
+    coord_fixed() +
     parity_line
 }
 

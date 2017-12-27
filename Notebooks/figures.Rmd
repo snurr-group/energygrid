@@ -16,6 +16,31 @@ source("Notebooks/setup_data.R")
 library(plotly)
 ```
 
+```{r setup_figs}
+# Setup figure parameters
+library(cowplot)
+# Per [RSC guidelines](http://www.rsc.org/journals-books-databases/journal-authors-reviewers/submit-your-article/#figures-graphics-images),
+# figures should be single column (8.3cm) or double column (17.1cm) and no longer than 23.3cm.
+# For final submission, they like 600 dpi TIFF files.  Before then, let's use smaller figs.
+default_dpi <- 300
+theme_set(theme_cowplot(font_size = 10))
+# Example plot that works well:
+# save_plot("test.png", hmof_partitioned_mod$plots$parity_full + xlab("Actual GCMC uptake") + ylab("Predicted uptake"), base_width=8.3/2.54, base_height=8.3/2.54/1.1, dpi=300)
+save_ben_fig <- function(p, filename, ...) {
+  save_plot(
+    filename,
+    p,
+    base_width = 8.3 / 2.54,  # RSC width in inches
+    base_height = NULL,  # calculate from base_aspect_ratio and the width
+    dpi = default_dpi,
+    ...
+    )
+}
+# Better example:
+# hmof_partitioned_mod$plots %$% plot_grid(parity_training, parity_testing, ncol=1, labels=paste0("(", letters, ")")) %>% save_ben_fig("test.png", nrow = 2)
+# See also [vignette](https://cran.r-project.org/web/packages/cowplot/vignettes/plot_grid.html)
+```
+
 ## Figures for manuscript: main text
 
 Recreate (and export) figures in one block.  Possibly will be externalized into a separate script later.
@@ -196,7 +221,8 @@ textural_props %>%
   ggplot(aes(value)) +  # Trying to use ..density.. here results in strange behavior
   geom_histogram(bins=30) +
   coord_cartesian() +
-  facet_grid(db ~ property, scales = "free")
+  facet_grid(db ~ property, scales = "free") +
+  background_grid()
 
 ```
 
@@ -289,7 +315,7 @@ Different things to consider for the analysis and manuscript.
 * Aggregate TODOs into this document to wrap up exploration and decisions
 * Organize figures for SI and clean that up
 * Run grids for CCDC MOFs
-* Rerun grids for CH4 using RASPA
+* Compile RASPA grid data for CH4
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model
 * Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
 * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
@@ -307,11 +333,12 @@ Different things to consider for the analysis and manuscript.
 ### Figures 
 * Set up better infrastructure for automating figure generation
 * Label Q2 (and other stats?) directly on the plot.
-* Make these figures much bigger so we don't have to squint/zoom
 * Set the size of the figures within R to get consistent font sizes and typefaces. (easiest way would probably measuring the Latex column width in inches, and setting the figure DPI.  Maybe replace png with PDF, too)
 * "training on a combined database" should use independent data for training and testing
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
 * Consider drawing in [cowplot](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html)
+* Ranking plots: rank from 1 to 500 with inverted axes (top right corner is (1,1) for ranking)
+* Fix aspect ratio within R notebook
 
 ### Other from group meeting 12/7
 * What about higher T for desorption?
@@ -320,7 +347,6 @@ Different things to consider for the analysis and manuscript.
 
 ### Code
 * Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
-* Why does RASPA insist on making my H_com atom follow a CFC force field?  FH sidesteps this issue, but it may be important for a methane probe.
 
 #### Other possible directions
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
