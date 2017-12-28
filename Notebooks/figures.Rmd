@@ -44,6 +44,17 @@ make_draft <- function(p, msg="DRAFT!") {
   ggdraw(p) +
     draw_label(msg, angle = 45, size = 72, alpha = .2)
 }
+save_si_fig <- function(p, filename, parent_dir = default_fig_dir, bheight = 3.3, bwidth = NULL, ...) {
+  save_plot(
+    file.path(parent_dir, filename),
+    p,
+    base_width = bwidth,  # defaults to NULL (automatic based on the aspect ratio)
+    base_height = bheight,  # Height in inches
+    dpi = default_dpi,
+    ...
+    )
+}
+
 # Example:
 # hmof_partitioned_mod$plots %$% plot_grid(parity_training, make_draft(parity_testing), ncol=1, labels=default_subfig_labels, label_size=12) %>% save_ben_fig("test.png", nrow = 2)
 ```
@@ -261,37 +272,212 @@ p_ch4_vol$plots %$%
 This section is still largely TODO but at least can be done in part for some of the more important figures.
 
 ### Outline
-Before working on SI revisions, I should take a step back to organize what content now belongs there.  Until then, here's a few new (random) figures I thought about that will be important for the (SI) story.
+First, some random figures that haven't been placed elsewhere for the SI yet.
 
 ```{r unsorted_si_figures}
-# In general, there should be an inverse relationship between void fraction and the infinite bin.
-# The match will not be exact because the energy cutoffs are rather different.
-grids_h2 %>% 
-  stepped_hist_spec(default_binspec) %>% 
-  filter(bin == "Inf") %>% 
-  rename(`Inf bin` = metric) %>% 
-  left_join(tobacco_data, by="id") %>%
-  ggplot(aes(vf, `Inf bin`)) +
-  geom_point(alpha=0.5)
 
+
+```
+
+### Database distributions
+
+```{r si_distr}
 # Geometric property distributions for the databases
-textural_props %>% 
-  select(-id) %>%
-  rename(
-    `Gravimetric\nsurface area` = gsa,
-    `H2 deliverable\ncapacity (g/L)` = h2.deliv.77,
-    `Largest cavity\ndiameter` = lcd,
-    `Void fraction` = vf,
-    `Volumetric\nsurface area` = vsa
+p_geom_distr <- 
+  textural_props %>% 
+  select(-id, -h2.deliv.77) %>%
+  rename(  # plotmath is very messy...
+    `atop('Gravimetric surface', 'area'~(m^2/g))` = gsa,
+    #`H2 deliverable\ncapacity (g/L)` = h2.deliv.77,
+    `atop('Largest cavity', 'diameter'~(ring(A)))` = lcd,
+    `'Void fraction'` = vf,
+    `atop('Volumetric surface', 'area'~(m^2/cm^3))` = vsa
     ) %>% 
   gather("property", "value", -db) %>% 
   ggplot(aes(value)) +  # Trying to use ..density.. here results in strange behavior
   geom_histogram(bins=30) +
-  coord_cartesian() +
-  facet_grid(db ~ property, scales = "free") +
+  # Idea related to https://stackoverflow.com/questions/11335836/increase-number-of-axis-ticks
+  scale_x_continuous(breaks=scales::pretty_breaks(n=2)) +
+  facet_grid(db ~ property, scales = "free", labeller = label_parsed) +
   background_grid()
+p_geom_distr %>% save_si_fig("geom_distr.png", base_aspect_ratio=1.6)
+p_geom_distr
+
+p_y_distr <- 
+  tobacco_data %>% 
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
+  select(g.L = y_act) %>% 
+  bind_rows(
+    ToBaCCo = .,
+    hMOFs = select(gcmc_data, g.L),
+    .id = "db"
+    ) %>% 
+  filter(g.L >= 0) %>% 
+  ggplot(aes(g.L, ..density..)) +
+  geom_histogram(bins=30) +
+  facet_wrap(~db) +
+  xlab("Hydrogen deliverable capacity, 77 K, 2 bar - 100 bar") 
+p_y_distr %>% save_si_fig("y_distr.png", base_aspect_ratio=1.6)
+p_y_distr
+
+plot_x_distr <- function(egrid, binspec, lower_cutoff=-Inf) {
+  egrid %>% 
+    stepped_hist_spec(binspec) %>% 
+    spread(key=bin, value=metric) %>% 
+    select(-id) %>% 
+    #standardize(stdmod, .) %>% 
+    gather(key="bin", value="value") %>% 
+    left_join(bin_loc_from_spec(binspec), by="bin") %>% 
+    filter(lower >= lower_cutoff) %>% 
+    #gather(key="bin", value="value") %>% 
+    #mutate(binlab = factor(paste("Bin from", lower, "to", upper, "kJ/mol"), ordered=TRUE)) %>% 
+    mutate(binlab = paste("Bin from", lower, "to", upper, "kJ/mol")) %>% 
+    # Use an ordered factor (with specified levels) to order by numeric energy instead of binlab char
+    arrange(lower) %>% 
+    mutate(faclab = factor(binlab, levels=unique(binlab), ordered=TRUE)) %>%
+    ggplot(aes(value)) +
+    geom_histogram(bins = 30) +
+    facet_wrap(~faclab, scales="free") +
+    xlab("Value of histogram bin (fraction of unit cell)") +
+    ylab("Number of MOFs") +
+    scale_x_continuous(breaks=scales::pretty_breaks(n=2))
+    #theme(text = element_text(size = 8))
+}
+p_x_distr_hmof <- plot_x_distr(hmof_h2_grid, default_binspec, -7)
+p_x_distr_hmof
+p_x_distr_tob <- plot_x_distr(grids_h2, default_binspec, -7)
+p_x_distr_tob
+plot_grid(
+  p_x_distr_hmof,
+  p_x_distr_tob,
+  ncol=1,
+  labels=default_subfig_labels, label_size=12
+  ) %>%
+  save_si_fig("x_distr.png", nrow = 2, base_aspect_ratio=1.6)
+
+# In general, there should be an inverse relationship between void fraction and the infinite bin.
+# The match will not be exact because the energy cutoffs are rather different.
+p_vf_vs_inf <- 
+  hmof_h2_grid %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  filter(bin == "Inf") %>% 
+  rename(`Inf bin` = metric) %>% 
+  left_join(gcmc_data, by="id") %>%
+  ggplot(aes(void.frac, `Inf bin`)) +
+  geom_point(alpha=0.5)
+p_vf_vs_inf
+save_si_fig(p_vf_vs_inf, "vf_vs_inf.png")
 
 ```
+
+
+### Tuning the model regularization
+
+
+### Considerations for molecular simulation
+
+MORE TODO
+
+```{r si_simulation}
+# Comparison between CH4 and H2 adsorption in the ToBaCCo MOFs (consider redoing with hMOF data)
+tidy_ch4_vs_h2 <-
+  gcmc_data %>% 
+  rename(h2.g.L.2.77 = va2bar, h2.g.L.100.77 = va100bar) %>% 
+  gather(key, uptake, starts_with("h2.g.L."), starts_with("ch4.cm3.cm3.")) %>% 
+  #tobacco_data %>% 
+  #gather(key, uptake, starts_with("y.ch4.v.v."), starts_with("fh.h2.g.L.")) %>% 
+  select(id, key, uptake) %>% 
+  separate(key, c("gas", "unit1", "unit2", "pressure", "temperature"), sep="\\.") %>% 
+  #separate(key, c("user", "gas", "unit1", "unit2", "pressure", "temperature")) %>% 
+  unite("units", paste0("unit", 1:2), sep=".")
+p_si_ch4_vs_h2 <- 
+  tidy_ch4_vs_h2 %>% 
+  na.omit %>% 
+  select(-units) %>% 
+  mutate(pressure = str_replace(pressure, "_", ".")) %>% 
+  mutate(pressure = paste(pressure, "bar"), temperature = paste(temperature, "K")) %>% 
+  #select(-units, -user) %>% 
+  {inner_join(filter(., gas=="ch4"), filter(., gas=="h2"), by="id", suffix=(c(".ch4", ".h2")))} %>% 
+  left_join(select(gcmc_data, id, void.frac), by="id") %>% 
+  ggplot(aes(uptake.h2, uptake.ch4, col=void.frac)) +
+  geom_point() +
+  facet_grid(temperature.ch4+pressure.ch4 ~ temperature.h2+pressure.h2, scales="free_x") +
+  xlab(expression(CH[4]~uptake~(cm^3/cm^3))) +
+  ylab(expression(H[2]~uptake~(g/L))) +
+  labs(color="Void\nfraction")
+p_si_ch4_vs_h2  # not sure what happened to this figure.  More investigation required
+p_si_ch4_vs_h2 %>% save_si_fig("ch4_vs_h2_ads.png", bheight=5)
+
+
+
+```
+
+
+### Model performance
+```{r si_performance}
+# Residuals of hMOFs and ToBaCCo
+plot_resid_vs_act <- function(df) {
+  ggplot(df, aes(y_act, y_act-y_pred)) +
+    geom_point() +
+    geom_hline(yintercept = 0) +
+    xlab("y") + ylab(expression('Residuals '~y-hat(y)))
+}
+plot_grid(
+  hmof_partitioned_mod$plots$resid_normality,
+  p_tob_mod$plots$resid_normality,
+  plot_resid_vs_act(hmof_partitioned_mod$pred_df),
+  plot_resid_vs_act(p_tob_mod$pred_df),
+  ncol=2, nrow=2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("residuals.png", ncol=2, nrow=2)
+
+# Ranking of hMOF and ToBaCCo
+plot_grid(
+  hmof_partitioned_mod$plots$test_ranking,
+  p_tob_mod$plots$test_ranking,
+  ncol=2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("ranking.png", ncol=2)
+
+# Error breakdown by topology
+p_err_topology <- 
+  p_tob_mod$pred_df %>% 
+  left_join(tobacco_data, by="id") %>% 
+  ggplot(aes(y_act, y_pred)) + 
+  geom_point() + parity_line +
+  facet_wrap(~topology) +
+  scale_x_continuous(breaks=scales::pretty_breaks(n=2)) +
+  scale_y_continuous(breaks=scales::pretty_breaks(n=2)) +
+  xlab("'Actual' uptake (GCMC simulations)") +
+  ylab("Predicted uptake (ridge regression)") +
+  coord_fixed()
+p_err_topology %>% save_si_fig("err_by_topology.png", bheight=5)
+
+```
+
+
+### Consistency between different model formulations
+hMOF vs. ToBaCCo, etc.
+
+```{r si_consistency}
+# Comparison of beta coefficients from ridge regression for the two databases.
+# This code will have a similar structure to plotting multiple temperatures or pressures.
+p_coef_compare <- 
+  list(`hMOF` = trained_mod$mod, `ToBaCCo` = p_tob_mod$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>%
+  overlay_cat_betas(base_hist, ., default_binspec) +
+  theme(legend.position=c(0, 0.2), legend.direction="horizontal")
+p_coef_compare
+p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
+
+
+# TODO MORE
+
+```
+
+
 
 
 
@@ -380,12 +566,12 @@ Different things to consider for the analysis and manuscript.
 ### General
 * Finish a second revision of the outline/manuscript
 * Aggregate TODOs into this document to wrap up exploration and decisions
-* Organize figures for SI and clean that up
 * Run grids for CCDC MOFs
 * Compile RASPA grid data for CH4
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model
 * Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
 * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
+* Saving the manuscript/SI figures should also print them (maybe with a global flag to disable)
 
 ### ToBaCCo errors
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
@@ -399,10 +585,13 @@ Different things to consider for the analysis and manuscript.
 
 ### Figures 
 * Label Q2 (and other stats?) directly on the plot.
-* "training on a combined database" should use independent data for training and testing
+* Also add Spearman and/or Kendall to the ranking plot.  In general, numbers referenced in the text should also be aggregated in their own code block to make it easier to update the text.
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
-* Ranking plots: rank from 1 to 500 with inverted axes (top right corner is (1,1) for ranking)
 * Fix aspect ratio within R notebook
+* For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?)
+
+### New figures for SI
+* TODO: get these from the Desktop SI FIGS file once ready
 
 ### Other from group meeting 12/7
 * What about higher T for desorption?

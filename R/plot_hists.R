@@ -43,6 +43,10 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_ma
   } else {
     cat_missing <- TRUE
     beta_data <- beta_data %>% mutate(color = beta)
+    # Consider adding shapes based on color cat (or I(16)).
+    # Why shape 16?  It's the default and drawn in the outline color (not fill)
+    # See also http://sape.inf.usi.ch/quick-reference/ggplot2/shape
+    # But also ggplot doesn't play nicely with combining the aesthetics, so maybe there's another way, like using a column as-is with I.
   }
   
   p <- hist_plot +

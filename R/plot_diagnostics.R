@@ -84,7 +84,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
   predictions <- pred_grid(glmnet_mod, test_grid, binspec)
   df_with_ys <- predictions %>% 
     inner_join(df_with_y_act, by="id") %>% 
-    mutate(y_err = abs(y_pred - y_act))
+    mutate(y_err = abs(y_act - y_pred))
   results$pred_df <- df_with_ys
   
   # Convenience variables for plotting, etc.
@@ -119,8 +119,9 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
     ylab(paste0("Predicted uptake (", perf_model,")"))
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 
-    ggplot(aes(y_pred - y_act)) +
-    geom_histogram(bins = 30)
+    ggplot(aes(y_act - y_pred)) +
+    geom_histogram(bins = 30) +
+    xlab(expression('Residuals'~y-hat(y)))
   
   # How well do the models rank the test data
   results$test_spearman <- results$pred_df %>% 
@@ -130,11 +131,14 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
     select(y_act, y_pred) %>% 
     cor(method = "kendall")
   results$plots$test_ranking <- results$pred_df %>% 
-    mutate(r_act = rank(y_act), r_pred = rank(y_pred)) %>% 
+    # rank() by default is in ascending order, but for some reason dplyr will accept desc
+    # https://stackoverflow.com/questions/26106408/create-a-ranking-variable-with-dplyr
+    mutate(r_act = rank(desc(y_act)), r_pred = rank(desc(y_pred))) %>% 
     ggplot(aes(r_act, r_pred)) +
     geom_point() +
-    xlab("'Actual' ranking (GCMC simulations)") +
-    ylab(paste0("Predicted ranking (", perf_model,")"))
+    xlab("'Actual' ranking (GCMC simulations): 1 is the best") +
+    ylab(paste0("Predicted ranking (", perf_model,")")) +
+    scale_x_reverse() + scale_y_reverse()  # Consistent interpretation as top right for best MOFs
   
   results  # return the partitioned_glmnet object
 }
