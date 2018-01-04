@@ -371,12 +371,7 @@ save_si_fig(p_vf_vs_inf, "vf_vs_inf.png")
 ```
 
 
-### Tuning the model regularization
-
-
 ### Considerations for molecular simulation
-
-MORE TODO
 
 ```{r si_simulation}
 # Comparison between CH4 and H2 adsorption in the ToBaCCo MOFs (consider redoing with hMOF data)
@@ -408,7 +403,33 @@ p_si_ch4_vs_h2 <-
 p_si_ch4_vs_h2  # not sure what happened to this figure.  More investigation required
 p_si_ch4_vs_h2 %>% save_si_fig("ch4_vs_h2_ads.png", bheight=5)
 
-
+tobacco_data %>% 
+  {list(
+    `2 bar, 77 K` = ggplot(., aes(nofh.h2.g.L.2.77, fh.h2.g.L.2.77)),
+    `100 bar, 77 K` = ggplot(., aes(lj.h2.g.L.100.77, fh.h2.g.L.100.77))
+    )} %>% 
+  map(
+    ~ .x +
+    geom_point() +
+    coord_fixed(xlim = c(0, 70), y=c(0, 70)) +
+    xlab("Lennard-Jones potential only") +
+    ylab("With Feynman-Hibbs") +
+    parity_line
+    #annotate("text", x=10, y=50, label=names(.x))
+    ) %>% 
+  map2(
+    .,
+    names(.),
+    function(x, y) {
+      x + annotate("text", x=10, y=60, label=y)
+    }
+  ) %>% 
+  {plot_grid(
+    .[[1]], .[[2]],
+    ncol=2,
+    labels=default_subfig_labels, label_size=12
+  )} %>% 
+  save_si_fig("fh_correction.png", ncol=2)
 
 ```
 
@@ -457,8 +478,92 @@ p_err_topology %>% save_si_fig("err_by_topology.png", bheight=5)
 
 ```
 
+### Model regularization strategies
+```{r si_regularizaiton}
+# Lambda plot from glmnet package.
+# Viewing the source code with `plot.cv.glmnet` is very informative.
+# See also an online vignette https://web.stanford.edu/~hastie/glmnet/glmnet_alpha.html#lin
+set_li <- function(x, label, value) {
+  # Sets the value of a labelled list item then returns the full list.
+  # Pipe-friendly assignment for lists.  Use quotes around the label title
+  x[[label]] <- value
+  x
+}
+trained_mod$cv_for_lambda %>% 
+  set_li("lambda.1se", NA) %>%  # Remove the 1SE line for clarity
+  set_li(., "nzero", rep("", length(.$nzero))) %>%  # Hide the number of variables used
+  plot
+#recordPlot() %>%  # Thanks, https://github.com/wilkelab/cowplot/issues/69
+#  plot_to_gtable() %>%  # requires gridGraphics
+#  save_si_fig("lambda.png")
+# This works, but it'll be easier to figure out labels, aspect, etc. if we just replot it.
+# After all, we have the plot.cv.glmnet source code easily available.
+p_si_lambda_lambdaval <- trained_mod$cv_for_lambda$lambda.min
+p_si_lambda <- 
+  trained_mod$cv_for_lambda %$% 
+  qplot(log(lambda), cvm) +
+  xlab("log(lambda)") +
+  ylab("Mean-Squared Error") +
+  geom_vline(xintercept=log(p_si_lambda_lambdaval), linetype="dashed")
+p_si_lambda
+p_si_lambda %>% save_si_fig("lambda.png")
 
-### Consistency between different model formulations
+
+# Combining LASSO, MLR, and ridge in a single figure
+save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_dir=default_fig_dir) {
+  # Writes a table to a Latex file which can be read with \input
+  # https://www.r-bloggers.com/exporting-r-tables-in-latex/
+  df %>% 
+    as.data.frame() %>%  # tibbles add a strange header to the file
+    format(digits = digits) %>%  # Digits is only a suggestion
+    write.table(
+      file.path(parent_dir, filename),
+      quote = FALSE,
+      row.names = FALSE,
+      col.names = col_header,
+      eol="\\\\\n",
+      sep=" & "
+      )
+}
+
+trained_model_regu <- list(
+  Ridge = hmof_partitioned_mod,
+  # Ridge = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0),
+  LASSO = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 1),
+  MLR = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, alpha=1, lambda=0, thresh=1e-16)
+)
+
+trained_model_regu %>% 
+  set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
+  map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=50, y=10, label=y)}) %>% 
+  {do.call(
+    plot_grid,
+    c(., list(  # https://stackoverflow.com/questions/25962605/how-to-add-more-arguments-of-a-function-in-do-call-in-r
+      ncol=2,
+      labels=default_subfig_labels, label_size=12
+      )
+    )
+    )} %>% 
+  save_si_fig("regu_parity.png", ncol=2)
+
+trained_model_regu %>% 
+  map_dfr(~ coef_tbl(.x$trained_mod$mod), .id="method") %>% 
+  spread(method, beta) %>% 
+  left_join(bin_loc_from_spec(default_binspec), by="bin") %>% 
+  select(-bin) %>% 
+  mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
+  mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
+  arrange(lower) %>% 
+  select(Bin, Ridge, LASSO, MLR) %>% 
+  save_fig_table("regu_coef.tex")
+
+trained_model_regu %>%  # What are the lambda/alpha for the models?
+  map_dfr(function(x) {list(lambda=x$trained_mod$lambda, alpha=x$trained_mod$alpha)}, .id="method")
+  # If this is useful, gather then separate to add it to the previous DF, or a separate tex file.
+
+```
+
+### Consistency between different datasets
 hMOF vs. ToBaCCo, etc.
 
 ```{r si_consistency}
@@ -589,9 +694,6 @@ Different things to consider for the analysis and manuscript.
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
 * Fix aspect ratio within R notebook
 * For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?)
-
-### New figures for SI
-* TODO: get these from the Desktop SI FIGS file once ready
 
 ### Other from group meeting 12/7
 * What about higher T for desorption?
