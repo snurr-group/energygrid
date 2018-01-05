@@ -85,7 +85,7 @@ tobacco_data <-
 # Now with Feynman-Hibbs
 tobacco_data <-
   read_table2(
-    "BigData/Emails/partial-tobacco-w-fh-20171219/comb-2bar77k-volume.txt",
+    "BigData/Emails/tobaccoFH-20180103/tobacco-2bar-FH-comb-volume.txt",
     col_names = c("tob.num", "id", "fh.h2.v.v.2.77", "fh.h2.err.v.v.2.77"),
     col_types = "icnn"
   ) %>% 
@@ -95,7 +95,7 @@ tobacco_data <-
   left_join(tobacco_data, ., by="id")
 tobacco_data <- 
   read_table2(
-    "BigData/Emails/partial-tobacco-w-fh-20171219/comb-100bar77k-volume.txt",
+    "BigData/Emails/tobaccoFH-20180103/tobacco-100bar-FH-comb-volume.txt",
     col_names = c("tob.num", "id", "fh.h2.v.v.100.77", "fh.h2.err.v.v.100.77"),
     col_types = "icnn"
   ) %>% 

@@ -668,7 +668,6 @@ csd_formulas %>%
 
 ## TODO notes from meetings
 ### General
-* Add Scotty's new ToBaCCo FH data
 * Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
 * Recalculate the beta robustness figure
 * Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
