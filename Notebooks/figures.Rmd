@@ -397,11 +397,12 @@ p_si_ch4_vs_h2 <-
   ggplot(aes(uptake.h2, uptake.ch4, col=void.frac)) +
   geom_point() +
   facet_grid(temperature.ch4+pressure.ch4 ~ temperature.h2+pressure.h2, scales="free_x") +
-  xlab(expression(CH[4]~uptake~(cm^3/cm^3))) +
-  ylab(expression(H[2]~uptake~(g/L))) +
+  scale_x_continuous(breaks=scales::pretty_breaks(n=2)) +
+  xlab(expression(H[2]~uptake~(g/L))) +
+  ylab(expression(CH[4]~uptake~(cm^3/cm^3))) +
   labs(color="Void\nfraction")
 p_si_ch4_vs_h2  # not sure what happened to this figure.  More investigation required
-p_si_ch4_vs_h2 %>% save_si_fig("ch4_vs_h2_ads.png", bheight=5)
+p_si_ch4_vs_h2 %>% save_si_fig("ch4_vs_h2_ads.png", base_aspect_ratio = 1.6)
 
 tobacco_data %>% 
   {list(
@@ -536,7 +537,7 @@ trained_model_regu <- list(
 trained_model_regu %>% 
   set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
   map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=50, y=10, label=y)}) %>% 
-  {do.call(
+  {do.call(  # For future reference, purrr:invoke is probably what I was looking for as a wrapper
     plot_grid,
     c(., list(  # https://stackoverflow.com/questions/25962605/how-to-add-more-arguments-of-a-function-in-do-call-in-r
       ncol=2,
@@ -669,18 +670,19 @@ csd_formulas %>%
 Different things to consider for the analysis and manuscript.
 
 ### General
-* Finish a second revision of the outline/manuscript
-* Aggregate TODOs into this document to wrap up exploration and decisions
-* Run grids for CCDC MOFs
-* Compile RASPA grid data for CH4
-* Send Scotty list of top CCDC candidates once we have a (near-final?) model
+* Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
+* Send Scotty list of top CCDC candidates once we have a (near-final?) model: but first, remove the z-scoring
+* REMOVE Z-SCORING
 * Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
 * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
 * Saving the manuscript/SI figures should also print them (maybe with a global flag to disable)
+* Check UFF params vs. SI of accurate pore volume paper (`ongari_accurate_2017`)
+* Label Q2 and RMSE on plots. (easy: adjust the sub$plot)  Maybe also source of data (in the color): "Training\n1000 hMOFs" etc.
+* Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
+* Violin plots
 
 ### ToBaCCo errors
 * Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
-* Combining the 1000 + 1000 might be the way to go for the paper, since it also simplifies the story.
 
 ### Model formulation
 * Check if glmnet's standardize flag is causing the issues with CV.
@@ -689,7 +691,6 @@ Different things to consider for the analysis and manuscript.
 * Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
 
 ### Figures 
-* Label Q2 (and other stats?) directly on the plot.
 * Also add Spearman and/or Kendall to the ranking plot.  In general, numbers referenced in the text should also be aggregated in their own code block to make it easier to update the text.
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
 * Fix aspect ratio within R notebook
@@ -706,7 +707,5 @@ Different things to consider for the analysis and manuscript.
 #### Other possible directions
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
-* Would it be helpful to run PCA on the hMOF and/or ToBaCCo feature matricies?  Maybe the scores would show clustering between good/bad performance?
 * Is there a relationship between the betas at different P/T?  That could help optimize operating parameters if we can interpolate predictive models.
 * Use Wilmer's CH4 data to compare against the chemical intutition paper?
-

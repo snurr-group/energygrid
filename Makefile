@@ -15,7 +15,7 @@ BigData/init_h2_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/10k-hMOFs/part1/CIF_FILES BigData/10k-hMOFs/part2/CIF_FILES
 
 BigData/Robj/ccdc_hist_vals.Rds:
-	$(RUN_R) R/save_h2_hists.R $@ BigData/Sigma295/CCDC
+	$(RUN_R) R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/csd_h2
 
 BigData/ccdc_500_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/500cifs-CCDC
@@ -31,7 +31,7 @@ BigData/Robj/hmof_h2.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/2500hMOF
 
 BigData/Robj/hmof_ch4.Rds:
-	${RUN_R} R/save_h2_hists.R $@ BigData/2500hmof-data/ch4grids use_ch4
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/Methane2500 use_ch4
 
 BigData/Robj/ad_hoc.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/AdHoc
