@@ -152,7 +152,7 @@ p_tob_mod$plots %$%
 
 
 # Robustness to histogram binning strategy
-hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")
+hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")  # FIXME: This will need to be regenerated
 plot_robustness_bin_gap <- 0.05
 plot_robustness_beta_max <- 5
 p_robust <- 
@@ -667,42 +667,32 @@ csd_formulas %>%
 
 
 ## TODO notes from meetings
-Different things to consider for the analysis and manuscript.
-
 ### General
+* Add Scotty's new ToBaCCo FH data
 * Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
-* Send Scotty list of top CCDC candidates once we have a (near-final?) model: but first, remove the z-scoring
-* REMOVE Z-SCORING
+* Recalculate the beta robustness figure
+* Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
+* Send Scotty list of top CCDC candidates once we have a (near-final?) model.  Should also check for applicability of metallics vs. standard MOFs
 * Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
 * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
 * Saving the manuscript/SI figures should also print them (maybe with a global flag to disable)
-* Check UFF params vs. SI of accurate pore volume paper (`ongari_accurate_2017`)
 * Label Q2 and RMSE on plots. (easy: adjust the sub$plot)  Maybe also source of data (in the color): "Training\n1000 hMOFs" etc.
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
 * Violin plots
 
-### ToBaCCo errors
-* Two separate models for high P and low P?  Might be easier for the model to understand the physics. (have I tried a parity plot of the combined model of separate?  That may be an interesting first step).
-
 ### Model formulation
-* Check if glmnet's standardize flag is causing the issues with CV.
-* Skip all standardization AND set the intercept to zero??
+* Consider setting the model intercept to zero
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
-* Do we need standardization?  If not, consider that it would be easier (for interpretability) not to normalize, and save the justification in the SI.
 
 ### Figures 
 * Also add Spearman and/or Kendall to the ranking plot.  In general, numbers referenced in the text should also be aggregated in their own code block to make it easier to update the text.
 * Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
-* Fix aspect ratio within R notebook
 * For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?)
 
 ### Other from group meeting 12/7
 * What about higher T for desorption?
 * How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
 * Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
-
-### Code
-* Place standardization as a flag for model fitting instead of repeated functions like `no_std_fit_glmnet` in the `no_standardization` code block
 
 #### Other possible directions
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)

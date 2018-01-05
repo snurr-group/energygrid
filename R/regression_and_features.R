@@ -108,8 +108,9 @@ standardize <- function(glm_mod, x) {
   standardize_from_props(x, glm_mod$removed_cols, glm_mod$meanz, glm_mod$stdz)
 }
 
-standardization_from_x <- function(x) {
+standardization_from_x <- function(x, zscore = TRUE) {
   # Gets the standardization properties for an x matrix (removed_cols, meanz, and stdz)
+  # By default, this transforms data with mean-center and unit variance
   
   # Remove columns with zero std dev
   removed_cols <- x %>%
@@ -120,11 +121,19 @@ standardization_from_x <- function(x) {
   x <- x[,!(names(x) %in% removed_cols)]
   
   # Mean-center
-  meanz <- x %>% summarize_all(funs(mean))
+  if (zscore) {
+    meanz <- x %>% summarize_all(funs(mean))
+  } else {
+    meanz <- x %>% summarize_all(function(a) {0})
+  }
   x <- x - meanz[rep(1, times=nrow(x)),]
   
   # Unit variance
-  varz <- x %>% summarize_all(funs(sd))
+  if (zscore) {
+    varz <- x %>% summarize_all(funs(sd))
+  } else {
+    varz <- x %>% summarize_all(function(a) {1})
+  }
   x <- x / varz[rep(1, times=nrow(x)),]  # unused, but kept for completeness
   
   list(
@@ -145,15 +154,16 @@ shuffle <- function(vec) {
 # * My current model uses [glmnet](https://cran.r-project.org/web/packages/glmnet/glmnet.pdf)
 # * See also a helpful [vignette](https://cran.r-project.org/web/packages/glmnet/vignettes/glmnet_beta.pdf) and [blog post](https://www.r-bloggers.com/ridge-regression-and-the-lasso/)
 
-fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, ...) {
+fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, zscore = TRUE, ...) {
   # Fits a ridge regression model to a dataframe of predictors
-  # Also standardizes the inputs (mean-centered, unit variance)
+  # By default, only removes zero variance columns without mean-centering or unit variance.
   # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
   
   orig_x <- x
   
-  # Standardize x with mean-centering, unit variance, and no columns without variance
-  x_standardization <- standardization_from_x(x)
+  # Standardize x by removing zero variance columns.
+  # Optionally with zscore flag do mean-centering and unit variance
+  x_standardization <- standardization_from_x(x, zscore = zscore)  # By default, no longer zscore
   removed_cols <- x_standardization$removed_cols
   meanz <- x_standardization$meanz
   stdz <- x_standardization$stdz
