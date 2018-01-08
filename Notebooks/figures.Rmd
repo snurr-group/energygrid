@@ -476,7 +476,7 @@ p_err_topology <-
   xlab("'Actual' uptake (GCMC simulations)") +
   ylab("Predicted uptake (ridge regression)") +
   coord_fixed()
-p_err_topology %>% save_si_fig("err_by_topology.png", bheight=5)
+p_err_topology %>% save_si_fig("err_by_topology.png", base_aspect_ratio=0.5)
 
 ```
 
