@@ -188,6 +188,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, zsc
     x = x,
     y = y,
     orig_x = orig_x,
+    nfit = nrow(orig_x),
     removed_cols = removed_cols,
     meanz = meanz,
     stdz = stdz,

@@ -2,6 +2,8 @@
 
 library(ggplot2)
 library(dplyr)
+library(grid)  # textGrob, since geom_text/annotate won't let you adjust an x=Inf, etc.
+library(stringr)
 
 default_binspec <- c(from=-20, to=1.0, step=1.0, width=1.0)
 
@@ -57,7 +59,7 @@ pred_grid <- function(glmnet_mod, test_grid, binspec) {
   tibble(id = grid_ids, y_pred = grid_y_pred)
 }
 
-eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
+eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_name = "MOFs", plot_units = "g/L", q2 = NULL) {
   # Runs pred_grid and calculates statistics/plots on model predictivity.
   # Requires a base grid and data.frame including a (renamed) y_act column.
   # TODO: what do do about color?  Custom color for the dataframe?  Maybe just a manual parity plot.
@@ -114,8 +116,25 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
       alpha=I(0.10),  # Make slightly darker
       color=I("#0070C0")
     )
+  results$plots$parity_training <- 
+    results$plots$parity_training %>% 
+    annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B")
+  if (!is.null(q2)) {
+    results$plots$parity_training <- 
+      results$plots$parity_training %>% 
+      annotate_plot(as_plotmath(paste0("Q^2 == ", format(q2, digits=2))), "bottom.right")
+    # Plotmath is such a pain.  At least scales helps take care of it: https://jangorecki.gitlab.io/data.table/library/scales/html/parse_format.html
+  }
   results$plots$parity_testing <- 
-    parity_plot(y_act, y_pred, "#0070C0") +
+    parity_plot(y_act, y_pred, "#0070C0") %>% 
+    annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
+    annotate_plot(
+      paste(
+        "MAE =", format(results$testing_fit["MAE"], digits=2), paste0(plot_units, "\nRMSE ="),
+        format(results$testing_fit["RMSE"], digits=2), plot_units
+        ),
+      "bottom.right"
+      ) +
     ylab(paste0("Predicted uptake (", perf_model,")"))
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 
@@ -139,11 +158,22 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act) {
     xlab("'Actual' ranking (GCMC simulations): 1 is the best") +
     ylab(paste0("Predicted ranking (", perf_model,")")) +
     scale_x_reverse() + scale_y_reverse()  # Consistent interpretation as top right for best MOFs
+  results$plots$test_ranking <- 
+    results$plots$test_ranking %>% 
+    annotate_plot(
+      as_plotmath(paste0(
+        "atop(",  # plotmath can't handle \n, so use a fraction per their recommendation
+        "r[s] == ", format(results$test_spearman["y_pred", "y_act"], digits=2),
+        ",tau == ", format(results$test_kendall["y_pred", "y_act"], digits=2),
+        ")"
+        )),
+      "bottom.right"
+    )
   
   results  # return the partitioned_glmnet object
 }
 
-run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha, lambda=NULL, ...) {
+run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha, lambda=NULL, db_name = "MOFs", plot_units="g/L", ...) {
   # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
   # Returns a large object with several plots
   
@@ -161,7 +191,7 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   # Performance on the test data, which hasn't yet been used for anything
   predictions <- y_with_id %>% 
     mutate(y_act = g.L) %>%
-    eval_test_grid(trained_mod, partitioned_hists$testing, binspec, .)
+    eval_test_grid(trained_mod, partitioned_hists$testing, binspec, ., db_name, plot_units, trained_model$q2)
   predictions$trained_model <- trained_model
   predictions  # return the partitioned_glmnet object
 }
@@ -197,5 +227,45 @@ print.partitioned_glmnet <- function(x) {
   #detach("x")
 }
 
-# Other plots in old notebooks:
-# Q2 vs. bin settings (short code and doesn't need to be generalized)
+annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, ...) {
+  # Annotates a plot, including margins
+  # A great resource is this cheatsheet: http://zevross.com/blog/2014/08/04/beautiful-plotting-in-r-a-ggplot2-cheatsheet-3/
+  
+  # Set default justification and positioning to center
+  xpos <- 0.5
+  ypos <- 0.5
+  hj <- 0.5
+  vj <- 0.5
+  # Margins to end of document
+  plot_margin <- 0.05  # fraction of the plot area (0.02 is nearly flush)
+  
+  if (str_detect(pos, "left")) {
+    xpos <- plot_margin
+    hj <- 0
+  }
+  if (str_detect(pos, "right")) {
+    xpos <- 1.0 - plot_margin
+    hj <- 1
+  }
+  if (str_detect(pos, "top")) {
+    ypos <- 1.0 - plot_margin
+    vj <- 1
+  }
+  if (str_detect(pos, "bot")) {
+    ypos <- plot_margin
+    vj <- 0
+  }
+  
+  p + annotation_custom(textGrob(
+    label,
+    x=xpos, y=ypos, hjust=hj, vjust=vj,
+    gp=gpar(col=col, ...)
+    ))
+}
+
+as_plotmath <- function(x) {
+  # Converts a string x to the necessary `expression` format for plotmath annotation, etc.
+  scales::parse_format()(x)[[1]]
+  # Plotmath is such a pain.  At least scales helps take care of it: https://jangorecki.gitlab.io/data.table/library/scales/html/parse_format.html
+}
+
