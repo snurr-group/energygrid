@@ -471,12 +471,13 @@ p_err_topology <-
   ggplot(aes(y_act, y_pred)) + 
   geom_point() + parity_line +
   facet_wrap(~topology) +
-  scale_x_continuous(breaks=scales::pretty_breaks(n=2)) +
-  scale_y_continuous(breaks=scales::pretty_breaks(n=2)) +
+  coord_fixed() +
+  scale_x_continuous(breaks=c(0,40)) +
+  #scale_y_continuous(breaks=scales::pretty_breaks(n=2)) +
+  scale_y_continuous(breaks=c(0, 40)) +
   xlab("'Actual' uptake (GCMC simulations)") +
-  ylab("Predicted uptake (ridge regression)") +
-  coord_fixed()
-p_err_topology %>% save_si_fig("err_by_topology.png", base_aspect_ratio=0.5)
+  ylab("Predicted uptake (ridge regression)")
+p_err_topology %>% save_si_fig("err_by_topology.png", bheight=5)
 
 ```
 
