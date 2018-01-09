@@ -29,6 +29,24 @@ plot_hist_bins <- function(one_grid, binspec) {
 }
 # plot_hist_bins(filter(hist_sets$training, id==1), default_binspec) + coord_cartesian(ylim=c(-0.6, 0.6))
 
+overlay_violin_distr <- function(hist_plot, all_grids, binspec, color="gray", size=1, ...) {
+  # Overlay a violin plot of the bin distributions on top of the bins.
+  # Optionally pass other options such as color
+  hist_plot + geom_violin(
+    data = all_grids %>%
+      stepped_hist_spec(binspec) %>% mutate(height = metric) %>%
+      inner_join(bin_loc_from_spec(default_binspec), by="bin"),
+    aes(group = loc, y = height),
+    scale="width",  # full width of bars, http://ggplot2.tidyverse.org/reference/geom_violin.html
+    alpha=0, ...  # color="green", etc.
+    )
+}
+
+plot_avg_with_distr <- function(all_grids, binspec, print_violin = TRUE, ...) {
+  # Combines plot_hist_bins with overlay_violin_distr, and simplifies summary statistics calculations
+  # TODO
+}
+
 overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_max = 0.5) {
   # Overlay betas from one or more categories, saved in the column `cat`, on top of a histogram plot
   # If `cat` is not defined, use a colorbar based on the magnitude of beta.

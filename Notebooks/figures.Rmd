@@ -681,23 +681,42 @@ csd_formulas %>%
 * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
 * Saving the manuscript/SI figures should also print them (maybe with a global flag to disable)
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
-* Violin plots
+* Violin plots:
+
+```
+# This works!  Just need to make the lines thicker or the plot different
+hmof_h2_grid %>% stepped_hist_spec(default_binspec) %>% mutate(height = metric) %>% inner_join(color_from_binloc(bin_loc_from_spec(default_binspec)), by="bin") -> test_h2
+
+test_h2 %>% group_by(bin, loc, color) %>% summarize(mh = mean(height)) %>% ungroup %>% ggplot(aes(loc, mh)) + geom_col(aes(fill = I(color))) +  # need I() so ggplot doesn't think the rgb strings are a factor
+    guides(fill = FALSE) +
+    labs(
+      x = "Energy (kJ/mol)",
+      y = NULL
+    ) +
+    theme(aspect.ratio = 0.6
+    ) +
+    scale_y_continuous(
+      labels = NULL,
+      breaks = NULL
+    ) +
+    scale_x_continuous(minor_breaks = NULL) +
+    geom_violin(data=test_h2, aes(group = loc, y=height), scale="width", alpha=0, color="green")
+    # Scale so the max widths are the same
+    # http://ggplot2.tidyverse.org/reference/geom_violin.html
+```
+
 
 ### Model formulation
 * Consider setting the model intercept to zero
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
 
 ### Figures 
-* Beta plot: consider drawing the background as the average histogram of the data.  Betas could be drawn as hlines instead of dots.
 * For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?)
 
 ### Other from group meeting 12/7
-* What about higher T for desorption?
 * How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
-* Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
 
 #### Other possible directions
+* Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
-* Is there a relationship between the betas at different P/T?  That could help optimize operating parameters if we can interpolate predictive models.
-* Use Wilmer's CH4 data to compare against the chemical intutition paper?
