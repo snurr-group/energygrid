@@ -136,8 +136,11 @@ print("Note: revised below in another code block")  # FIXME: revise it directly 
 p_ccdc_random <- 
   ccdc_h2_grids %>% 
   filter(id %in% ccdc_gcmc$id) %>% 
+  #filter(!(id %in% no_cnps$cif)) %>% 
   eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
 # Generate the (large) figure for model generality
+core2_names <- read_tsv("BigData/Emails/ccdc-random-20180108/core2_list.txt", skip=1, col_names="id", col_types="c")$id
+p_ccdc_random$pred_df %>% mutate(core = (id %in% str_replace(core2_names, "_.*", "_stripped"))) %>% ggplot(aes(y_act, y_pred)) + geom_point() + parity_line + facet_wrap(~core) + coord_fixed()
 p_tob_mod$plots %$%
   plot_grid(
     parity_training,
