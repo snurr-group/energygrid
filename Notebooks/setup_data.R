@@ -201,8 +201,17 @@ complete_ids <- raw_grids_h2 %>%
 tob_y_to_join <- tob_y_to_join %>% filter(id %in% complete_ids)
 grids_h2 <- raw_grids_h2 %>% filter(id %in% complete_ids)
 
-tob_hist_sets <- partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT)
+# Remove empty files when the RASPA simulation crashed
+crashed_grid_ids <-
+  grids_h2 %>% 
+  group_by(id) %>% 
+  summarize(total_pts = sum(counts)) %>% 
+  ungroup %>% 
+  filter(total_pts == 0) %>% 
+  .$id
+grids_h2 <- grids_h2 %>% filter(!(id %in% crashed_grid_ids))
 
+tob_hist_sets <- partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT)
 
 ### From model_proof_of_concept code block (partial: removed test fits, but kept importing R functions)
 
