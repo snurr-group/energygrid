@@ -671,24 +671,39 @@ csd_formulas %>%
 
 ## TODO notes from meetings
 ### General
-* Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
-* Recalculate the beta robustness figure (cached as an Rds file)
-* Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
+* Use a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  Likely we're getting the strange split in data due to the formerly excluded low bins (or something with the z-scoring), hence the (relatively) poor transferability in ToBaCCo.
+
+### More simulations/grids
+* Get revised CCDC simulations from Scotty
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model.  Should also check for applicability of metallics vs. standard MOFs
-* Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
-* See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
-* Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
-
-### Model formulation
-* Consider setting the model intercept to zero
-* Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models
-
-### Figures 
-* For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?)
-
-### Other from group meeting 12/7
-* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
-
-#### Other possible directions
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
-* Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
+
+### Textural properties
+* Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++): get results from quest:/projects/p20067/BenBucior/EnergyGrid/PoreChar
+* See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
+
+### z-scoring
+* Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
+* Recalculate the beta robustness figure (cached as an Rds file)
+* Also consider setting the model intercept to zero
+
+### Q2-type analysis
+* Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
+* Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
+* Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models and levels of regularization along that plot?
+
+### Data checks
+* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
+  * TODO: start here, since it will potentially influence all of the other analysis.
+  * `grids_h2 %>% filter(lower == -20.00 & counts >0) %>% View` to see if there's any outlier MOFs: there is one for ToBaCCo: tobmof5885.  Might not be necessarily physical, but worth putting the validation in place, anyway
+  * On the bright side, this type of error doesn't show up in the CCDC energies.
+  * Need to add a warning (with the filename) in the aggregation function.  Also consider changing the granularity to be coarser, which will improve all of the compile times and file sizes
+* Removing the "hyperparameter tuning."  Also consider training with a fixed number and the rest as testing, if you pass a fixed value instead of a range.
+
+
+## Other action items after draft
+* Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
+
+### Figure details
+* For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?).  Might [consider using factors](https://stackoverflow.com/questions/37140266/how-to-merge-color-line-style-and-shape-legends-in-ggplot).
+* Check figures for [colorblindness accessibility](https://github.com/clauswilke/colorblindr)
