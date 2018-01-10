@@ -6,9 +6,11 @@ library(dplyr)
 source("R/regression_and_features.R")
 
 # e.g. plot_hist_bins(filter(hist_vals, id==55), default_binspec)
-plot_hist_bins <- function(one_grid, binspec) {
+plot_hist_bins <- function(one_grid, binspec, y_title = NULL) {
   # Returns an energy histogram plot, possibly as a base layer to beta coefficients
-  one_grid %>% 
+  # If y_title is NULL, skip plotting the primary y axis.
+  result <- 
+    one_grid %>% 
     stepped_hist_spec(binspec) %>% 
     mutate(height = metric) %>%
     inner_join(color_from_binloc(bin_loc_from_spec(binspec)), by="bin") %>% 
@@ -17,34 +19,50 @@ plot_hist_bins <- function(one_grid, binspec) {
     guides(fill = FALSE) +
     labs(
       x = "Energy (kJ/mol)",
-      y = NULL
+      y = y_title
     ) +
     theme(aspect.ratio = 0.6
     ) +
-    scale_y_continuous(
-      labels = NULL,
-      breaks = NULL
-    ) +
     scale_x_continuous(minor_breaks = NULL)
+  if (is.null(y_title)) {
+    result <- result +
+      scale_y_continuous(
+        labels = NULL,
+        breaks = NULL
+      )
+  }
+  result
 }
 # plot_hist_bins(filter(hist_sets$training, id==1), default_binspec) + coord_cartesian(ylim=c(-0.6, 0.6))
 
-overlay_violin_distr <- function(hist_plot, all_grids, binspec, color="gray", size=1, ...) {
+overlay_violin_distr <- function(hist_plot, all_grids, binspec, color="gray", ...) {
   # Overlay a violin plot of the bin distributions on top of the bins.
   # Optionally pass other options such as color
   hist_plot + geom_violin(
     data = all_grids %>%
       stepped_hist_spec(binspec) %>% mutate(height = metric) %>%
-      inner_join(bin_loc_from_spec(default_binspec), by="bin"),
+      inner_join(bin_loc_from_spec(binspec), by="bin"),
     aes(group = loc, y = height),
     scale="width",  # full width of bars, http://ggplot2.tidyverse.org/reference/geom_violin.html
-    alpha=0, ...  # color="green", etc.
+    alpha=0, color=color,
+    ...  # size=1, etc.
     )
 }
 
 plot_avg_with_distr <- function(all_grids, binspec, print_violin = TRUE, ...) {
   # Combines plot_hist_bins with overlay_violin_distr, and simplifies summary statistics calculations
-  # TODO
+  mean_grid <- 
+    all_grids %>% 
+    select(-id) %>% 
+    group_by(lower, upper) %>% 
+    summarize(counts = mean(counts)) %>% 
+    ungroup %>% 
+    mutate(id = "avg_grid")  # field is later used internally
+  result <- mean_grid %>% plot_hist_bins(binspec, "Fraction of unit cell")
+  if (print_violin) {
+    result <- result %>% overlay_violin_distr(all_grids, binspec, ...)
+  }
+  result
 }
 
 overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_max = 0.5) {
@@ -75,9 +93,7 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_ma
       ) +
     coord_cartesian(ylim = c(-1.1*hist_max, 1.1*hist_max)) +
     scale_y_continuous(
-      labels = NULL,
-      breaks = NULL,
-      minor_breaks = c(-1*hist_max, hist_max),
+      breaks = c(0, hist_max),
       sec.axis = sec_axis(
         ~.*scaling,
         name = expression(beta),

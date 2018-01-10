@@ -70,9 +70,8 @@ Recreate (and export) figures in one block.  Possibly will be externalized into 
 # Coefficients for ridge regression model
 hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0, db_name = "hMOFs")
 trained_mod <- hmof_partitioned_mod$trained_mod
-base_hist <- hmof_h2_grid %>% 
-  filter(id == 71) %>% 
-  plot_hist_bins(default_binspec)
+base_hist <- hmof_h2_grid %>%
+  plot_avg_with_distr(default_binspec)
 p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
 p_beta_orig
 
@@ -241,8 +240,7 @@ p_ch4_vol$plots$parity_full +
   scale_x_continuous(limits = c(0,250)) +
   scale_y_continuous(limits = c(0,250))
 ch4_base_hist <- p_ch4_grids %>% 
-  filter(dirname == "hMOF-71") %>%  # Using the same MOF as the sample H2 histogram
-  plot_hist_bins(ch4_binspec)
+  plot_avg_with_distr(ch4_binspec)
 p_beta_ch4 <- 
   list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
   map(mutate_col_to_gL, df=p_2bar_data) %>%
@@ -674,37 +672,12 @@ csd_formulas %>%
 ## TODO notes from meetings
 ### General
 * Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
-* Recalculate the beta robustness figure
+* Recalculate the beta robustness figure (cached as an Rds file)
 * Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model.  Should also check for applicability of metallics vs. standard MOFs
 * Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++)
 * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
-* Saving the manuscript/SI figures should also print them (maybe with a global flag to disable)
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
-* Violin plots:
-
-```
-# This works!  Just need to make the lines thicker or the plot different
-hmof_h2_grid %>% stepped_hist_spec(default_binspec) %>% mutate(height = metric) %>% inner_join(color_from_binloc(bin_loc_from_spec(default_binspec)), by="bin") -> test_h2
-
-test_h2 %>% group_by(bin, loc, color) %>% summarize(mh = mean(height)) %>% ungroup %>% ggplot(aes(loc, mh)) + geom_col(aes(fill = I(color))) +  # need I() so ggplot doesn't think the rgb strings are a factor
-    guides(fill = FALSE) +
-    labs(
-      x = "Energy (kJ/mol)",
-      y = NULL
-    ) +
-    theme(aspect.ratio = 0.6
-    ) +
-    scale_y_continuous(
-      labels = NULL,
-      breaks = NULL
-    ) +
-    scale_x_continuous(minor_breaks = NULL) +
-    geom_violin(data=test_h2, aes(group = loc, y=height), scale="width", alpha=0, color="green")
-    # Scale so the max widths are the same
-    # http://ggplot2.tidyverse.org/reference/geom_violin.html
-```
-
 
 ### Model formulation
 * Consider setting the model intercept to zero
@@ -717,6 +690,5 @@ test_h2 %>% group_by(bin, loc, color) %>% summarize(mh = mean(height)) %>% ungro
 * How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
 
 #### Other possible directions
-* Can we optimize uptake for a given bin (calculating a maximum adsorption for an artificial pseudo-MOF using the histogram bins?)
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
 * Make a few parity plots from the Q2 analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
