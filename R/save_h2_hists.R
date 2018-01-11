@@ -28,8 +28,8 @@ R_GAS_KJ <- 8.314 / 1000
 if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
   DATA_SPLIT <- c(0.4, 0.4, 0.2)  # Split for hyperparams, training, and test data
   # Minimum histogram parameters, in kJ/mol
-  min_bin_width <- 0.05
-  hist_range <- c(-20, 5)
+  min_bin_width <- 0.25
+  hist_range <- c(-25, 5)  # Need -25 kJ/mol for tobmof5885
 }
 
 if (args[length(args)] == "use_ch4") {
@@ -50,6 +50,19 @@ ENERGY_RANGE <- hist_range / R_GAS_KJ
 hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH)
 # Also convert our hist_vals to more convenient units of kJ/mol
 hist_vals <- mutate(hist_vals, lower=lower*R_GAS_KJ, upper=upper*R_GAS_KJ)
+
+
+# Warn if the lower bound is not sufficient to capture all of the data
+err_filled_lowest_bins <- 
+  hist_vals %>% 
+  filter(lower < (hist_range[1] + 0.5*min_bin_width) & counts > 0)
+if (nrow(err_filled_lowest_bins) > 0) {
+  warning(paste(
+    "Warning: bin range not sufficient.  More attractive regions captured in lowest bin for",
+    nrow(err_filled_lowest_bins), "MOFs:\n",
+    err_filled_lowest_bins$id
+    ))
+}
 
 # See Rds info in the [R for Data Science book](http://r4ds.had.co.nz/data-import.html)
 write_rds(hist_vals, OUTFILE)

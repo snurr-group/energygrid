@@ -671,7 +671,8 @@ csd_formulas %>%
 
 ## TODO notes from meetings
 ### General
-* Use a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  Likely we're getting the strange split in data due to the formerly excluded low bins (or something with the z-scoring), hence the (relatively) poor transferability in ToBaCCo.
+* Use a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  Likely we're getting the strange split in data due to the formerly excluded low bins (or something with the z-scoring), hence the (relatively) poor transferability in ToBaCCo.  Should consider if this analysis goes in the SI or elsewhere.
+* Make a comment about hMOF vs. ToBaCCo diversity for ML somewhere in the paper
 
 ### More simulations/grids
 * Get revised CCDC simulations from Scotty
@@ -680,7 +681,7 @@ csd_formulas %>%
 
 ### Textural properties
 * Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++): get results from quest:/projects/p20067/BenBucior/EnergyGrid/PoreChar
-* See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).
+* See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).  Has this sort of analysis been done before, except for the ANNs?
 
 ### z-scoring
 * Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
@@ -693,12 +694,8 @@ csd_formulas %>%
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models and levels of regularization along that plot?
 
 ### Data checks
-* How do the range of the hMOF and ToBaCCo energies compare?  Is the maximally attractive ToBaCCo region significantly lower than the hMOFs? (related: does our ToBaCCo energy go low enough?)
-  * TODO: start here, since it will potentially influence all of the other analysis.
-  * `grids_h2 %>% filter(lower == -20.00 & counts >0) %>% View` to see if there's any outlier MOFs: there is one for ToBaCCo: tobmof5885.  Might not be necessarily physical, but worth putting the validation in place, anyway
-  * On the bright side, this type of error doesn't show up in the CCDC energies.
-  * Need to add a warning (with the filename) in the aggregation function.  Also consider changing the granularity to be coarser, which will improve all of the compile times and file sizes
 * Removing the "hyperparameter tuning."  Also consider training with a fixed number and the rest as testing, if you pass a fixed value instead of a range.
+* In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend)
 
 
 ## Other action items after draft
