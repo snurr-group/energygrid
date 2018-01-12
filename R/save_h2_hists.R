@@ -26,7 +26,6 @@ if (length(args) == 0) {
 R_GAS_KJ <- 8.314 / 1000
 
 if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
-  DATA_SPLIT <- c(0.4, 0.4, 0.2)  # Split for hyperparams, training, and test data
   # Minimum histogram parameters, in kJ/mol
   min_bin_width <- 0.25
   hist_range <- c(-25, 5)  # Need -25 kJ/mol for tobmof5885

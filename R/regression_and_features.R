@@ -70,18 +70,35 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split)
   # Get a list of unique ID's for splitting
   filtered_hist <- unprocessed_x_with_id %>% 
     filter(id %in% y_with_id$id)
-  filtered_ids <- filtered_hist %>% 
-    select(id) %>% 
-    unique
-  num_ids <- filtered_ids %>% nrow
+  filtered_ids <- filtered_hist$id %>% unique
+  num_ids <- length(filtered_ids)
+  
+  n_split <- integer(3)
+  
+  # Parse data_split into proportions for hyperparameter tuning, testing, and training
+  if (length(data_split) == 1) {
+    # A single number: the number of samples used for training.  Everything else is tested
+    n_split <- c(0, data_split, num_ids - data_split)
+  } else if (length(data_split) == 3) {
+    # A vector of proportions for the three subsets
+    n_split[1] <- num_ids*data_split[1]
+    n_split[2] <- num_ids*data_split[2]
+    n_split[3] <- NA  # not actually used
+  } else {
+    stop(paste("Improper data_split arg.  Must be a single number (training MOFs) or the fractional split.  Provided", data_split))
+  }
   
   # For hyperparameter tuning
-  hyperparam_rows <- sample(num_ids, num_ids*data_split[1])
-  hyperparam_ids <- filtered_ids[hyperparam_rows,]
+  hyperparam_rows <- sample(num_ids, n_split[1])
+  hyperparam_ids <- filtered_ids[hyperparam_rows]
   hyperparam_data <- filtered_hist %>% filter(id %in% hyperparam_ids)
   # For training
-  remaining_ids <- filtered_ids[-hyperparam_rows,]
-  training_rows <- sample(length(remaining_ids), num_ids*data_split[2])
+  if (length(hyperparam_rows) > 0) {
+    remaining_ids <- filtered_ids[-hyperparam_rows]
+  } else {
+    remaining_ids <- filtered_ids  # -numeric(0) returns numeric(0) or something similar
+  }
+  training_rows <- sample(length(remaining_ids), n_split[2])
   training_ids <- remaining_ids[training_rows]
   training_data <- filtered_hist %>% filter(id %in% training_ids)
   # For testing

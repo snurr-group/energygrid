@@ -671,11 +671,11 @@ csd_formulas %>%
 
 ## TODO notes from meetings
 ### General
+* In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend)
 * Use a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  Likely we're getting the strange split in data due to the formerly excluded low bins (or something with the z-scoring), hence the (relatively) poor transferability in ToBaCCo.  Should consider if this analysis goes in the SI or elsewhere.
 * Make a comment about hMOF vs. ToBaCCo diversity for ML somewhere in the paper
 
 ### More simulations/grids
-* Get revised CCDC simulations from Scotty
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model.  Should also check for applicability of metallics vs. standard MOFs
 * What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
 
@@ -692,10 +692,6 @@ csd_formulas %>%
 * Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models and levels of regularization along that plot?
-
-### Data checks
-* Removing the "hyperparameter tuning."  Also consider training with a fixed number and the rest as testing, if you pass a fixed value instead of a range.
-* In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend)
 
 
 ## Other action items after draft

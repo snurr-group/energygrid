@@ -106,7 +106,8 @@ tobacco_data <-
 
 
 
-DATA_SPLIT <- c(0.4, 0.4, 0.2)
+#DATA_SPLIT <- c(0.4, 0.4, 0.2)  # Fractional split between hyperparams, training, and test data
+DATA_SPLIT <- 1000  # Number of data points used in training data
 R_GAS_KJ <- 8.314 / 1000
 source("R/regression_and_features.R")  # Get regression utilities
 
@@ -246,7 +247,6 @@ raw_ch4_hmof <- raw_ch4_hmof %>%
 gcmc_data <- gcmc_data %>% 
   left_join(raw_ch4_hmof, by="id")
 
-# TODO: update H2 grids including FH for consistency between all H2 data
 hmof_h2_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
 hmof_h2_grid <- hmof_h2_grid %>%
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
@@ -298,20 +298,16 @@ tob_ch4_sets <- partition_data_subsets(grids_ch4_tobacco, tobacco_data, DATA_SPL
 
 # Derived from notebook 20171106_immediate_followup.Rmd
 ccdc_h2_grids <- read_rds("BigData/Robj/ccdc_hist_vals.Rds")
-ccdc_gcmc <- read_tsv(
-  "BigData/Emails/ccdc-random-20180108/cleaned_vol_from_xlsx.tsv",
-  skip = 3,
-  na = c("", "null", "#NAME?", "#VALUE!"),
-  col_names = c("id", paste("fh.h2.g.L", c(2, 5, 100, 5), c(77, 77, 77, 160), sep=".")),
-  col_types = "cnnnn"
+ccdc_gcmc <- 
+  read_tsv(
+    "BigData/Emails/ccdc-random-20180111/cleaned_vol_from_xlsx.tsv",
+    skip = 3,
+    na = c("", "null", "#NAME?", "#VALUE!", "-"),
+    col_names = c("id", paste("fh.h2.g.L", c(2, 5, 5, 100), c(77, 77, 160, 77), sep=".")),
+    col_types = "cnnnn"
   ) %>% 
   mutate_at(vars(starts_with("fh.h2")), funs(. * 2.0 / 22.4)) %>% 
   # See https://stackoverflow.com/questions/39279724/use-mutate-at-to-change-multiple-column-types
-  mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
-#ccdc_gcmc <-
-#  read_tsv(
-#    "BigData/500-CSDmofs.tsv",
-#    na = c("", "null", "#NAME?", "#VALUE!")
-#    ) %>% 
-#  rename(id = MOF, g.L = `deliv g/L`)
+  mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
+  na.omit()
 
