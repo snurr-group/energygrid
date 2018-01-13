@@ -673,7 +673,6 @@ csd_formulas %>%
 ### General
 * In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend)
 * Use a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  Likely we're getting the strange split in data due to the formerly excluded low bins (or something with the z-scoring), hence the (relatively) poor transferability in ToBaCCo.  Should consider if this analysis goes in the SI or elsewhere.
-* Make a comment about hMOF vs. ToBaCCo diversity for ML somewhere in the paper
 
 ### More simulations/grids
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model.  Should also check for applicability of metallics vs. standard MOFs
