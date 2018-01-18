@@ -350,8 +350,8 @@ textural_mod$lambda
 ```
 
 
-```{r ccdc_selection}
-#```{r ccdc_selection, eval=FALSE, include=FALSE}
+```{r ccdc_selection, eval=FALSE, include=FALSE}
+# ```{r ccdc_selection}
 # Prepare list of top CCDC MOFs for additional screening
 # no_cnps is imported when generating the CCDC parity plot above, from work in filter_ccdc_chemistry.R
 
@@ -684,7 +684,6 @@ p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 
 ## TODO notes from meetings
 ### General
-* Add R2 (and maybe MAE) to the model fit.
 * Finish work on textural properties!
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 

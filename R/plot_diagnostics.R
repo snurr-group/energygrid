@@ -116,15 +116,24 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       alpha=I(0.10),  # Make slightly darker
       color=I("#0070C0")
     )
+  
+  # Label stats on the training and testing plots
+  training_stats <- paste0(
+    "R\u00B2 = ", format(results$training_fit["Rsquared"], digits=2), "\n",
+    "MAE = ", format(results$training_fit["MAE"], digits=2), " ", plot_units
+  )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
+  if (!is.null(q2)) {
+    training_stats <- 
+      paste0(
+        training_stats, "\n",
+        "Q\u00B2 = ", format(q2, digits=2)
+      )
+  }
   results$plots$parity_training <- 
     results$plots$parity_training %>% 
-    annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B")
-  if (!is.null(q2)) {
-    results$plots$parity_training <- 
-      results$plots$parity_training %>% 
-      annotate_plot(as_plotmath(paste0("Q^2 == ", format(q2, digits=2))), "bottom.right")
-    # Plotmath is such a pain.  At least scales helps take care of it: https://jangorecki.gitlab.io/data.table/library/scales/html/parse_format.html
-  }
+    annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
+    annotate_plot(training_stats, "bottom.right")
+  
   results$plots$parity_testing <- 
     parity_plot(y_act, y_pred, "#0070C0") %>% 
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
@@ -136,6 +145,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       "bottom.right"
       ) +
     ylab(paste0("Predicted uptake (", perf_model,")"))
+  
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 
     ggplot(aes(y_act - y_pred)) +
@@ -265,6 +275,7 @@ annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, 
 
 as_plotmath <- function(x) {
   # Converts a string x to the necessary `expression` format for plotmath annotation, etc.
+  # Can use in `annotate_plot(as_plotmath("Q^2 == 0.95))``
   scales::parse_format()(x)[[1]]
   # Plotmath is such a pain.  At least scales helps take care of it: https://jangorecki.gitlab.io/data.table/library/scales/html/parse_format.html
 }
