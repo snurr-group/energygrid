@@ -185,8 +185,89 @@ p_robust
 save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
 
 
+# Methane predictions
+p_ch4_vol <- p_2bar_data %>% 
+  mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0, plot_units="cm\u00B3/cm\u00B3")
+  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
+p_ch4_vol$plots$parity_full +
+  scale_x_continuous(limits = c(0,250)) +
+  scale_y_continuous(limits = c(0,250))
+ch4_base_hist <- p_ch4_grids %>% 
+  plot_avg_with_distr(ch4_binspec)
+p_beta_ch4 <- 
+  list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
+  map(mutate_col_to_gL, df=p_2bar_data) %>%
+  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
+
+p_ch4_vol$plots %$%
+  plot_grid(
+    parity_training +
+      scale_x_continuous(limits = c(0,250)) +
+      scale_y_continuous(limits = c(0,250)),
+    parity_testing +
+      scale_x_continuous(limits = c(0,250)) +
+      scale_y_continuous(limits = c(0,250)),
+    p_beta_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
+    #make_draft(NULL, "TODO"),
+    ncol = 1,
+    rel_heights = c(1, 1, 1.1/1.5),
+    labels=default_subfig_labels, label_size=12
+    ) %>% 
+  #save_ben_fig("ch4_plots.png", nrow = 2, ncol = 2)
+  save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1)
+
+```
+
+```{r main_textural}
+# TODO thoughts:
+# Write a function to generalize model fitting/evaluation
+# Test with avsa vs. avsa+navsa, etc.
+# Probably should also test against ToBaCCo data, though that will have to be run separately
+
+# Maybe also see how necessary ridge regression is for this model.  Maybe MLR isn't good enough for this one?
+
+
+# Textural property base model 
+zeo_hmof <- read_delim(
+  "BigData/quest-PoreChar/all.tsv",
+  col_names = c("filename", "LCD", "PLD", "avf", "navf", "density", "avsa", "agsa", "navsa", "nagsa"),
+  col_types = "cddddddddd",  # parse_number doesn't process scientific notation, so we need to use dbl's
+  skip = 1,
+  delim = " "
+  )
+textural_data <- 
+  zeo_hmof %>% 
+  mutate(id = as.integer(str_sub(filename, 6))) %>%
+  inner_join(gcmc_data, by="id") %>% 
+  mutate(y_act = va100bar - va2bar)
+zeo_model <- 
+  textural_data %>% 
+  filter(id %in% hmof_hist_sets$training$id) %>%  # TODO: check that nfit is actually 1000, once textural property simulations are complete
+  select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>% 
+  select(-id) %>% 
+  {fit_glmnet(select(., -y_act), .$y_act)}
+parity_plot(zeo_model$y, pred_glmnet(zeo_model, zeo_model$orig_x))
+
+zeo_testing_x <- 
+  textural_data %>% 
+  filter(id %in% hmof_hist_sets$testing$id) %>% 
+  select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>% 
+  select(-id)
+parity_plot(zeo_testing_x$y_act, pred_glmnet(zeo_model, select(zeo_testing_x, -y_act)))
+postResample(pred=pred_glmnet(zeo_model, select(zeo_testing_x, -y_act)), obs=zeo_testing_x$y_act)
+
+coef_tbl(zeo_model$mod)
+# also consider which variables were used earlier...we have some redundancies which might be coding nonlinearities?
+# alternatively fitting on the ToBaCCo MOFs or something similarly non-diverse??
+# see also methane, of course
+  
+
+# OLD CONTENT:
 # Models based on textural properties
-# TODO: add density to the MOFs.  We could also consider DPD, though that's only based on PSD
 # TODO: all of the "good" models so far have been based on methane.  Can we reproduce the good predictivity for CH4 using MLR?  Maybe the problem is like hydrogen storage, where high P is predicted by Chahine's rule
 # Serves as a baseline for how well the energy histogram is working.
 # Selected properties based on a quick literature review of ML:
@@ -231,43 +312,11 @@ postResample(pred=textural_pred, obs=textural_act)
 textural_mod$lambda
 
 
-# Methane predictions
-p_ch4_vol <- p_2bar_data %>% 
-  mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
-  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0, plot_units="cm\u00B3/cm\u00B3")
-  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
-p_ch4_vol$plots$parity_full +
-  scale_x_continuous(limits = c(0,250)) +
-  scale_y_continuous(limits = c(0,250))
-ch4_base_hist <- p_ch4_grids %>% 
-  plot_avg_with_distr(ch4_binspec)
-p_beta_ch4 <- 
-  list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
-  map(mutate_col_to_gL, df=p_2bar_data) %>%
-  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
-  map(function(x) x$trained_mod$mod) %>% 
-  map_dfr(coef_tbl, .id="cat") %>% 
-  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
 
-p_ch4_vol$plots %$%
-  plot_grid(
-    parity_training +
-      scale_x_continuous(limits = c(0,250)) +
-      scale_y_continuous(limits = c(0,250)),
-    parity_testing +
-      scale_x_continuous(limits = c(0,250)) +
-      scale_y_continuous(limits = c(0,250)),
-    p_beta_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
-    #make_draft(NULL, "TODO"),
-    ncol = 1,
-    rel_heights = c(1, 1, 1.1/1.5),
-    labels=default_subfig_labels, label_size=12
-    ) %>% 
-  #save_ben_fig("ch4_plots.png", nrow = 2, ncol = 2)
-  save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1)
+
+
 
 ```
-
 
 ## Supporting Information for manuscript
 
@@ -277,6 +326,9 @@ This section is still largely TODO but at least can be done in part for some of 
 First, some random figures that haven't been placed elsewhere for the SI yet.
 
 ```{r unsorted_si_figures}
+# * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).  Has this sort of analysis been done before, except for the ANNs?
+# * What to do about accessible vs. non-accessible properties?  Just use the hMOFs verbatim (plus density)?  Do a combined void fraction?
+  
 
 
 ```
@@ -483,7 +535,7 @@ p_err_topology %>% save_si_fig("err_by_topology.png", bheight=5)
 ```
 
 ### Model regularization strategies
-```{r si_regularizaiton}
+```{r si_regularization}
 # Lambda plot from glmnet package.
 # Viewing the source code with `plot.cv.glmnet` is very informative.
 # See also an online vignette https://web.stanford.edu/~hastie/glmnet/glmnet_alpha.html#lin
@@ -538,17 +590,17 @@ trained_model_regu <- list(
 )
 
 trained_model_regu %>% 
-  set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
+  #set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
   map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=50, y=15, label=y)}) %>% 
   {do.call(  # For future reference, purrr:invoke is probably what I was looking for as a wrapper
     plot_grid,
     c(., list(  # https://stackoverflow.com/questions/25962605/how-to-add-more-arguments-of-a-function-in-do-call-in-r
-      ncol=2,
+      ncol=2, nrow=2,
       labels=default_subfig_labels, label_size=12
       )
     )
     )} %>% 
-  save_si_fig("regu_parity.png", ncol=2)
+  save_si_fig("regu_parity.png", ncol=2, nrow=2)
 
 trained_model_regu %>% 
   map_dfr(~ coef_tbl(.x$trained_mod$mod), .id="method") %>% 
@@ -671,19 +723,21 @@ csd_formulas %>%
 
 ## TODO notes from meetings
 ### General
-* In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend)
-* Use a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  Likely we're getting the strange split in data due to the formerly excluded low bins (or something with the z-scoring), hence the (relatively) poor transferability in ToBaCCo.  Should consider if this analysis goes in the SI or elsewhere.
+* Add R2 (and maybe MAE) to the model fit.
+* Finish work on textural properties!
+* Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
+* In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend).  Maybe also list the separate MAE stats, etc., in blue with an explicit caption
+* Consider using a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  But, the old split in data was an artifact of lingering inconsistencies
 
 ### More simulations/grids
 * Send Scotty list of top CCDC candidates once we have a (near-final?) model.  Should also check for applicability of metallics vs. standard MOFs
-* What sort of capacity could you get with a uniform background potential? (`12_6_2_0` potential against a single MOF pseudo atom in a huge box?  Of course no tail corrections or shifting the potential (or 12/6 LJ params)).  Of course, validate against a bias of 0 kJ/mol to verify that the "deliverable capacity" is just the difference in 100 bar and 2 bar densities. (in curiosity, how closely does the "density" of the pseudobox match the beta coefficient for each raw bin?)
-
-### Textural properties
-* Calculate density for the hMOFs (and consider recalculating all of the textural properties in Zeo++): get results from quest:/projects/p20067/BenBucior/EnergyGrid/PoreChar
-* See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).  Has this sort of analysis been done before, except for the ANNs?
+* Get textural results from quest:/projects/p20067/BenBucior/EnergyGrid/PoreChar and ../TobPores
+* Uniform background potential calculations from Arun?
+* Grid convergence testing!!!
 
 ### z-scoring
 * Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
+  * Maybe a logb flag for ln? (to generate log10 data_frame?)
 * Recalculate the beta robustness figure (cached as an Rds file)
 * Also consider setting the model intercept to zero
 
