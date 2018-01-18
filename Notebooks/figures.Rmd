@@ -438,36 +438,13 @@ p_y_distr <-
 p_y_distr %>% save_si_fig("y_distr.png", base_aspect_ratio=1.6)
 p_y_distr
 
-plot_x_distr <- function(egrid, binspec, lower_cutoff=-Inf) {
-  egrid %>% 
-    stepped_hist_spec(binspec) %>% 
-    spread(key=bin, value=metric) %>% 
-    select(-id) %>% 
-    #standardize(stdmod, .) %>% 
-    gather(key="bin", value="value") %>% 
-    left_join(bin_loc_from_spec(binspec), by="bin") %>% 
-    filter(lower >= lower_cutoff) %>% 
-    #gather(key="bin", value="value") %>% 
-    #mutate(binlab = factor(paste("Bin from", lower, "to", upper, "kJ/mol"), ordered=TRUE)) %>% 
-    mutate(binlab = paste("Bin from", lower, "to", upper, "kJ/mol")) %>% 
-    # Use an ordered factor (with specified levels) to order by numeric energy instead of binlab char
-    arrange(lower) %>% 
-    mutate(faclab = factor(binlab, levels=unique(binlab), ordered=TRUE)) %>%
-    ggplot(aes(value)) +
-    geom_histogram(bins = 30) +
-    facet_wrap(~faclab, scales="free") +
-    xlab("Value of histogram bin (fraction of unit cell)") +
-    ylab("Number of MOFs") +
-    scale_x_continuous(breaks=scales::pretty_breaks(n=2))
-    #theme(text = element_text(size = 8))
-}
-p_x_distr_hmof <- plot_x_distr(hmof_h2_grid, default_binspec, -7)
+p_x_distr_hmof <- plot_avg_with_distr(hmof_h2_grid, default_binspec, print_violin=TRUE)
 p_x_distr_hmof
-p_x_distr_tob <- plot_x_distr(grids_h2, default_binspec, -7)
+p_x_distr_tob <- plot_avg_with_distr(grids_h2, default_binspec, print_violin=TRUE)
 p_x_distr_tob
 plot_grid(
-  p_x_distr_hmof,
-  p_x_distr_tob,
+  p_x_distr_hmof + coord_cartesian(xlim = c(-15, 2)),
+  p_x_distr_tob + coord_cartesian(xlim = c(-15, 2)),
   ncol=1,
   labels=default_subfig_labels, label_size=12
   ) %>%
@@ -709,7 +686,6 @@ p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 ### General
 * Add R2 (and maybe MAE) to the model fit.
 * Finish work on textural properties!
-* Move violin plots to a separate (large) figure in the SI to make the plots less busy
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 
 ### More simulations/grids

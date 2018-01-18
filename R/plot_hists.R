@@ -13,6 +13,7 @@ plot_hist_bins <- function(one_grid, binspec, y_title = NULL) {
     one_grid %>% 
     stepped_hist_spec(binspec) %>% 
     mutate(height = metric) %>%
+    filter(!near(height, 0)) %>%  # Remove columns where height == 0, floating point
     inner_join(color_from_binloc(bin_loc_from_spec(binspec)), by="bin") %>% 
     ggplot(aes(loc, height)) +
     geom_col(aes(fill = I(color))) +  # need I() so ggplot doesn't think the rgb strings are a factor
@@ -41,7 +42,7 @@ overlay_violin_distr <- function(hist_plot, all_grids, binspec, color="gray", ..
   hist_plot + geom_violin(
     data = all_grids %>%
       stepped_hist_spec(binspec) %>% mutate(height = metric) %>%
-      inner_join(bin_loc_from_spec(binspec), by="bin"),
+      left_join(bin_loc_from_spec(binspec), by="bin"),
     aes(group = loc, y = height),
     scale="width",  # full width of bars, http://ggplot2.tidyverse.org/reference/geom_violin.html
     alpha=0, color=color,
@@ -49,7 +50,7 @@ overlay_violin_distr <- function(hist_plot, all_grids, binspec, color="gray", ..
     )
 }
 
-plot_avg_with_distr <- function(all_grids, binspec, print_violin = TRUE, ...) {
+plot_avg_with_distr <- function(all_grids, binspec, print_violin = FALSE, ...) {
   # Combines plot_hist_bins with overlay_violin_distr, and simplifies summary statistics calculations
   mean_grid <- 
     all_grids %>% 
