@@ -42,3 +42,14 @@ BigData/Convergence/top_20171122.Rds:
 
 BigData/Robj/hyper_tuned.Rds: R/hyper_tuned.R Notebooks/setup_data.R
 	${RUN_R} $<
+
+BigData/csd_formula.txt:
+	#export BABEL_DATADIR=/cygdrive/c/Users/Benjamin/AppData/Roaming/OpenBabel-2.4.1/data; \
+	# Need to make sure the data files have the linux line endings:
+	export BABEL_DATADIR=/cygdrive/c/Users/Benjamin/Git/mofid/src/ob_datadir/; \
+	rm $@; \
+	cd /cygdrive/c/Users/Benjamin/Git/EnergyGrid/BigData/cifs_from_csddata; \
+	obabel *.cif -ab -otxt --append "\tFORMULA" >> ../csd_formula.txt
+
+BigData/Robj/csd_formulas.Rds: BigData/csd_formula.txt
+	${RUN_R} R/filter_ccdc_chemistry.R
