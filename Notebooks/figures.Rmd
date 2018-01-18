@@ -725,6 +725,7 @@ csd_formulas %>%
 ### General
 * Add R2 (and maybe MAE) to the model fit.
 * Finish work on textural properties!
+* Move violin plots to a separate (large) figure in the SI to make the plots less busy
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 * In the CCDC validation figure, add non-CNPS non-MOFs as an additional points layer in red (so they don't get aggregated in the statistics.  Make a comment about that in the caption and a figure legend).  Maybe also list the separate MAE stats, etc., in blue with an explicit caption
 * Consider using a combined hMOF/ToBaCCo model for training since the energy range of hMOFs is not sufficient (see `p_hmof_from_tob`): `gcmc_data %>% mutate(y_act = va100bar - va2bar) %>% eval_test_grid(p_tob_mod$trained_mod, hmof_hist_sets$testing, default_binspec, .)`.  But, the old split in data was an artifact of lingering inconsistencies
@@ -740,6 +741,11 @@ csd_formulas %>%
   * Maybe a logb flag for ln? (to generate log10 data_frame?)
 * Recalculate the beta robustness figure (cached as an Rds file)
 * Also consider setting the model intercept to zero
+
+### Model form and applicability
+* Is the hydrogen grid directly able to predict CH4 adsorption?  How much is actually the energy versus another version of pore characterization?
+* If we train two separate MLR models on 2 bar and 100 bar H2 uptakes, does the difference match a combined MLR model on deliverable capacity?  Meaning, is the slight discrepancy caused by separate lambdas or something else?
+* Do we get a really simple model if we set LASSO to a large lambda?  (Occam's Razor)
 
 ### Q2-type analysis
 * Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
