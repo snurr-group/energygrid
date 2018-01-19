@@ -280,3 +280,8 @@ as_plotmath <- function(x) {
   # Plotmath is such a pain.  At least scales helps take care of it: https://jangorecki.gitlab.io/data.table/library/scales/html/parse_format.html
 }
 
+rescale_ch4_parity <- function(p, lim=250) {
+  p +
+    scale_x_continuous(limits = c(0,lim)) +
+    scale_y_continuous(limits = c(0,lim))
+}

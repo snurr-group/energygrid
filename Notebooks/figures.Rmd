@@ -222,9 +222,8 @@ p_ch4_vol <- p_2bar_data %>%
   mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
   run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0, plot_units="cm\u00B3/cm\u00B3")
   # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
-p_ch4_vol$plots$parity_full +
-  scale_x_continuous(limits = c(0,250)) +
-  scale_y_continuous(limits = c(0,250))
+p_ch4_vol$plots$parity_full %>% 
+  rescale_ch4_parity()
 ch4_base_hist <- p_ch4_grids %>% 
   plot_avg_with_distr(ch4_binspec)
 p_beta_ch4 <- 
@@ -237,12 +236,8 @@ p_beta_ch4 <-
 
 p_ch4_vol$plots %$%
   plot_grid(
-    parity_training +
-      scale_x_continuous(limits = c(0,250)) +
-      scale_y_continuous(limits = c(0,250)),
-    parity_testing +
-      scale_x_continuous(limits = c(0,250)) +
-      scale_y_continuous(limits = c(0,250)),
+    parity_training %>% rescale_ch4_parity(),
+    parity_testing %>% rescale_ch4_parity(),
     p_beta_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
     ncol = 1,
     rel_heights = c(1, 1, 1.1/1.5),
@@ -394,7 +389,21 @@ library(corrplot)
 corrplot(cor(trained_mod$x), type="upper")
 corrplot(cor(p_tob_mod$trained_mod$x), type="upper")
 
-
+# What happens if we try to use H2 grids to predict CH4 adsorption?
+# \textit{WIP.  I'm not sure what to do with this figure, but I thought the experiment might be interesting for understanding.} Can we use the hydrogen grid to predict methane adsorption?  How much of our model is capturing specific energetic interactions versus pore characterization like textural properties?  These parity plots were trained and tested on the hMOF database using the hydrogen grids for the explanatory variable but methane deliverable capacity for the response.  \textbf{If this is interesting, a big question would be trying to transfer it to ToBaCCo}
+crossover_ch4_gcmc <-
+  p_2bar_data %>% 
+  mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298)
+crossover_h2_sets_for_ch4 <- partition_data_subsets(hmof_h2_grid, crossover_ch4_gcmc, DATA_SPLIT)
+crossover_part_mod <- run_model_on_partitions(crossover_h2_sets_for_ch4, crossover_ch4_gcmc, default_binspec, 0, plot_units="cm\u00B3/cm\u00B3")
+crossover_part_mod$plots %$%
+  plot_grid(
+    parity_training %>% rescale_ch4_parity(),
+    parity_testing %>% rescale_ch4_parity(),
+    ncol = 2,
+    labels=default_subfig_labels, label_size=12
+    ) %>% 
+  save_ben_fig("h2_crossover_to_ch4.png", nrow = 1, ncol = 2)
 ```
 
 ### Database distributions
@@ -700,7 +709,6 @@ p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 * Also consider setting the model intercept to zero
 
 ### Model form and applicability
-* Is the hydrogen grid directly able to predict CH4 adsorption?  How much is actually the energy versus another version of pore characterization?
 * If we train two separate MLR models on 2 bar and 100 bar H2 uptakes, does the difference match a combined MLR model on deliverable capacity?  Meaning, is the slight discrepancy caused by separate lambdas or something else?
 * Do we get a really simple model if we set LASSO to a large lambda?  (Occam's Razor)
 
