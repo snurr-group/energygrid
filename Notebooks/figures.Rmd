@@ -252,22 +252,31 @@ p_ch4_vol$plots %$%
 # TODO thoughts:
 # Write a function to generalize model fitting/evaluation
 # Test with avsa vs. avsa+navsa, etc.
-# Probably should also test against ToBaCCo data, though that will have to be run separately
+# Probably should also test against ToBaCCo data, which has been imported but not analyzed
 
 # Maybe also see how necessary ridge regression is for this model.  Maybe MLR isn't good enough for this one?
 
 
-# Textural property base model 
+# Textural property base model
+zeo_tsv_names <- c("filename", "LCD", "PLD", "avf", "navf", "density", "avsa", "agsa", "navsa", "nagsa")
 zeo_hmof <- read_delim(
-  "BigData/quest-PoreChar/all.tsv",
-  col_names = c("filename", "LCD", "PLD", "avf", "navf", "density", "avsa", "agsa", "navsa", "nagsa"),
+  "BigData/quest/PoreChar/all.tsv",
+  col_names = zeo_tsv_names,
   col_types = "cddddddddd",  # parse_number doesn't process scientific notation, so we need to use dbl's
   skip = 1,
   delim = " "
-  )
+  ) %>% 
+  mutate(id = as.integer(str_sub(filename, 6)))
+zeo_tobmof <- read_delim(
+  "BigData/quest/TobPores/all.tsv",
+  col_names = zeo_tsv_names,
+  col_types = "cddddddddd",  # parse_number doesn't process scientific notation, so we need to use dbl's
+  skip = 1,
+  delim = " "
+  ) %>% 
+  mutate(id = filename)  # ToBaCCo id's start with tobmof, so it's already the correct format
 textural_data <- 
   zeo_hmof %>% 
-  mutate(id = as.integer(str_sub(filename, 6))) %>%
   inner_join(gcmc_data, by="id") %>% 
   mutate(y_act = va100bar - va2bar)
 zeo_model <- 
@@ -693,12 +702,11 @@ p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 
 ## TODO notes from meetings
 ### General
-* Finish work on textural properties!
+* Finish work on textural properties!  Particularly ToBaCCo might be interesting
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 
 ### More simulations/grids
-* Figure out plan for CCDC or CoRE MOFs.  Run calculations of the top candidates and confirm results.
-* Get textural results from quest:/projects/p20067/BenBucior/EnergyGrid/PoreChar and ../TobPores
+* Run calculations of the top CCDC candidates and confirm results.
 * Uniform background potential calculations from Arun?
 * Grid convergence testing!!!
 
