@@ -369,6 +369,8 @@ if (!exists("ccdc_predicted")) {
 core2_names <- read_tsv("BigData/Emails/ccdc-random-20180108/core2_list.txt", skip=1, col_names="id", col_types="c")$id
 ccdc_predicted %>% mutate(core = (id %in% str_replace(core2_names, "_.*", "_stripped"))) %>% arrange(desc(y_pred)) %>% View
 
+ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
+
 # The command my_df %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred) might be useful later
 
 # Note: GUNFAW01 is one of the top structures in Thornton 2017 but has poor performance (6 g/L) in the RR
@@ -706,7 +708,7 @@ p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 
 ### More simulations/grids
-* Run calculations of the top CCDC candidates and confirm results.
+* Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD)
 * Uniform background potential calculations from Arun?
 * Grid convergence testing!!!
 
