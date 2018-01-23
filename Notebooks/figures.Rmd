@@ -371,7 +371,19 @@ ccdc_predicted %>% mutate(core = (id %in% str_replace(core2_names, "_.*", "_stri
 
 ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
 
-# The command my_df %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred) might be useful later
+screening_gcmc <- read_tsv(
+  "BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv",
+  skip=1,
+  col_names=c("id", paste0("fh.h2.g.L.", c("2.77", "2.77.err", "100.77", "100.77.err"))),
+  col_types="cdddd"
+  ) %>% 
+  mutate_at(vars(starts_with("fh.h2")), funs(. * 2.0 / 22.4)) %>% 
+  mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
+
+# Or, screening_gcmc %>% inner_join(ccdc_predicted, by="id") %$% parity_plot(g.L, y_pred)
+ccdc_h2_grids %>%
+  filter(id %in% screening_gcmc$id) %>%
+  eval_test_grid(trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L))
 
 # Note: GUNFAW01 is one of the top structures in Thornton 2017 but has poor performance (6 g/L) in the RR
 # due to a bulky Ru component in the pore (counterion, or possibly missed solvent?).
