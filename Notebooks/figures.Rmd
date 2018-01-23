@@ -354,8 +354,8 @@ textural_mod$lambda
 ```
 
 
-```{r ccdc_selection, eval=FALSE, include=FALSE}
-# ```{r ccdc_selection}
+```{r ccdc_selection}
+#```{r ccdc_selection, eval=FALSE, include=FALSE}
 # Prepare list of top CCDC MOFs for additional screening
 # no_cnps is imported when generating the CCDC parity plot above, from work in filter_ccdc_chemistry.R
 
@@ -390,6 +390,16 @@ ccdc_h2_grids %>%
 # Some of the other structures were noted the same, although many of the top candidates have long rod structures.
 # I'm wondering if the CCDC is the best database to use for our story...
 
+# Some quick testing.  To organize if it's useful.
+# Can we train a good model on the CCDC data?
+ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha=0, lambda=NULL) %>% .$fitted_model %>% .[[1]] %>% eval_test_grid(., filter(ccdc_h2_grids, id %in% screening_gcmc$id), default_binspec, mutate(screening_gcmc, y_act=g.L))
+# Turns out the CCDC model can also predict hMOFs?
+ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha=0, lambda=NULL) %>% .$fitted_model %>% .[[1]] %>% eval_test_grid(., hmof_hist_sets$testing, default_binspec, mutate(gcmc_data, y_act=g.L))
+ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha=0, lambda=NULL) %>% .$fitted_model %>% .[[1]] %>% eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.100.77-fh.h2.g.L.2.77))
+
+# The fits are moderately transferable to the hMOF and ToBaCCo data.
+# Is the earlier problem caused by z-scoring, the y-intercept (average pore), both, or something else?
+# Dimensionality might still play a role, but this graph is indicating that the pure metals might not be the sole problem.
 ```
 
 
