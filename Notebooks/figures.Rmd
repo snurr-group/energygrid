@@ -132,7 +132,7 @@ p_tob_from_hmof <-
   eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .)
 
 # CCDC applicability, etc.
-no_cnps <- read_tsv("BigData/Robj/csd_mofs_without_cnps.txt", skip=1, col_names="id", col_types="c")$id
+no_cnps <- read_tsv("BigData/Robj/csd_mofs_without_cnps.txt", skip=0, col_names="id", col_types="c")$id
 print(paste("Number of CCDC MOFs without CNPS:", length(no_cnps)))
 p_ccdc_random <- 
   ccdc_h2_grids %>% 
