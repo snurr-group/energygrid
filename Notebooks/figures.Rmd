@@ -400,6 +400,42 @@ ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, defa
 # The fits are moderately transferable to the hMOF and ToBaCCo data.
 # Is the earlier problem caused by z-scoring, the y-intercept (average pore), both, or something else?
 # Dimensionality might still play a role, but this graph is indicating that the pure metals might not be the sole problem.
+
+
+# Another quick test: how consistent are my GCMC simulations vs. Scotty's?
+screening_gcmc %>% 
+  rename(new.g.L = g.L) %>%
+  inner_join(ccdc_gcmc, by="id") %>% 
+  rename(old.g.L = g.L) %>%
+  select(id, old.g.L, new.g.L)
+# Also verified that there weren't line ending issues (see mateo:EnergyGrids/TestCRLF) by checking a few
+# input files and testing that RASPA reads in the unit cells correctly both ways.  The grid files
+# are identical whether or not there's a CRLF line ending in the UnitCells line.
+
+
+# Now let's check the MOF atom dimensionality from Zeo++.
+ccdc_dimensionality <- read_tsv(
+  "BigData/quest/DimsCCDC/all_dimensionality.tsv",
+  col_types="ciiiiii"
+  )
+ccdc_dimensionality %$% expect_equal(segments, frameworks + molecules)
+ccdc_dimensionality %$% expect_equal(frameworks, f1d + f2d + f3d)
+
+ccdc_parity_for_dimensionality <- 
+  ccdc_h2_grids %>%
+  filter(id %in% screening_gcmc$id) %>%
+  eval_test_grid(trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L)) %>%
+  .$pred_df %>% 
+  left_join(ccdc_dimensionality, by="id") %>% 
+  mutate(has_loose_molec = (molecules > 0)) %>% 
+  mutate(has_periodic_framework = (frameworks > 0)) %>% 
+  ggplot(aes(y_act, y_pred)) +
+  geom_point() +
+  parity_line
+ccdc_parity_for_dimensionality + facet_grid(has_periodic_framework~has_loose_molec)
+ccdc_parity_for_dimensionality + facet_grid(f3d~f1d)
+# From this analysis, it doesn't look like dimensionality is the answer
+
 ```
 
 
