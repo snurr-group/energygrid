@@ -436,6 +436,48 @@ ccdc_parity_for_dimensionality + facet_grid(has_periodic_framework~has_loose_mol
 ccdc_parity_for_dimensionality + facet_grid(f3d~f1d)
 # From this analysis, it doesn't look like dimensionality is the answer
 
+
+# Maybe the problem is grid point sampling convergence?
+ccdc_h2_grids %>% group_by(id) %>% summarize(hi = sum(counts)) %>% mutate(hi=ifelse(hi>15^3, 15^3, hi)) %>% .$hi %>% hist
+
+ccdc_h2_grids %>%
+  group_by(id) %>% summarize(num_pts = sum(counts)) %>% ungroup() %>% 
+  right_join(ccdc_parity_for_dimensionality$data, by="id") %>% 
+  #mutate(num_pts = ifelse(num_pts > 15^3, 15^3, num_pts)) %>% 
+  mutate(num_pts = (num_pts > 15^3)) %>% 
+  mutate(frameworks = ifelse(frameworks > 2, 3, frameworks)) %>% 
+  ggplot(aes(y_act, y_pred, color = num_pts)) +
+  #ggplot(aes(y_act, y_pred)) +
+  geom_point() +
+  coord_fixed() +
+  parity_line +
+  facet_grid(num_pts~frameworks)
+
+# Let's also check the chemistry
+ccdc_formulas <- read_rds("BigData/Robj/csd_formulas.Rds")
+(ccdc_formulas %>%
+  select(cif, str_formula, C, H, O, N, P, S) %>% 
+  rename(id = cif) %>% 
+  right_join(ccdc_parity_for_dimensionality$data, by="id") %>% 
+  mutate(dimensions = paste(f1d, f2d, f3d, sep="/")) %>% 
+  ggplot(aes(y_act, y_pred, composition=str_formula, dimensionality=dimensions, cif=id)) +
+  geom_point() + coord_fixed() + parity_line
+  ) %>% ggplotly
+
+# Maybe it's overpredicting the weakly attractive bin? (Not enough granularity to indicate sufficient binding?)
+# For example, BAQSOB has a terrible prediction of 29.5 g/L for a prediction of 52 g/L
+ccdc_h2_grids %>% filter(id=="BAQSOB_stripped") %>% plot_hist_bins(default_binspec, y_title="Fraction")
+ccdc_h2_grids %>% 
+  filter(id %in% screening_gcmc$id) %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  inner_join(bin_loc_from_spec(default_binspec), by="bin") %>% 
+  filter(near(upper, 0)) %>% 
+  #filter(is.infinite(upper)) %>% 
+  select(id, metric) %>% 
+  inner_join(ccdc_parity_for_dimensionality$data, by="id") %>% 
+  ggplot(aes(y_act, y_pred, color = metric)) +
+  geom_point() + coord_fixed() + parity_line +
+  scale_color_viridis(option = "B")  # "inferno"
 ```
 
 
