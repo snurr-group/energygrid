@@ -5,14 +5,15 @@
 source("Notebooks/setup_data.R")
 
 hyper_tuned_hist <-
-  seq(0.25, 2.5, 0.25) %>% # eventually consider 0.25-2.5 in quarter increments
+  seq(0.25, 2.5, 0.25) %>%
   map_dfr(
     function(x) run_bin_model(
-      e_data = hmof_hist_sets$hyperparam,
+      e_data = hmof_hist_sets$training,  # we no longer need hyperparameter data for other purposes
       y_with_id = hmof_y_to_join,
       step = x, width = x,
       bin_lims = c(default_binspec["from"], default_binspec["to"]),
-      lambda = NULL, alpha = 0
+      lambda = NULL, alpha = 0,
+      align_bins = "downward"
     )
   ) %>% 
   # Warning: the above output cannot be viewed without deleting the fitted_model and id_list list columns
@@ -23,12 +24,15 @@ hyper_tuned_hist <-
       y <- coef_tbl(curr_row[[1,"fitted_model"]]$mod) %>% 
         mutate(q2 = curr_row$q2, binwidth = curr_row$width) %>% 
         inner_join(
-          bin_loc_from_spec(c(
-            from=curr_row$bin_lo,
-            to=curr_row$bin_hi,
-            step=curr_row$step,
-            width=curr_row$width
-          )),
+          bin_loc_from_spec(
+            c(
+              from=curr_row$bin_lo,
+              to=curr_row$bin_hi,
+              step=curr_row$step,
+              width=curr_row$width
+              ),
+            align_bins = "downward"
+            ),
           by="bin"
         ) %>% 
         bind_rows(y, .)

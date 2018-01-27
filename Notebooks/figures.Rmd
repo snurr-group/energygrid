@@ -818,15 +818,17 @@ p_coef_compare$layers[[2]]$data %>%
 
 ## TODO notes from meetings
 ### General
+* Clean up notebook (old analysis, other paper, etc.)
 * Resubmit new top CCDC MOFs
-* Finish work on textural properties!  Particularly ToBaCCo might be interesting
+* Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 * Fix figure 2, etc.
 * Model prediction on an empty box
 * Incorporate "coef_p.tex", etc., into the SI.
 
 ### Poor CCDC predictions
-* If our model is solely based on LJ interactions, shouldn't the non-CNPS structures perform just as well?  Yes.  Add some analysis to the SI on non-CNPS, dimensionality, etc., to see if there's a new dependence.
+* If our model is solely based on LJ interactions, shouldn't the non-CNPS structures perform just as well?  Yes.  Add some analysis to the SI on non-CNPS, dimensionality, etc., to see if there's a new dependence. (based on prior analysis that's now being rerun, there isn't)
+  * Also note that now the CCDC MOFs can accurately predict hMOFs, ToBaCCo, etc.
 * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
 
 ### More simulations/grids
@@ -834,8 +836,7 @@ p_coef_compare$layers[[2]]$data %>%
 * Grid convergence testing!!!
 
 ### z-scoring
-* Shift the bin offset to work outward from zero.  That will make the robustness figure align better, too.
-* Recalculate the beta robustness figure (cached as an Rds file)
+* Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other)
 * Adjust scaling factor for betas.  Possibly remove +/- red/blue color scheme for simplicity.
 * Update manuscript to remove references to the z-scoring.  It adds a lot of complexity that we don't need.
 

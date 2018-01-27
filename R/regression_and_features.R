@@ -9,11 +9,37 @@ library(caret)
 
 ### FEATURE GENERATION ###
 
-stepped_hist <- function(df, step, width, from, to, bin_above=TRUE) {
-  # Calculates a stepped histogram, where bins contain the overlap from the parent distribution
-  # Usage: stepped_hist(only_one, 0.5, 0.5, -8, 0) %>% View
+bounds_from_params <- function(step, width, from, to, align_bins="strict") {
+  # Consolidates calculations of bins from stepped_hist() and bin_loc_from_spec()
+  # align_bins designates how to handle cases when from, to-width, and step do not align
+  # "strict" means they must align exactly, going either way giving the same results.
+  # This will still work in cases like bounds_from_params(2, 6, -40, 0).
   lower_bounds <- seq(from, to - width, step)
   upper_bounds <- lower_bounds + width
+  
+  upper_downward <- seq(to, from + width, -1*step) %>% rev
+  lower_downward <- upper_bounds - width
+  
+  if (align_bins == "strict") {
+    stopifnot(lower_bounds == lower_downward)
+    stopifnot(upper_bounds == upper_downward)
+  } else if (align_bins == "downward") {  # direction of "to" to "from"
+    lower_bounds <- lower_downward
+    upper_bounds <- upper_downward
+  } else if (align_bins != "upward") {  # if it's not a recognized keyword
+    stop(paste("Unrecognized align_bins flag:", align_bins))
+  }
+  
+  list(lower=lower_bounds, upper=upper_bounds)
+}
+
+stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, align_bins="strict") {
+  # Calculates a stepped histogram, where bins contain the overlap from the parent distribution
+  # Usage: stepped_hist(only_one, 0.5, 0.5, -8, 0) %>% View
+  # bin_above designates a bin to infinity above the "to" argument.
+  
+  lower_bounds <- bounds_from_params(step, width, from, to, align_bins)$lower
+  upper_bounds <- bounds_from_params(step, width, from, to, align_bins)$upper
 
   #.id grabs the bin number, which should be sufficient as an identifier.
   # This approach will also likely be easier for "spread"-ing back into columns for plsr
@@ -35,11 +61,16 @@ stepped_hist_spec <- function(df, binspec, ...) {
   stepped_hist(df, binspec["step"], binspec["width"], binspec["from"], binspec["to"], ...)
 }
 
-bin_loc_from_spec <- function(binspec, bin_above=TRUE) {
+bin_loc_from_spec <- function(binspec, bin_above=TRUE, align_bins="strict") {
   # Retrieves the locations of bins specified from stepped_hists
-  # TODO: consider merging code with stepped_hists
-  lower_bounds <- seq(binspec["from"], binspec["to"] - binspec["width"], binspec["step"])
-  upper_bounds <- lower_bounds + binspec["width"]
+  both_bounds <- bounds_from_params(
+    binspec["step"], binspec["width"],
+    binspec["from"], binspec["to"],
+    align_bins
+    )
+  lower_bounds <- both_bounds$lower
+  upper_bounds <- both_bounds$upper
+  
   bins <- tibble(
     lower = lower_bounds,
     upper = upper_bounds,
@@ -225,11 +256,11 @@ pred_glmnet <- function(glm_mod, x_tbl) {
   predict(glm_mod$mod, as.matrix(x)) %>% as.numeric
 }
 
-run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha = 0, ...) {
+run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha=0, align_bins="strict", ...) {
   # Runs the ridge regression model, transforming e_data into a stepped histogram with appropriate y columns.
   # Also runs cross-validation and returns the model for later consideration
   x <- e_data %>% 
-    stepped_hist(step, width, from=bin_lims[1], to=bin_lims[2]) %>% 
+    stepped_hist(step, width, from=bin_lims[1], to=bin_lims[2], align_bins=align_bins) %>% 
     spread(key=bin, value=metric)
   y <- x %>% 
     left_join(y_with_id, by="id") %>%
