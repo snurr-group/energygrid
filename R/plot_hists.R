@@ -66,7 +66,7 @@ plot_avg_with_distr <- function(all_grids, binspec, print_violin = FALSE, ...) {
   result
 }
 
-overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 10.0, hist_max = 0.5) {
+overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 500.0, hist_max = 0.5) {
   # Overlay betas from one or more categories, saved in the column `cat`, on top of a histogram plot
   # If `cat` is not defined, use a colorbar based on the magnitude of beta.
   

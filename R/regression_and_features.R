@@ -171,7 +171,7 @@ shuffle <- function(vec) {
 # * My current model uses [glmnet](https://cran.r-project.org/web/packages/glmnet/glmnet.pdf)
 # * See also a helpful [vignette](https://cran.r-project.org/web/packages/glmnet/vignettes/glmnet_beta.pdf) and [blog post](https://www.r-bloggers.com/ridge-regression-and-the-lasso/)
 
-fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, zscore = TRUE, ...) {
+fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, zscore = FALSE, ...) {
   # Fits a ridge regression model to a dataframe of predictors
   # By default, only removes zero variance columns without mean-centering or unit variance.
   # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)

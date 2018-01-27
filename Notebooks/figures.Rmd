@@ -778,6 +778,15 @@ trained_model_regu %>%  # What are the lambda/alpha for the models?
   map_dfr(function(x) {list(lambda=x$trained_mod$lambda, alpha=x$trained_mod$alpha)}, .id="method")
   # If this is useful, gather then separate to add it to the previous DF, or a separate tex file.
 
+
+# Saving tables of other model coefficients for model formulation analysis
+p_beta_diff_p$layers[[2]]$data %>% 
+  select(lower, upper, cat, beta) %>% 
+  spread(cat, beta) %>% 
+  select(lower, upper, `2 bar`, `100 bar`) %>% 
+  save_fig_table("coef_p.tex")
+
+
 ```
 
 ### Consistency between different datasets
@@ -794,6 +803,11 @@ p_coef_compare <-
 p_coef_compare
 p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 
+p_coef_compare$layers[[2]]$data %>% 
+  select(lower, upper, cat, beta) %>% 
+  spread(cat, beta) %>% 
+  select(lower, upper, hMOF, ToBaCCo) %>% 
+  save_fig_table("coef_hmof_vs_tobacco.tex")
 
 # TODO MORE
 
@@ -806,17 +820,31 @@ p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 ### General
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
+* Fix figure 2, etc.
+* Model prediction on an empty box
+* Incorporate "coef_p.tex", etc., into the SI.
+* Adjust scaling factor for betas.  Possibly remove +/- red/blue color scheme for simplicity.
+
+### Poor CCDC predictions
+* If our model is solely based on LJ interactions, shouldn't the non-CNPS structures perform just as well?
+* Is it something with pore size distribution?  Maybe we're extrapolating too far beyond the textural property assumptions of the training set.
+* Perhaps the attraction between -1 and 0 kJ/mol is not granular enough for the "point frameworks."
+* Should resolve this discrepancy before publication.
+* Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD)
-* Uniform background potential calculations from Arun?
 * Grid convergence testing!!!
 
 ### z-scoring
 * Figure out beta plots without normalization.  Set `zscore=FALSE` as default for `fit_glmnet`
-  * Maybe a logB flag for ln? (to generate log10 data_frame?)
+  * It's tricky because there's advantages to both ways: see [Wikipedia article on standardized coefficients](https://en.wikipedia.org/wiki/Standardized_coefficient).
+  * [Minitab](http://blog.minitab.com/blog/adventures-in-statistics-2/when-is-it-crucial-to-standardize-the-variables-in-a-regression-model) and another [tutorial](http://www.listendata.com/2017/04/how-to-standardize-variable-in-regression.html) have more to say.  The model $R^2$, etc., are identical both ways.  It's just the model terms that are different.
+  * The ISLR book also recommends preprocessing the variables with z-scoring before ridge regression to avoid problems with beta.  But, IIRC `glmnet` implicitly handles that step (and transforms the coefficients and variables back for the final fitted model)
+  * Maybe the slightly attractive region is causing the problems?  Without z-scoring, the 0 to 1 kJ/mol bin is out of control.  Replacing this with the `Inf` bin would also make the writeup considerably easier (lumping together all of the repulsive region into a single bin).
+  * Based on the LASSO column in Figs/Testing/20180127_no_z_or_b0_regu_coef.tex, LASSO gives an excellent result when we don't consider the y-intercept, either.  But the ToBaCCo fit is terrible without the intercept (can't capture high-performing MOFs in the model), so bring that back.
 * Recalculate the beta robustness figure (cached as an Rds file)
-* Also consider setting the model intercept to zero
+* Also consider setting the model intercept to zero (note: causes bad uptake values for ToBaCCo and some hMOFs.  The model can't fit the penalties correctly for the repulsive region, so there's a poor fit.)
 
 ### Model form and applicability
 * If we train two separate MLR models on 2 bar and 100 bar H2 uptakes, does the difference match a combined MLR model on deliverable capacity?  Meaning, is the slight discrepancy caused by separate lambdas or something else?
