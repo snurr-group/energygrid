@@ -281,7 +281,7 @@ p_ch4_grids <- raw_hmof_grids_ch4 %>%
   filter(id %in% p_2bar_data$id)
 
 # Expand lower limits for CH4 until the bottom bins are completely unpopulated
-ch4_binspec <- c(from=-40, to=2.0, step=2.0, width=2.0)
+ch4_binspec <- c(from=-40, to=0.0, step=2.0, width=2.0)
 
 p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT)
 

@@ -5,7 +5,7 @@ library(dplyr)
 library(grid)  # textGrob, since geom_text/annotate won't let you adjust an x=Inf, etc.
 library(stringr)
 
-default_binspec <- c(from=-25, to=1.0, step=1.0, width=1.0)
+default_binspec <- c(from=-25, to=0.0, step=1.0, width=1.0)
 
 parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
