@@ -362,14 +362,19 @@ textural_mod$lambda
 if (!exists("ccdc_predicted")) {
   ccdc_predicted <- 
     ccdc_h2_grids %>% 
-    filter(!(id %in% no_cnps)) %>% 
     pred_grid(trained_mod, ., default_binspec)
 }
 
-core2_names <- read_tsv("BigData/Emails/ccdc-random-20180108/core2_list.txt", skip=1, col_names="id", col_types="c")$id
-ccdc_predicted %>% mutate(core = (id %in% str_replace(core2_names, "_.*", "_stripped"))) %>% arrange(desc(y_pred)) %>% View
+ccdc_predicted %>% arrange(desc(y_pred)) %>% View
 
 ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
+
+
+# Get the difference of the two lists to submit to mateo for additional screening
+old_screening <- read_tsv("BigData/Output/top_ccdc_20180122.txt", skip=0, col_names="id", col_types="c")$id
+ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% filter(!(id %in% old_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only ~250
+
+
 
 screening_gcmc <- read_tsv(
   "BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv",
@@ -388,18 +393,6 @@ ccdc_h2_grids %>%
 # Note: GUNFAW01 is one of the top structures in Thornton 2017 but has poor performance (6 g/L) in the RR
 # due to a bulky Ru component in the pore (counterion, or possibly missed solvent?).
 # Some of the other structures were noted the same, although many of the top candidates have long rod structures.
-# I'm wondering if the CCDC is the best database to use for our story...
-
-# Some quick testing.  To organize if it's useful.
-# Can we train a good model on the CCDC data?
-ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha=0, lambda=NULL) %>% .$fitted_model %>% .[[1]] %>% eval_test_grid(., filter(ccdc_h2_grids, id %in% screening_gcmc$id), default_binspec, mutate(screening_gcmc, y_act=g.L))
-# Turns out the CCDC model can also predict hMOFs?
-ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha=0, lambda=NULL) %>% .$fitted_model %>% .[[1]] %>% eval_test_grid(., hmof_hist_sets$testing, default_binspec, mutate(gcmc_data, y_act=g.L))
-ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id) %>% run_bin_model(ccdc_gcmc, default_binspec["step"], default_binspec["width"], default_binspec[c("from", "to")], alpha=0, lambda=NULL) %>% .$fitted_model %>% .[[1]] %>% eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.100.77-fh.h2.g.L.2.77))
-
-# The fits are moderately transferable to the hMOF and ToBaCCo data.
-# Is the earlier problem caused by z-scoring, the y-intercept (average pore), both, or something else?
-# Dimensionality might still play a role, but this graph is indicating that the pure metals might not be the sole problem.
 
 
 # Another quick test: how consistent are my GCMC simulations vs. Scotty's?
@@ -407,77 +400,10 @@ screening_gcmc %>%
   rename(new.g.L = g.L) %>%
   inner_join(ccdc_gcmc, by="id") %>% 
   rename(old.g.L = g.L) %>%
-  select(id, old.g.L, new.g.L)
-# Also verified that there weren't line ending issues (see mateo:EnergyGrids/TestCRLF) by checking a few
-# input files and testing that RASPA reads in the unit cells correctly both ways.  The grid files
-# are identical whether or not there's a CRLF line ending in the UnitCells line.
+  select(id, old.g.L, new.g.L) %>% 
+  mutate(discrepancy = abs(new.g.L - old.g.L)) %>% 
+  arrange(desc(discrepancy))
 
-
-# Now let's check the MOF atom dimensionality from Zeo++.
-ccdc_dimensionality <- read_tsv(
-  "BigData/quest/DimsCCDC/all_dimensionality.tsv",
-  col_types="ciiiiii"
-  )
-ccdc_dimensionality %$% expect_equal(segments, frameworks + molecules)
-ccdc_dimensionality %$% expect_equal(frameworks, f1d + f2d + f3d)
-
-ccdc_parity_for_dimensionality <- 
-  ccdc_h2_grids %>%
-  filter(id %in% screening_gcmc$id) %>%
-  eval_test_grid(trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L)) %>%
-  .$pred_df %>% 
-  left_join(ccdc_dimensionality, by="id") %>% 
-  mutate(has_loose_molec = (molecules > 0)) %>% 
-  mutate(has_periodic_framework = (frameworks > 0)) %>% 
-  ggplot(aes(y_act, y_pred)) +
-  geom_point() +
-  parity_line
-ccdc_parity_for_dimensionality + facet_grid(has_periodic_framework~has_loose_molec)
-ccdc_parity_for_dimensionality + facet_grid(f3d~f1d)
-# From this analysis, it doesn't look like dimensionality is the answer
-
-
-# Maybe the problem is grid point sampling convergence?
-ccdc_h2_grids %>% group_by(id) %>% summarize(hi = sum(counts)) %>% mutate(hi=ifelse(hi>15^3, 15^3, hi)) %>% .$hi %>% hist
-
-ccdc_h2_grids %>%
-  group_by(id) %>% summarize(num_pts = sum(counts)) %>% ungroup() %>% 
-  right_join(ccdc_parity_for_dimensionality$data, by="id") %>% 
-  #mutate(num_pts = ifelse(num_pts > 15^3, 15^3, num_pts)) %>% 
-  mutate(num_pts = (num_pts > 15^3)) %>% 
-  mutate(frameworks = ifelse(frameworks > 2, 3, frameworks)) %>% 
-  ggplot(aes(y_act, y_pred, color = num_pts)) +
-  #ggplot(aes(y_act, y_pred)) +
-  geom_point() +
-  coord_fixed() +
-  parity_line +
-  facet_grid(num_pts~frameworks)
-
-# Let's also check the chemistry
-ccdc_formulas <- read_rds("BigData/Robj/csd_formulas.Rds")
-(ccdc_formulas %>%
-  select(cif, str_formula, C, H, O, N, P, S) %>% 
-  rename(id = cif) %>% 
-  right_join(ccdc_parity_for_dimensionality$data, by="id") %>% 
-  mutate(dimensions = paste(f1d, f2d, f3d, sep="/")) %>% 
-  ggplot(aes(y_act, y_pred, composition=str_formula, dimensionality=dimensions, cif=id)) +
-  geom_point() + coord_fixed() + parity_line
-  ) %>% ggplotly
-
-# Maybe it's overpredicting the weakly attractive bin? (Not enough granularity to indicate sufficient binding?)
-# For example, BAQSOB has a terrible prediction of 29.5 g/L for a prediction of 52 g/L
-ccdc_h2_grids %>% filter(id=="BAQSOB_stripped") %>% plot_hist_bins(default_binspec, y_title="Fraction")
-ccdc_h2_grids %>% 
-  filter(id %in% screening_gcmc$id) %>% 
-  stepped_hist_spec(default_binspec) %>% 
-  inner_join(bin_loc_from_spec(default_binspec), by="bin") %>% 
-  filter(near(upper, 0)) %>% 
-  #filter(is.infinite(upper)) %>% 
-  select(id, metric) %>% 
-  inner_join(ccdc_parity_for_dimensionality$data, by="id") %>% 
-  ggplot(aes(y_act, y_pred, color = metric)) +
-  geom_point() + coord_fixed() + parity_line +
-  scale_color_viridis(option = "B")  # "inferno"
 ```
 
 
@@ -493,28 +419,6 @@ First, some random figures that haven't been placed elsewhere for the SI yet.
 # * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).  Has this sort of analysis been done before, except for the ANNs?
 # * What to do about accessible vs. non-accessible properties?  Just use the hMOFs verbatim (plus density)?  Do a combined void fraction?
 
-# A random experiment that might be interesting (after cleaning up the labels) is just looking at
-# correlations between the different energy bins
-library(corrplot)
-# could also use orig_x, which has many NA's from empty columns though no z-scoring ever.
-corrplot(cor(trained_mod$x), type="upper")
-corrplot(cor(p_tob_mod$trained_mod$x), type="upper")
-
-# What happens if we try to use H2 grids to predict CH4 adsorption?
-# \textit{WIP.  I'm not sure what to do with this figure, but I thought the experiment might be interesting for understanding.} Can we use the hydrogen grid to predict methane adsorption?  How much of our model is capturing specific energetic interactions versus pore characterization like textural properties?  These parity plots were trained and tested on the hMOF database using the hydrogen grids for the explanatory variable but methane deliverable capacity for the response.  \textbf{If this is interesting, a big question would be trying to transfer it to ToBaCCo}
-crossover_ch4_gcmc <-
-  p_2bar_data %>% 
-  mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298)
-crossover_h2_sets_for_ch4 <- partition_data_subsets(hmof_h2_grid, crossover_ch4_gcmc, DATA_SPLIT)
-crossover_part_mod <- run_model_on_partitions(crossover_h2_sets_for_ch4, crossover_ch4_gcmc, default_binspec, 0, plot_units="cm\u00B3/cm\u00B3")
-crossover_part_mod$plots %$%
-  plot_grid(
-    parity_training %>% rescale_ch4_parity(),
-    parity_testing %>% rescale_ch4_parity(),
-    ncol = 2,
-    labels=default_subfig_labels, label_size=12
-    ) %>% 
-  save_ben_fig("h2_crossover_to_ch4.png", nrow = 1, ncol = 2)
 ```
 
 ### Database distributions
@@ -589,36 +493,6 @@ save_si_fig(p_vf_vs_inf, "vf_vs_inf.png")
 ### Considerations for molecular simulation
 
 ```{r si_simulation}
-# Comparison between CH4 and H2 adsorption in the ToBaCCo MOFs (consider redoing with hMOF data)
-tidy_ch4_vs_h2 <-
-  gcmc_data %>% 
-  rename(h2.g.L.2.77 = va2bar, h2.g.L.100.77 = va100bar) %>% 
-  gather(key, uptake, starts_with("h2.g.L."), starts_with("ch4.cm3.cm3.")) %>% 
-  #tobacco_data %>% 
-  #gather(key, uptake, starts_with("y.ch4.v.v."), starts_with("fh.h2.g.L.")) %>% 
-  select(id, key, uptake) %>% 
-  separate(key, c("gas", "unit1", "unit2", "pressure", "temperature"), sep="\\.") %>% 
-  #separate(key, c("user", "gas", "unit1", "unit2", "pressure", "temperature")) %>% 
-  unite("units", paste0("unit", 1:2), sep=".")
-p_si_ch4_vs_h2 <- 
-  tidy_ch4_vs_h2 %>% 
-  na.omit %>% 
-  select(-units) %>% 
-  mutate(pressure = str_replace(pressure, "_", ".")) %>% 
-  mutate(pressure = paste(pressure, "bar"), temperature = paste(temperature, "K")) %>% 
-  #select(-units, -user) %>% 
-  {inner_join(filter(., gas=="ch4"), filter(., gas=="h2"), by="id", suffix=(c(".ch4", ".h2")))} %>% 
-  left_join(select(gcmc_data, id, void.frac), by="id") %>% 
-  ggplot(aes(uptake.h2, uptake.ch4, col=void.frac)) +
-  geom_point() +
-  facet_grid(temperature.ch4+pressure.ch4 ~ temperature.h2+pressure.h2, scales="free_x") +
-  scale_x_continuous(breaks=scales::pretty_breaks(n=2)) +
-  xlab(expression(H[2]~uptake~(g/L))) +
-  ylab(expression(CH[4]~uptake~(cm^3/cm^3))) +
-  labs(color="Void\nfraction")
-p_si_ch4_vs_h2  # not sure what happened to this figure.  More investigation required
-p_si_ch4_vs_h2 %>% save_si_fig("ch4_vs_h2_ads.png", base_aspect_ratio = 1.6)
-
 tobacco_data %>% 
   {list(
     `2 bar, 77 K` = ggplot(., aes(nofh.h2.g.L.2.77, fh.h2.g.L.2.77)),
@@ -818,8 +692,6 @@ p_coef_compare$layers[[2]]$data %>%
 
 ## TODO notes from meetings
 ### General
-* Clean up notebook (old analysis, other paper, etc.)
-* Resubmit new top CCDC MOFs
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 * Fix figure 2, etc.
@@ -827,16 +699,14 @@ p_coef_compare$layers[[2]]$data %>%
 * Incorporate "coef_p.tex", etc., into the SI.
 
 ### Poor CCDC predictions
-* If our model is solely based on LJ interactions, shouldn't the non-CNPS structures perform just as well?  Yes.  Add some analysis to the SI on non-CNPS, dimensionality, etc., to see if there's a new dependence. (based on prior analysis that's now being rerun, there isn't)
-  * Also note that now the CCDC MOFs can accurately predict hMOFs, ToBaCCo, etc.
 * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
 
 ### More simulations/grids
-* Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD)
+* Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD and ExtraCSD2)
 * Grid convergence testing!!!
 
 ### z-scoring
-* Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other)
+* Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
 * Adjust scaling factor for betas.  Possibly remove +/- red/blue color scheme for simplicity.
 * Update manuscript to remove references to the z-scoring.  It adds a lot of complexity that we don't need.
 
