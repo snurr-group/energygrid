@@ -140,36 +140,8 @@ p_ccdc_random <-
   #mutate(has_cnps = !(id %in% no_cnps)) %>% 
   #filter(!(id %in% no_cnps)) %>% 
   eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
-p_ccdc_eval_cnps <- 
-  ccdc_h2_grids %>% 
-  filter(id %in% ccdc_gcmc$id) %>% 
-  filter(!(id %in% no_cnps)) %>% 
-  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
 p_ccdc_parity <- 
-  p_ccdc_random$pred_df %>% 
-  mutate(has_cnps = !(id %in% no_cnps)) %>% 
-  mutate(mof_color = ifelse(has_cnps, "#0070C0", "red")) %$%
-  parity_plot(y_act, y_pred, mof_color) %>%
-  annotate_plot("Testing\nCCDC\nsubset", "top.left", "black") %>%
-  annotate_plot(
-    paste(
-      "MAE =", format(p_ccdc_eval_cnps$testing_fit["MAE"], digits=2), "g/L\nRMSE =",
-      format(p_ccdc_eval_cnps$testing_fit["RMSE"], digits=2), "g/L"
-      ),
-    "bottom.right",
-    "#0070C0"
-    ) +
-  annotation_custom(textGrob(  # borrow custom content from annotate_plot
-    "MOFs",
-    x=1-0.05, y=0.5, hjust=1, vjust=1,
-    gp=gpar(col="#0070C0")
-    )) +
-  annotation_custom(textGrob(
-    "no C/N/P/S",
-    x=1-0.05, y=0.5, hjust=1, vjust=2.5,
-    gp=gpar(col="red")
-    )) +
-  ylab("Predicted uptake (ridge regression)")
+  p_ccdc_random$plots$parity_testing
 
 # Generate the (large) figure for model generality
 p_tob_mod$plots %$%
