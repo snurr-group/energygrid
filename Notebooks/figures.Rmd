@@ -604,6 +604,12 @@ p_si_lambda %>% save_si_fig("lambda.png")
 save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_dir=default_fig_dir) {
   # Writes a table to a Latex file which can be read with \input
   # https://www.r-bloggers.com/exporting-r-tables-in-latex/
+  append_data <- FALSE
+  if (is.character(col_header) & length(col_header) == 1) {
+    cat(col_header, file = file.path(parent_dir, filename))
+    col_header <- FALSE
+    append_data <- TRUE
+  }
   df %>% 
     as.data.frame() %>%  # tibbles add a strange header to the file
     format(digits = digits) %>%  # Digits is only a suggestion
@@ -613,8 +619,18 @@ save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_di
       row.names = FALSE,
       col.names = col_header,
       eol="\\\\\n",
-      sep=" & "
+      sep=" & ",
+      append = append_data
       )
+}
+
+save_fig_table_with_colnames <- function(df, filename, ...) {
+  save_fig_table(
+    df,
+    filename,
+    col_header=paste0(paste(colnames(df), collapse = " & "), "\\\\\n\\hline\n"),
+    ...
+    )
 }
 
 trained_model_regu <- list(
@@ -646,7 +662,7 @@ trained_model_regu %>%
   mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
   arrange(lower) %>% 
   select(Bin, Ridge, LASSO, MLR) %>% 
-  save_fig_table("regu_coef.tex")
+  save_fig_table_with_colnames("regu_coef.tex")
 
 trained_model_regu %>%  # What are the lambda/alpha for the models?
   map_dfr(function(x) {list(lambda=x$trained_mod$lambda, alpha=x$trained_mod$alpha)}, .id="method")
@@ -655,10 +671,18 @@ trained_model_regu %>%  # What are the lambda/alpha for the models?
 
 # Saving tables of other model coefficients for model formulation analysis
 p_beta_diff_p$layers[[2]]$data %>% 
+  mutate(beta = beta * 1000.0) %>%  # undo scaling from `overlay_cat_betas`
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `2 bar`, `100 bar`) %>% 
-  save_fig_table("coef_p.tex")
+  save_fig_table_with_colnames("coef_p.tex")
+
+p_beta_diff_t$layers[[2]]$data %>% 
+  mutate(beta = beta * 1000.0) %>%  # undo scaling from `overlay_cat_betas`
+  select(lower, upper, cat, beta) %>% 
+  spread(cat, beta) %>% 
+  select(lower, upper, `77 K`, `160 K`) %>% 
+  save_fig_table_with_colnames("coef_t.tex")
 
 
 ```
@@ -696,7 +720,7 @@ p_coef_compare$layers[[2]]$data %>%
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 * Fix figure 2, etc.
 * Model prediction on an empty box
-* Incorporate "coef_p.tex", etc., into the SI.
+* Consider adding a geom_text type label to the hMOF vs. ToBaCCo betas in the SI.
 
 ### Poor CCDC predictions
 * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
@@ -719,10 +743,3 @@ p_coef_compare$layers[[2]]$data %>%
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
 * Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models and levels of regularization along that plot?
 
-
-## Other action items after draft
-* Consider expanding H2 and CH4 grids for the full hMOF database to plot in the paper.
-
-### Figure details
-* For beta plots with multiple values, also consider making the points B&W friendly (shape, etc?).  Might [consider using factors](https://stackoverflow.com/questions/37140266/how-to-merge-color-line-style-and-shape-legends-in-ggplot).
-* Check figures for [colorblindness accessibility](https://github.com/clauswilke/colorblindr)
