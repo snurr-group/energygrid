@@ -369,26 +369,81 @@ ccdc_predicted %>% arrange(desc(y_pred)) %>% View
 
 ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
 
+ccdc_top500 <- ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(500, y_pred)
+
 
 # Get the difference of the two lists to submit to mateo for additional screening
 old_screening <- read_tsv("BigData/Output/top_ccdc_20180122.txt", skip=0, col_names="id", col_types="c")$id
 ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% filter(!(id %in% old_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only ~250
 
 
-
-screening_gcmc <- read_tsv(
-  "BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv",
-  skip=1,
-  col_names=c("id", paste0("fh.h2.g.L.", c("2.77", "2.77.err", "100.77", "100.77.err"))),
-  col_types="cdddd"
-  ) %>% 
+parse_vol_data <- function(filename) {
+  read_tsv(
+    filename,
+    skip=1,
+    col_names=c("id", paste0("fh.h2.g.L.", c("2.77", "2.77.err", "100.77", "100.77.err"))),
+    col_types="cdddd"
+    ) %>% 
   mutate_at(vars(starts_with("fh.h2")), funs(. * 2.0 / 22.4)) %>% 
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
+}
+screening_gcmc <- 
+  list(orig="ScreenCSD", extended="ExtraCSD2") %>% 
+  map_chr(~paste0("BigData/Mateo/EnergyGrid/", .x, "/volume.tsv")) %>% 
+  #list("BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv") %>% #, "ExtraCSD2") %>% 
+  map_dfr(parse_vol_data, .id = "src")
 
 # Or, screening_gcmc %>% inner_join(ccdc_predicted, by="id") %$% parity_plot(g.L, y_pred)
-ccdc_h2_grids %>%
+screening_top_performance <- 
+  ccdc_h2_grids %>%
   filter(id %in% screening_gcmc$id) %>%
+  filter(id %in% ccdc_top500$id) %>%  # In the paper, we'll only be looking at the top 500 MOFs
   eval_test_grid(trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L))
+screening_top_performance
+screening_accuracy <- 
+  screening_gcmc %>% 
+  mutate(y_act = g.L) %>% 
+  filter(id %in% ccdc_top500$id) %>% 
+  inner_join(ccdc_predicted, by="id") %>% 
+  mutate(y_err = y_pred - y_act) %>% 
+  arrange(desc(abs(y_err)))
+View(screening_accuracy)
+# Instead of a parity plot (which is misleading), maybe we should just evaluate the overall residuals
+hist(screening_accuracy$y_err, xlab="Overprediction")
+nrow(filter(screening_accuracy, y_act > 46)) / nrow(filter(screening_accuracy, y_pred > 46))
+(screening_accuracy %>% 
+  ggplot(aes(y_act, y_pred, id=id)) +
+  geom_point() +
+  parity_line +
+  coord_fixed()
+  ) %>% 
+  ggplotly
+
+# Finally, let's stratify by dimensionality using previous code deleted in 29a74040
+# Check the MOF framework dimensionality from Zeo++.
+ccdc_dimensionality <- read_tsv(
+  "BigData/quest/DimsCCDC/all_dimensionality.tsv",
+  col_types="ciiiiii"
+  )
+ccdc_dimensionality %$% expect_equal(segments, frameworks + molecules)
+ccdc_dimensionality %$% expect_equal(frameworks, f1d + f2d + f3d)
+p_top_ccdc_by_dim <- 
+  screening_accuracy %>% 
+  left_join(ccdc_dimensionality, by="id") %>% 
+  mutate(has_2d = (f2d>0)) %>% 
+  mutate(has_3d = (f3d>0)) %>% 
+  mutate(dim_tag = ifelse(has_2d, "2D", "")) %>% 
+  mutate(dim_tag = ifelse(has_3d, "3D", dim_tag)) %>% 
+  mutate(dim_tag = ifelse(dim_tag=="", "No 2D or 3D", dim_tag)) %>% 
+  ggplot(aes(y_act, y_pred, id=id)) +
+  geom_point() + parity_line +
+  coord_fixed() +
+  facet_wrap(~dim_tag) +
+  ggtitle("Dimensionality of framework")
+ggplotly(p_top_ccdc_by_dim)
+p_top_ccdc_by_dim %>% save_si_fig("top_ccdc_by_dims.png", base_aspect_ratio=1.5)
+
+
 
 # Note: GUNFAW01 is one of the top structures in Thornton 2017 but has poor performance (6 g/L) in the RR
 # due to a bulky Ru component in the pore (counterion, or possibly missed solvent?).
@@ -722,11 +777,10 @@ p_coef_compare$layers[[2]]$data %>%
 * Model prediction on an empty box
 * Consider adding a geom_text type label to the hMOF vs. ToBaCCo betas in the SI.
 
-### Poor CCDC predictions
-* Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
-
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD and ExtraCSD2)
+  * Update analysis of specific top CCDC candidates
+  * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
 * Grid convergence testing!!!
 
 ### z-scoring
