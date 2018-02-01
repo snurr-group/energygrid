@@ -5,6 +5,9 @@ library(dplyr)
 
 source("R/regression_and_features.R")
 
+BETA_H2_SCALING <- 1000.0
+BETA_CH4_SCALING <- 10 * BETA_H2_SCALING
+
 # e.g. plot_hist_bins(filter(hist_vals, id==55), default_binspec)
 plot_hist_bins <- function(one_grid, binspec, y_title = NULL) {
   # Returns an energy histogram plot, possibly as a base layer to beta coefficients
@@ -66,7 +69,7 @@ plot_avg_with_distr <- function(all_grids, binspec, print_violin = FALSE, ...) {
   result
 }
 
-overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = 1000.0, hist_max = 0.5) {
+overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALING, hist_max = 0.5) {
   # Overlay betas from one or more categories, saved in the column `cat`, on top of a histogram plot
   # If `cat` is not defined, use a colorbar based on the magnitude of beta.
   

@@ -6,7 +6,8 @@ source("Notebooks/setup_data.R")
 
 hyper_tuned_hist <-
   seq(0.25, 2.5, 0.25) %>%
-  map_dfr(
+  as.list() %>% 
+  map(.,
     function(x) run_bin_model(
       e_data = hmof_hist_sets$training,  # we no longer need hyperparameter data for other purposes
       y_with_id = hmof_y_to_join,
@@ -17,27 +18,23 @@ hyper_tuned_hist <-
     )
   ) %>% 
   # Warning: the above output cannot be viewed without deleting the fitted_model and id_list list columns
-  (function(x) {
-    y <- tibble()
-    for (rownum in 1:nrow(x)) {
-      curr_row <- x[rownum,]
-      y <- coef_tbl(curr_row[[1,"fitted_model"]]$mod) %>% 
-        mutate(q2 = curr_row$q2, binwidth = curr_row$width) %>% 
+  map_dfr(
+    .,
+    function(x) {
+      coef_tbl(x$fitted_model[[1]]$mod) %>% 
+        mutate(q2 = x$q2, binwidth = x$width) %>% 
         inner_join(
           bin_loc_from_spec(
             c(
-              from=curr_row$bin_lo,
-              to=curr_row$bin_hi,
-              step=curr_row$step,
-              width=curr_row$width
+              from=x$bin_lo,
+              to=x$bin_hi,
+              step=x$step,
+              width=x$width
               ),
             align_bins = "downward"
             ),
           by="bin"
-        ) %>% 
-        bind_rows(y, .)
-    }
-    y
-  })(.)  # run the anonymous function
+          )
+    })
 
 write_rds(hyper_tuned_hist, "BigData/Robj/hyper_tuned.Rds")

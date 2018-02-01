@@ -20,7 +20,7 @@ bounds_from_params <- function(step, width, from, to, align_bins="strict") {
   upper_bounds <- lower_bounds + width
   
   upper_downward <- seq(to, from + width, -1*step) %>% rev
-  lower_downward <- upper_bounds - width
+  lower_downward <- upper_downward - width
   
   if (align_bins == "strict") {
     stopifnot(lower_bounds == lower_downward)

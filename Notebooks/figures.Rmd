@@ -165,7 +165,7 @@ p_tob_mod$plots %$%
 # Robustness to histogram binning strategy
 hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")  # FIXME: This will need to be regenerated
 plot_robustness_bin_gap <- 0.05
-plot_robustness_beta_max <- 5
+plot_robustness_beta_max <- 0.5 * BETA_H2_SCALING / 5.0  # match the parameters on the beta plots, scaled back a little bit
 p_robust <- 
   hyper_tuned_hist %>% 
   mutate(beta = ifelse(beta > plot_robustness_beta_max, plot_robustness_beta_max, beta)) %>% 
@@ -183,15 +183,15 @@ p_robust <-
     colors = c("red", "darkgray", "blue"),
     limits = c(-plot_robustness_beta_max, plot_robustness_beta_max),
     breaks = c(-plot_robustness_beta_max, 0, plot_robustness_beta_max),
-    labels = c(paste0(-plot_robustness_beta_max,"-"), "0", paste0(plot_robustness_beta_max,"+")),
+    labels = c(paste("<",-plot_robustness_beta_max), "0", paste(">",plot_robustness_beta_max)),
     name=expression(beta[LASSO])
     ) +
   labs(
     y = "Energy (kJ/mol)",
     x = "Width of histogram bins (kJ/mol)"
   )
-p_robust
 save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
+p_robust
 
 
 # Methane predictions
@@ -212,7 +212,7 @@ p_beta_ch4 <-
   map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 10000.0)
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = BETA_CH4_SCALING)
 
 p_ch4_vol$plots %$%
   plot_grid(
@@ -354,7 +354,8 @@ ccdc_top500 <- ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(500, y_pred)
 
 # Get the difference of the two lists to submit to mateo for additional screening
 old_screening <- read_tsv("BigData/Output/top_ccdc_20180122.txt", skip=0, col_names="id", col_types="c")$id
-ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% filter(!(id %in% old_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only ~250
+old2_screening <- read_tsv("BigData/Output/new_ccdc_20180131.txt", skip=0, col_names="id", col_types="c")$id  # only ~250
+ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(500, y_pred) %>% filter(!(id %in% old_screening) & !(id %in% old2_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only 11 in the top 750 in round three, none of which are in the top 600.  Get around to this if there's any remaining in the top 500 in the final model.
 
 
 parse_vol_data <- function(filename) {
@@ -730,21 +731,21 @@ trained_model_regu %>%  # What are the lambda/alpha for the models?
 
 # Saving tables of other model coefficients for model formulation analysis
 p_beta_diff_p$layers[[2]]$data %>% 
-  mutate(beta = beta * 1000.0) %>%  # undo scaling from `overlay_cat_betas`
+  mutate(beta = beta * BETA_H2_SCALING) %>%  # undo scaling from `overlay_cat_betas`
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `2 bar`, `100 bar`) %>% 
   save_fig_table_with_colnames("coef_p.tex")
 
 p_beta_diff_t$layers[[2]]$data %>% 
-  mutate(beta = beta * 1000.0) %>%  # undo scaling from `overlay_cat_betas`
+  mutate(beta = beta * BETA_H2_SCALING) %>%  # undo scaling from `overlay_cat_betas`
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `77 K`, `160 K`) %>% 
   save_fig_table_with_colnames("coef_t.tex")
 
 p_beta_ch4$layers[[2]]$data %>% 
-  mutate(beta = beta * 10000.0) %>%  # undo scaling from `overlay_cat_betas`
+  mutate(beta = beta * BETA_CH4_SCALING) %>%  # undo scaling from `overlay_cat_betas`
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `5.8 bar`, `65 bar`) %>% 
@@ -785,7 +786,6 @@ p_coef_compare$layers[[2]]$data %>%
 * Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
 * Fix figure 2, etc.
 * Model prediction on an empty box
-* Consider adding a geom_text type label to the hMOF vs. ToBaCCo betas in the SI.
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD and ExtraCSD2)
@@ -793,14 +793,9 @@ p_coef_compare$layers[[2]]$data %>%
   * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
 * Grid convergence testing!!!
 
-### z-scoring
-* Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
-* Adjust scaling factor for betas.  Possibly remove +/- red/blue color scheme for simplicity.
-* Update manuscript to remove references to the z-scoring.  It adds a lot of complexity that we don't need.
-
 ### Model form and applicability
 * If we train two separate MLR models on 2 bar and 100 bar H2 uptakes, does the difference match a combined MLR model on deliverable capacity?  Meaning, is the slight discrepancy caused by separate lambdas or something else?
-* Do we get a really simple model if we set LASSO to a large lambda?  (Occam's Razor)
+* Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
 
 ### Q2-type analysis
 * Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
