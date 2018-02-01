@@ -33,6 +33,12 @@ BigData/Robj/hmof_h2.Rds:
 BigData/Robj/hmof_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/Methane2500 use_ch4
 
+BigData/Robj/adhoc_h2.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/AdHocGrids
+
+BigData/Robj/adhoc_ch4.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/AdHocCH4 use_ch4
+
 BigData/Robj/ad_hoc.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/AdHoc
 	

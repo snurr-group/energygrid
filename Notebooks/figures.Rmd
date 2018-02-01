@@ -70,8 +70,13 @@ Recreate (and export) figures in one block.  Possibly will be externalized into 
 # Coefficients for ridge regression model
 hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0, db_name = "hMOFs")
 trained_mod <- hmof_partitioned_mod$trained_mod
-base_hist <- hmof_h2_grid %>%
-  plot_avg_with_distr(default_binspec)
+
+# Import ad-hoc grids
+ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
+base_hist <-
+  ad_hoc_h2_grids %>% 
+  filter(id == "hMOF-0") %>% 
+  plot_hist_bins(default_binspec)
 p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
 p_beta_orig
 
@@ -196,15 +201,18 @@ p_ch4_vol <- p_2bar_data %>%
   # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
 p_ch4_vol$plots$parity_full %>% 
   rescale_ch4_parity()
-ch4_base_hist <- p_ch4_grids %>% 
-  plot_avg_with_distr(ch4_binspec)
+ad_hoc_ch4_grids <- read_rds("BigData/Robj/adhoc_ch4.Rds")
+ch4_base_hist <-
+  ad_hoc_ch4_grids %>% 
+  filter(id == "hMOF-0") %>% 
+  plot_hist_bins(ch4_binspec)
 p_beta_ch4 <- 
   list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
   map(mutate_col_to_gL, df=p_2bar_data) %>%
   map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 20.0)
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = 10000.0)
 
 p_ch4_vol$plots %$%
   plot_grid(
@@ -723,6 +731,12 @@ p_beta_diff_t$layers[[2]]$data %>%
   select(lower, upper, `77 K`, `160 K`) %>% 
   save_fig_table_with_colnames("coef_t.tex")
 
+p_beta_ch4$layers[[2]]$data %>% 
+  mutate(beta = beta * 10000.0) %>%  # undo scaling from `overlay_cat_betas`
+  select(lower, upper, cat, beta) %>% 
+  spread(cat, beta) %>% 
+  select(lower, upper, `5.8 bar`, `65 bar`) %>% 
+  save_fig_table_with_colnames("coef_ch4.tex")
 
 ```
 
