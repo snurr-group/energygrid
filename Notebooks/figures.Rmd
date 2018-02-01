@@ -415,6 +415,16 @@ p_top_ccdc_by_dim <-
 ggplotly(p_top_ccdc_by_dim)
 p_top_ccdc_by_dim %>% save_si_fig("top_ccdc_by_dims.png", base_aspect_ratio=1.5)
 
+p_top_ccdc_by_dim$data %>% 
+  filter(has_3d) %>% 
+  nrow %>%
+  paste("Number of 3D CIFs:", .) %>% 
+  print
+p_top_ccdc_by_dim$data %>% 
+  filter(has_3d) %>% 
+  select(id, y_act, y_pred) %>% 
+  arrange(desc(y_act)) %>% 
+  rownames_to_column("Rank")
 
 
 # Note: GUNFAW01 is one of the top structures in Thornton 2017 but has poor performance (6 g/L) in the RR
