@@ -118,32 +118,31 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     )
   
   # Label stats on the training and testing plots
-  training_stats <- paste0(
-    "R\u00B2 = ", format(results$training_fit["Rsquared"], digits=2), "\n",
-    "MAE = ", format(results$training_fit["MAE"], digits=2), " ", plot_units
-  )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
-  if (!is.null(q2)) {
-    training_stats <- 
-      paste0(
-        training_stats, "\n",
-        "Q\u00B2 = ", format(q2, digits=2)
-      )
+  label_stats <- function(p, postresample_results, label_q2=NULL) {
+    training_stats <- paste0(
+      "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2), "\n",
+      "MAE = ", format(postresample_results["MAE"], digits=2), " ", plot_units, "\n",
+      "RMSE = ", format(postresample_results["RMSE"], digits=2), " ", plot_units
+       )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
+    if (!is.null(label_q2)) {
+      training_stats <- 
+        paste0(
+          training_stats, "\n",
+          "Q\u00B2 = ", format(label_q2, digits=2)
+        )
+    }
+    p %>% annotate_plot(training_stats, "bottom.right")
   }
+
   results$plots$parity_training <- 
     results$plots$parity_training %>% 
     annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
-    annotate_plot(training_stats, "bottom.right")
+    label_stats(results$training_fit, label_q2=NULL)  # skip Q2 stats
   
   results$plots$parity_testing <- 
     parity_plot(y_act, y_pred, "#0070C0") %>% 
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-    annotate_plot(
-      paste(
-        "MAE =", format(results$testing_fit["MAE"], digits=2), paste0(plot_units, "\nRMSE ="),
-        format(results$testing_fit["RMSE"], digits=2), plot_units
-        ),
-      "bottom.right"
-      ) +
+    label_stats(results$testing_fit) +
     ylab(paste0("Predicted uptake (", perf_model,")"))
   
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
@@ -269,7 +268,7 @@ annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, 
   p + annotation_custom(textGrob(
     label,
     x=xpos, y=ypos, hjust=hj, vjust=vj,
-    gp=gpar(col=col, ...)
+    gp=gpar(fontsize=fontsize, col=col, ...)
     ))
 }
 

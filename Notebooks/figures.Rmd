@@ -123,13 +123,13 @@ hmof_partitioned_mod$plots %$%
 
 # Print stats for other databases, including fitting the ToBaCCo data to itself
 # tob_y_to_join and tob_hist_sets are defined in setup_data.R
-p_tob_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0)
+p_tob_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, db_name = "ToBaCCo MOFs")
 p_tob_mod
 # ...and using the hMOF-trained model directly on the ToBaCCo database
 p_tob_from_hmof <- 
   tobacco_data %>% 
   mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
-  eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, .)
+  eval_test_grid(hmof_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, ., db_name = "ToBaCCo MOFs\n(hMOF model)")
 
 # CCDC applicability, etc.
 no_cnps <- read_tsv("BigData/Robj/csd_mofs_without_cnps.txt", skip=0, col_names="id", col_types="c")$id
@@ -139,7 +139,7 @@ p_ccdc_random <-
   filter(id %in% ccdc_gcmc$id) %>% 
   #mutate(has_cnps = !(id %in% no_cnps)) %>% 
   #filter(!(id %in% no_cnps)) %>% 
-  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L))
+  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L), db_name = "CCDC MOFs\n(hMOF model)")
 p_ccdc_parity <- 
   p_ccdc_random$plots$parity_testing
 
@@ -192,7 +192,7 @@ save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
 # Methane predictions
 p_ch4_vol <- p_2bar_data %>% 
   mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
-  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0, plot_units="cm\u00B3/cm\u00B3")
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0, plot_units="cm\u00B3/cm\u00B3", db_name = "hMOFs")
   # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
 p_ch4_vol$plots$parity_full %>% 
   rescale_ch4_parity()
@@ -485,7 +485,7 @@ p_y_distr <-
   ggplot(aes(g.L, ..density..)) +
   geom_histogram(bins=30) +
   facet_wrap(~db) +
-  xlab("Hydrogen deliverable capacity, 77 K, 2 bar - 100 bar") 
+  xlab("Hydrogen deliverable capacity, 77 K, 100 bar - 2 bar") 
 p_y_distr %>% save_si_fig("y_distr.png", base_aspect_ratio=1.6)
 p_y_distr
 
@@ -510,7 +510,9 @@ p_vf_vs_inf <-
   rename(`Inf bin` = metric) %>% 
   left_join(gcmc_data, by="id") %>%
   ggplot(aes(void.frac, `Inf bin`)) +
-  geom_point(alpha=0.5)
+  geom_point(alpha=0.5) +
+  xlim(0, 1) + ylim(0, 1) +
+  xlab("Void fraction") + ylab("Repulsive bin")
 p_vf_vs_inf
 save_si_fig(p_vf_vs_inf, "vf_vs_inf.png")
 
@@ -663,13 +665,13 @@ save_fig_table_with_colnames <- function(df, filename, ...) {
 trained_model_regu <- list(
   Ridge = hmof_partitioned_mod,
   # Ridge = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0),
-  LASSO = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 1),
-  MLR = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, alpha=1, lambda=0, thresh=1e-16)
+  LASSO = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 1, db_name = "hMOFs"),
+  MLR = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, alpha=1, lambda=0, thresh=1e-16, db_name = "hMOFs")
 )
 
 trained_model_regu %>% 
   #set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
-  map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=50, y=15, label=y)}) %>% 
+  map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=45, y=20, label=y, size=6)}) %>% 
   {do.call(  # For future reference, purrr:invoke is probably what I was looking for as a wrapper
     plot_grid,
     c(., list(  # https://stackoverflow.com/questions/25962605/how-to-add-more-arguments-of-a-function-in-do-call-in-r
