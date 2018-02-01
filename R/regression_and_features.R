@@ -9,6 +9,8 @@ library(caret)
 
 ### FEATURE GENERATION ###
 
+DEFAULT_ALPHA <- 1  # 0 for ridge regression, 1 for LASSO, otherwise elastic net.
+
 bounds_from_params <- function(step, width, from, to, align_bins="strict") {
   # Consolidates calculations of bins from stepped_hist() and bin_loc_from_spec()
   # align_bins designates how to handle cases when from, to-width, and step do not align
@@ -202,7 +204,7 @@ shuffle <- function(vec) {
 # * My current model uses [glmnet](https://cran.r-project.org/web/packages/glmnet/glmnet.pdf)
 # * See also a helpful [vignette](https://cran.r-project.org/web/packages/glmnet/vignettes/glmnet_beta.pdf) and [blog post](https://www.r-bloggers.com/ridge-regression-and-the-lasso/)
 
-fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, zscore = FALSE, ...) {
+fit_glmnet <- function(x, y, lambda = NULL, alpha = DEFAULT_ALPHA, fit_intercept = TRUE, zscore = FALSE, ...) {
   # Fits a ridge regression model to a dataframe of predictors
   # By default, only removes zero variance columns without mean-centering or unit variance.
   # The alpha parameter specifies the type of model (ridge=0, LASSO=1, others=elastic net)
@@ -222,7 +224,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = 0, fit_intercept = TRUE, zsc
   if (is.null(lambda)) {
     trial_lambdas <- 10^seq(10, -6, length = 81)  # Idea from https://www.r-bloggers.com/ridge-regression-and-the-lasso/
     cvfit <- cv.glmnet(as.matrix(x), y, alpha=alpha, nfolds=10, type.measure="mse", lambda=trial_lambdas, intercept=fit_intercept, ...)
-    lambda <- cvfit$lambda.min
+    lambda <- cvfit$lambda.min  # This is also where you could alternatively set lambda.1se, depending on which resource
   }
   
   # Actually run the model
@@ -256,7 +258,7 @@ pred_glmnet <- function(glm_mod, x_tbl) {
   predict(glm_mod$mod, as.matrix(x)) %>% as.numeric
 }
 
-run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha=0, align_bins="strict", ...) {
+run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha=DEFAULT_ALPHA, align_bins="strict", ...) {
   # Runs the ridge regression model, transforming e_data into a stepped histogram with appropriate y columns.
   # Also runs cross-validation and returns the model for later consideration
   x <- e_data %>% 
@@ -292,7 +294,7 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
 
 # Q2, aka predicted R2
 # Use caret's `createFolds` helper function to generate the CV fold indicies
-calc_q2 <- function(x, y, lambda = NULL, alpha = 0, ...) {
+calc_q2 <- function(x, y, lambda = NULL, alpha = DEFAULT_ALPHA, ...) {
   # Calculate Q2 for a given model fit
   # Alternatively, we could use the results from glmnet, but the code is messy and hard to read
   q2 <- NULL

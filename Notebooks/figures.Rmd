@@ -184,7 +184,7 @@ p_robust <-
     limits = c(-plot_robustness_beta_max, plot_robustness_beta_max),
     breaks = c(-plot_robustness_beta_max, 0, plot_robustness_beta_max),
     labels = c(paste0(-plot_robustness_beta_max,"-"), "0", paste0(plot_robustness_beta_max,"+")),
-    name=expression(beta[ridge])
+    name=expression(beta[LASSO])
     ) +
   labs(
     y = "Energy (kJ/mol)",
@@ -519,6 +519,17 @@ plot_grid(
   ) %>%
   save_si_fig("x_distr.png", nrow = 2, base_aspect_ratio=1.6)
 
+# How many samples are there for each bin in the training data?
+# Answer: LASSO takes care of this automatically.
+# Justify the model using the regu_coef.tex table (showing -13 to -11 kJ/mol is set to zero.)
+# Also consider adding a column with the number of nonzero training points.
+hmof_hist_sets$training %>%
+  stepped_hist_spec(default_binspec) %>%
+  select(-id) %>%
+  filter(!(near(metric, 0))) %>%
+  group_by(bin) %>% summarize(nsample = n()) %>%
+  inner_join(bin_loc_from_spec(default_binspec), by="bin")
+
 # In general, there should be an inverse relationship between void fraction and the infinite bin.
 # The match will not be exact because the energy cutoffs are rather different.
 p_vf_vs_inf <- 
@@ -636,13 +647,15 @@ trained_mod$cv_for_lambda %>%
 #  save_si_fig("lambda.png")
 # This works, but it'll be easier to figure out labels, aspect, etc. if we just replot it.
 # After all, we have the plot.cv.glmnet source code easily available.
-p_si_lambda_lambdaval <- trained_mod$cv_for_lambda$lambda.min
+p_si_lambda_lambdamin <- trained_mod$cv_for_lambda$lambda.min
+p_si_lambda_lambda1se <- trained_mod$cv_for_lambda$lambda.1se
 p_si_lambda <- 
   trained_mod$cv_for_lambda %$% 
   qplot(log(lambda), cvm) +
   xlab("log(lambda)") +
   ylab("Mean-Squared Error") +
-  geom_vline(xintercept=log(p_si_lambda_lambdaval), linetype="dashed")
+  geom_vline(xintercept=log(p_si_lambda_lambdamin), linetype="dotted") +
+  geom_vline(xintercept=log(p_si_lambda_lambda1se), linetype="dashed")
 p_si_lambda
 p_si_lambda %>% save_si_fig("lambda.png")
 
@@ -681,8 +694,7 @@ save_fig_table_with_colnames <- function(df, filename, ...) {
 }
 
 trained_model_regu <- list(
-  Ridge = hmof_partitioned_mod,
-  # Ridge = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0),
+  Ridge = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0, db_name = "hMOFs"),
   LASSO = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 1, db_name = "hMOFs"),
   MLR = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, alpha=1, lambda=0, thresh=1e-16, db_name = "hMOFs")
 )

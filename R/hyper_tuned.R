@@ -12,7 +12,7 @@ hyper_tuned_hist <-
       y_with_id = hmof_y_to_join,
       step = x, width = x,
       bin_lims = c(default_binspec["from"], default_binspec["to"]),
-      lambda = NULL, alpha = 0,
+      lambda = NULL, alpha = DEFAULT_ALPHA,
       align_bins = "downward"
     )
   ) %>% 
