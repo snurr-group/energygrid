@@ -285,6 +285,14 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
   )
 }
 
+run_bin_model_spec <- function(e_data, y_with_id, binspec, ...) {
+  run_bin_model(
+    e_data, y_with_id,
+    binspec["step"], binspec["width"], binspec[c("from", "to")],
+    ...
+    )
+}
+
 ### MODEL ASSESSMENT ###
 
 # First, some generally helpful plots:

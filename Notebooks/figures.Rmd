@@ -122,13 +122,19 @@ p_beta_diff_p <-
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(base_hist, ., default_binspec)
+
 p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
 p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
+p_160k_grids <- read_rds("BigData/Robj/hmof_160k.Rds") %>% 
+  mutate(id = as.integer(str_sub(id, 6)))  # remove the "hMOF-" header
+
 p_beta_diff_t <- 
-  list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>%
-  map(mutate_col_to_gL, df = p_2bar_data) %>%
-  map(function(x) run_model_on_partitions(p_2bar_sets, x, default_binspec)) %>% 
-  map(function(x) x$trained_mod$mod) %>% 
+  filter(p_160k_grids, id %in% p_2bar_sets$training$id) %>% 
+  {list(
+    `160 K` = run_bin_model_spec(., mutate(p_2bar_data, g.L = h2.g.L.2.160), default_binspec),
+    `77 K` = run_bin_model_spec(p_2bar_sets$training, mutate(p_2bar_data, g.L = va2bar), default_binspec)
+    )} %>%
+  map(function(x) x$fitted_model[[1]]$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(base_hist, ., default_binspec)
 # Generate the plots
@@ -812,7 +818,6 @@ p_coef_compare$layers[[2]]$data %>%
 ## TODO notes from meetings
 ### General
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
-* Use 160 K grids for H2 (saved on mateo: Grids160K, and now locally in an Rds file)
 * Consider redoing the isotherms for the two case study MOFs (and possibly pick more unique MOFs, since I'll need to calculate finer grids, anyway.)
 
 ### More simulations/grids
