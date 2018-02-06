@@ -182,7 +182,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   results  # return the partitioned_glmnet object
 }
 
-run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha, lambda=NULL, db_name = "MOFs", plot_units="g/L", ...) {
+run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha=DEFAULT_ALPHA, lambda=NULL, db_name = "MOFs", plot_units="g/L", ...) {
   # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
   # Returns a large object with several plots
   

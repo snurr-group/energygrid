@@ -97,7 +97,7 @@ for (hid in c(55, 2000189, 5072190)) {
 
 ```{r make_figures}
 # Coefficients for ridge regression model
-hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0, db_name = "hMOFs")
+hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
 trained_mod <- hmof_partitioned_mod$trained_mod
 
 
@@ -118,16 +118,16 @@ mutate_col_to_gL <- function(df, newcol) {
 p_beta_diff_p <- 
   list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>% 
   map(mutate_col_to_gL, df = gcmc_data) %>%
-  map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec, 0)) %>% 
+  map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(base_hist, ., default_binspec)
 p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
 p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
 p_beta_diff_t <- 
-  list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>% 
+  list(`160 K` = "h2.g.L.2.160", `77 K` = "va2bar") %>%
   map(mutate_col_to_gL, df = p_2bar_data) %>%
-  map(function(x) run_model_on_partitions(p_2bar_sets, x, default_binspec, 0)) %>% 
+  map(function(x) run_model_on_partitions(p_2bar_sets, x, default_binspec)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(base_hist, ., default_binspec)
@@ -156,7 +156,7 @@ hmof_partitioned_mod$plots %$%
 
 # Print stats for other databases, including fitting the ToBaCCo data to itself
 # tob_y_to_join and tob_hist_sets are defined in setup_data.R
-p_tob_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, 0, db_name = "ToBaCCo MOFs")
+p_tob_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, db_name = "ToBaCCo MOFs")
 p_tob_mod
 # ...and using the hMOF-trained model directly on the ToBaCCo database
 p_tob_from_hmof <- 
@@ -225,7 +225,7 @@ p_robust
 # Methane predictions
 p_ch4_vol <- p_2bar_data %>% 
   mutate(g.L = ch4.cm3.cm3.65.298 - ch4.cm3.cm3.5_8.298) %>% 
-  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, 0, plot_units="cm\u00B3/cm\u00B3", db_name = "hMOFs")
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="cm\u00B3/cm\u00B3", db_name = "hMOFs")
   # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
 p_ch4_vol$plots$parity_full %>% 
   rescale_ch4_parity()
@@ -237,7 +237,7 @@ ch4_base_hist <-
 p_beta_ch4 <- 
   list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
   map(mutate_col_to_gL, df=p_2bar_data) %>%
-  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec, 0)) %>% 
+  map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = BETA_CH4_SCALING)
@@ -812,7 +812,7 @@ p_coef_compare$layers[[2]]$data %>%
 ## TODO notes from meetings
 ### General
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
-* Use 160 K grids for H2 (saved on mateo: Grids160K)
+* Use 160 K grids for H2 (saved on mateo: Grids160K, and now locally in an Rds file)
 * Consider redoing the isotherms for the two case study MOFs (and possibly pick more unique MOFs, since I'll need to calculate finer grids, anyway.)
 
 ### More simulations/grids
