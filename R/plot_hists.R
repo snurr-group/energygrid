@@ -74,6 +74,7 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALI
   # If `cat` is not defined, use a colorbar based on the magnitude of beta.
   
   cat_missing <- FALSE  # Category not specified.  What a sad variable name  :(
+  color_if_cat_missing <- FALSE  # If true, color the beta points by their magnitude.  Else, darkgray.
   
   beta_data <- betas %>%
     inner_join(bin_loc_from_spec(binspec), by="bin") %>% 
@@ -82,7 +83,11 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALI
     beta_data <- beta_data %>% mutate(color = `cat`)
   } else {
     cat_missing <- TRUE
-    beta_data <- beta_data %>% mutate(color = beta)
+    if (color_if_cat_missing) {
+      beta_data <- beta_data %>% mutate(color = beta)
+    } else {
+      beta_data <- beta_data %>% mutate(color = I("darkgray"))
+    }
     # Consider adding shapes based on color cat (or I(16)).
     # Why shape 16?  It's the default and drawn in the outline color (not fill)
     # See also http://sape.inf.usi.ch/quick-reference/ggplot2/shape
@@ -107,7 +112,7 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALI
     theme(axis.title.y.right = element_text(angle=0, vjust = 0.5)) +
     geom_hline(yintercept=0)
   
-  if (cat_missing) {  # use colorbar
+  if (cat_missing & color_if_cat_missing) {  # use colorbar
     p <- p +
       scale_color_gradientn(colors = c("red", "darkgray", "blue"), guide = "none") +
       theme(axis.text.y.right = element_text(color = c("red", "darkgray", "blue")))

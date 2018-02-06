@@ -61,18 +61,46 @@ save_si_fig <- function(p, filename, parent_dir = default_fig_dir, bheight = 3.3
 
 ## Figures for manuscript: main text
 
-Recreate (and export) figures in one block.  Possibly will be externalized into a separate script later.
+Recreate (and export) figures in a few blocks.  Possibly will be externalized into a separate script later.
+
+```{r prep_conceptual_figures}
+# Figures on adsorption strength (conceptual) and ML workflow (to update, but external pptx in the Box Projects folder)
+p_concept_isotherms <- read_tsv(
+  "BigData/Emails/isotherm-a-b-20180112/tidy_isotherms.tsv",
+  skip=0, col_types="cdd"
+  ) %>% 
+  mutate(g.L = cm3.cm3 * 2.0 / 22.4)
+p_concept_isotherms %>% 
+  ggplot(aes(bar, g.L, color=id)) +
+  geom_smooth(se=FALSE)
+# TODO LATER: might want to collect more data before drawing this figure.  In the meantime, a sketch will be added to the outline.
+
+
+
+# Resources for schematic figure in pptx
+# loop_cif in c(55, 2000189, 5072190)
+# Import ad-hoc grids
+ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
+# Run on each, then save to the pptx
+for (hid in c(55, 2000189, 5072190)) {
+  (ad_hoc_h2_grids %>% 
+    filter(id == paste0("hMOF-", hid)) %>% 
+    plot_hist_bins(default_binspec) +
+    scale_y_continuous() +  # restore y axis line
+    coord_cartesian(ylim=c(0,0.50), xlim=c(-8.5, 0.50)) +
+    theme_diagram_min +
+    theme(aspect.ratio = 1.0)
+    ) %>% print
+}
+
+```
 
 ```{r make_figures}
-# Figures on adsorption strength (conceptual) and ML workflow (to update, but external)
-# (likely generated within other software)
-
 # Coefficients for ridge regression model
 hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0, db_name = "hMOFs")
 trained_mod <- hmof_partitioned_mod$trained_mod
 
-# Import ad-hoc grids
-ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
+
 base_hist <-
   ad_hoc_h2_grids %>% 
   filter(id == "hMOF-0") %>% 
@@ -768,6 +796,7 @@ p_coef_compare
 p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 
 p_coef_compare$layers[[2]]$data %>% 
+  mutate(beta = beta * BETA_H2_SCALING) %>%  # undo scaling from `overlay_cat_betas`
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, hMOF, ToBaCCo) %>% 
@@ -783,9 +812,8 @@ p_coef_compare$layers[[2]]$data %>%
 ## TODO notes from meetings
 ### General
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
-* Regenerate Figure 1 from isotherm-a-b-20180112/isotherm-data.txt
-* Fix figure 2, etc.
-* Model prediction on an empty box
+* Use 160 K grids for H2 (saved on mateo: Grids160K)
+* Consider redoing the isotherms for the two case study MOFs (and possibly pick more unique MOFs, since I'll need to calculate finer grids, anyway.)
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD and ExtraCSD2)
@@ -794,8 +822,8 @@ p_coef_compare$layers[[2]]$data %>%
 * Grid convergence testing!!!
 
 ### Model form and applicability
-* If we train two separate MLR models on 2 bar and 100 bar H2 uptakes, does the difference match a combined MLR model on deliverable capacity?  Meaning, is the slight discrepancy caused by separate lambdas or something else?
 * Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
+  * Inconclusive, even without the `bin_loc_from_spec` line.  See: `hmof_hist_sets$training %>% stepped_hist_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins = "downward") %>% select(-id) %>% filter(!(near(metric, 0))) %>% group_by(bin) %>% summarize(nsample = n()) %>% inner_join(bin_loc_from_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins="downward"), by="bin")`
 
 ### Q2-type analysis
 * Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
