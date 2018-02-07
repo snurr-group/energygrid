@@ -389,7 +389,8 @@ ccdc_top500 <- ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(500, y_pred)
 # Get the difference of the two lists to submit to mateo for additional screening
 old_screening <- read_tsv("BigData/Output/top_ccdc_20180122.txt", skip=0, col_names="id", col_types="c")$id
 old2_screening <- read_tsv("BigData/Output/new_ccdc_20180131.txt", skip=0, col_names="id", col_types="c")$id  # only ~250
-ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(500, y_pred) %>% filter(!(id %in% old_screening) & !(id %in% old2_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only 11 in the top 750 in round three, none of which are in the top 600.  Get around to this if there's any remaining in the top 500 in the final model.
+ccdc_top500 %>% filter(!(id %in% old_screening) & !(id %in% old2_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only 11 in the top 750 in round three, none of which are in the top 600.  Get around to this if there's any remaining in the top 500 in the final model.
+
 
 
 parse_vol_data <- function(filename) {
@@ -406,7 +407,8 @@ screening_gcmc <-
   list(orig="ScreenCSD", extended="ExtraCSD2") %>% 
   map_chr(~paste0("BigData/Mateo/EnergyGrid/", .x, "/volume.tsv")) %>% 
   #list("BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv") %>% #, "ExtraCSD2") %>% 
-  map_dfr(parse_vol_data, .id = "src")
+  map_dfr(parse_vol_data, .id = "src") %>% 
+  distinct(id, .keep_all=TRUE)  # only keep the first instance when multiple simulations have been run
 
 # Or, screening_gcmc %>% inner_join(ccdc_predicted, by="id") %$% parity_plot(g.L, y_pred)
 screening_top_performance <- 
@@ -433,6 +435,13 @@ nrow(filter(screening_accuracy, y_act > 46)) / nrow(filter(screening_accuracy, y
   coord_fixed()
   ) %>% 
   ggplotly
+
+# Which simulation points are still missing?
+ccdc_top500 %>% 
+  filter(!(id %in% screening_accuracy$id)) %>% 
+  select(id) %>%
+  write_tsv("BigData/Output/missing_500_ccdc.txt", col_names=FALSE)
+  
 
 # Finally, let's stratify by dimensionality using previous code deleted in 29a74040
 # Check the MOF framework dimensionality from Zeo++.
@@ -821,7 +830,7 @@ p_coef_compare$layers[[2]]$data %>%
 * Consider redoing the isotherms for the two case study MOFs (and possibly pick more unique MOFs, since I'll need to calculate finer grids, anyway.)
 
 ### More simulations/grids
-* Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD and ExtraCSD2)
+* Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
   * Update analysis of specific top CCDC candidates
   * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
 * Grid convergence testing!!!
@@ -833,5 +842,4 @@ p_coef_compare$layers[[2]]$data %>%
 ### Q2-type analysis
 * Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
-* Recalculate Q2 once we relax the penalty term to be lower.  Beyond RMSE, etc., how does Q2 vary for the models and levels of regularization along that plot?
 
