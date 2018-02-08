@@ -73,14 +73,75 @@ p_concept_isotherms <- read_tsv(
 p_concept_isotherms %>% 
   ggplot(aes(bar, g.L, color=id)) +
   geom_smooth(se=FALSE)
-# TODO LATER: might want to collect more data before drawing this figure.  In the meantime, a sketch will be added to the outline.
+
+# Instead of collecting more data to draw this figure, let's just fit a Type I Langmuir isotherm to sketch it for the outline
+p_isotherm_fit <- 
+  p_concept_isotherms %>%
+  group_by(id) %>% nest() %>%
+  # We need to fit on an inverted langmuir model to get K^-1 in the numerator with our constant
+  # P = x / (K*(1-x))
+  mutate(model = map(data, ~ lm(.x, formula = bar ~ g.L / (1 - g.L) + 0))) %>%
+  mutate(k = map_dbl(model, ~ 1 / coef(.x))) %>% 
+  #select(-model) %>% unnest()  # Can get back a data.frame instead of the next part with the fit
+  select(id, k)
+# Instead of using this, let's use the fits from Arun, saved in the same directory as the source data
+cartoon_pressures <- c(seq(0.05, 0.95, 0.05), 1:100)
+double_arrow <- arrow(ends="both", type="closed", length=unit(2, "mm"))
+p_sub_isotherm <- 
+  # p_isotherm_fit %>% 
+  #deframe() %>%  # tibble function to convert two-column df to a named list
+  #map_dfr(~ data_frame(bar = 1:100, k = .x), .id = "id") %>% 
+  #mutate(g.L = 50 * k * bar / (1 + k * bar)) %>% 
+  list(
+    `hMOF-1898` = c(3.16783, 0.04234),
+    `hMOF-5072244` = c(62.03316, 1.15935)
+  ) %>% 
+  #expand.grid(bar = cartoon_pressures, id = c("hMOF-1898", "hMOF-5072244")) %>% 
+  map_dfr(~ data_frame(bar = cartoon_pressures, A = .x[1], B = .x[2]), .id = "id") %>% 
+  mutate(g.L = A*bar / (1 + B * bar)) %>% 
+  ggplot(aes(bar, g.L, color = id)) +
+  geom_line() +
+  #geom_point(data = p_concept_isotherms) +
+  xlab("Pressure (bar)") + ylab("Uptake (g/L)") +
+  geom_vline(xintercept = c(2, 100), linetype="dotted") +
+  scale_color_manual(values = c(2, 4), breaks = c("hMOF-1898", "hMOF-5072244"), guide = FALSE) +
+  #annotate("segment", x = 25, xend = 25, y = 4.1, yend = 51.1, color = 4, arrow = double_arrow) +
+  #annotate("segment", x = 90, xend = 90, y = 27.4, yend = 47.4, color = 2, arrow = double_arrow) +
+  annotate("segment", x = 90, xend = 90, y = 5.6, yend = 60.6, color = 2, arrow = double_arrow) +
+  #annotate("segment", x = 25, xend = 25, y = 36.3, yend = 55.7, color = 4, arrow = double_arrow) +
+  annotate("segment", x = 15, xend = 15, y = 36.3, yend = 53, color = 4, arrow = double_arrow) +
+  annotate("text", 90, 45, label = "47 g/L", color = 2, hjust = 1.1) +
+  annotate("text", 15, 45, label = "20 g/L", color = 4, hjust = -0.1) +
+  annotate("text", 10, 60, label = "Steep isotherm", color = 4, hjust = 0) +
+  annotate("text", 50, 20, label = "Better deliverable capacity", color = 2)
+
+# Import ad-hoc grids
+ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
+
+p_sub_energies <- 
+  ad_hoc_h2_grids %>%
+  mutate(id = str_sub(id, 4)) %>% filter(id %in% c("hMOF-1898", "hMOF-5072244")) %>%
+  mutate(loc = lower + upper) %>% 
+  group_by(id) %>% mutate(dens = counts / sum(counts)) %>% ungroup() %>% 
+  ggplot(aes(loc, dens, color = id)) + geom_point() +
+  xlim(c(-15, 0)) + ylim(c(0, 0.15)) +
+  xlab("Energy (kJ/mol)") + ylab("Fraction of UC") +
+  scale_color_manual(values = c(2, 4), breaks = c("hMOF-1898", "hMOF-5072244")) +
+  theme(legend.position=c(0, 0.8), legend.title = element_blank()) +
+  annotate("text", -15, 0.05, label=as.character(expression("Adsorbs H"[2]~"too strongly")), parse = TRUE, color = 4, hjust=0)  # need as.character: https://stackoverflow.com/questions/27303019/ggplot-annotate-with-greek-symbol-and-1-apostrophe-or-2-in-between-text
+
+plot_grid(
+  p_sub_energies,
+  p_sub_isotherm,
+  ncol=1,
+  labels=default_subfig_labels, label_size=12
+  ) %>%
+  save_ben_fig("binding_cases.png", nrow = 2, base_aspect_ratio = 2.0)
 
 
 
 # Resources for schematic figure in pptx
 # loop_cif in c(55, 2000189, 5072190)
-# Import ad-hoc grids
-ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
 # Run on each, then save to the pptx
 for (hid in c(55, 2000189, 5072190)) {
   (ad_hoc_h2_grids %>% 
@@ -141,7 +202,7 @@ p_beta_diff_t <-
 plot_grid(
   p_beta_orig,
   p_beta_diff_p + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
-  make_draft(p_beta_diff_t + theme(legend.position=c(0, 0.2), legend.direction="horizontal")),
+  p_beta_diff_t + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
   ncol=1,
   #align = "v",
   labels=default_subfig_labels, label_size=12
@@ -623,6 +684,22 @@ tobacco_data %>%
   )} %>% 
   save_si_fig("fh_correction.png", ncol=2)
 
+(list(
+  `160 K grid` = filter(p_160k_grids, id %in% p_2bar_sets$testing$id),
+  `77 K grid` = filter(p_2bar_sets$testing, id %in% p_160k_grids$id)
+  ) %>% 
+  map(~ eval_test_grid(trained_mod, .x, default_binspec, mutate(p_2bar_data, y_act = g.L))) %>% 
+  map_dfr(~ .x$pred_df, .id = "grid") %>% 
+  select(id, grid, y_pred) %>% 
+  #spread(grid, y_pred) %$%
+  #parity_plot(`160 K grid`, `77 K grid`)
+  spread(grid, y_pred) %>%
+  mutate(y_diff = `160 K grid` - `77 K grid`) %>% 
+  ggplot(aes(y_diff)) +
+  geom_histogram(bins = 30) +
+  xlab("Different predictions from grids at 160 K - 77 K (g/L)")
+  ) %>% 
+  save_si_fig("fh_160k_energy_difference.png")
 ```
 
 
@@ -827,12 +904,13 @@ p_coef_compare$layers[[2]]$data %>%
 ## TODO notes from meetings
 ### General
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
-* Consider redoing the isotherms for the two case study MOFs (and possibly pick more unique MOFs, since I'll need to calculate finer grids, anyway.)
+* Add z-scored results to the SI
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
   * Update analysis of specific top CCDC candidates
   * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
+* Get refined GCMC for case study from Arun
 * Grid convergence testing!!!
 
 ### Model form and applicability
