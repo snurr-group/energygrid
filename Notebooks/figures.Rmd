@@ -207,7 +207,7 @@ plot_grid(
   #align = "v",
   labels=default_subfig_labels, label_size=12
   ) %>%
-  save_ben_fig("betas.png", nrow = 3, base_aspect_ratio = 1.5)
+  save_ben_fig("betas.png", nrow = 3, base_aspect_ratio = 2)
 
 
 # Model fit for hMOF ridge regression model
@@ -311,15 +311,17 @@ p_beta_ch4 <-
 
 p_ch4_vol$plots %$%
   plot_grid(
-    parity_training %>% rescale_ch4_parity(),
+    #parity_training %>% rescale_ch4_parity(),
     parity_testing %>% rescale_ch4_parity(),
     p_beta_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
     ncol = 1,
-    rel_heights = c(1, 1, 1.1/1.5),
+    #rel_heights = c(1, 1, 1.1/1.5),
+    rel_heights = c(1, 1.1/2.0),
     labels=default_subfig_labels, label_size=12
     ) %>% 
   #save_ben_fig("ch4_plots.png", nrow = 2, ncol = 2)
-  save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1)
+  #save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1)
+  save_ben_fig("ch4_plots.png", nrow = 2, ncol = 1)
 
 ```
 
@@ -699,7 +701,7 @@ tobacco_data %>%
   geom_histogram(bins = 30) +
   xlab("Different predictions from grids at 160 K - 77 K (g/L)")
   ) %>% 
-  save_si_fig("fh_160k_energy_difference.png")
+  save_si_fig("fh_160k_energy_difference.png", base_aspect_ratio = 1.2)
 ```
 
 
