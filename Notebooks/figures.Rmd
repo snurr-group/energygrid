@@ -338,10 +338,6 @@ p_ch4_vol$plots %$%
 # Thornton, Chem Mater 2017, 2844-2854: VF, density, adsorption energy (kJ/mol), pore diameter, GSA, VSA
 
 
-# TODO thoughts:
-# Test with avsa vs. avsa+navsa, etc.
-# Probably should also test against ToBaCCo data, which has been imported but not analyzed
-
 fit_textural_model <- function(x_with_id_and_y_act, ...) {
   # Fits a LASSO/ridge regression model on a dataframe, subtracting the id column
   # and using the y_act column as the response variable.
@@ -429,9 +425,16 @@ tob_t_test_data <-
   tob_textural %>% 
   filter(id %in% tob_hist_sets$testing$id) %>% 
   select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
-eval_textural_model(tob_t_model, tob_t_test_data)
-eval_textural_model(zeo_model, tob_t_test_data)
-eval_textural_model(tob_t_model, hmof_t_test_data)  # Note, only the ToBaCCo model works on the hMOFs, not vice-versa
+
+plot_grid(
+  eval_textural_model(zeo_model, hmof_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("hMOFs predicting hMOFs"),
+  eval_textural_model(zeo_model, tob_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("hMOFs predicting ToBaCCo"),
+  eval_textural_model(tob_t_model, hmof_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("ToBaCCo predicting hMOFs"),
+  eval_textural_model(tob_t_model, tob_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("ToBaCCo predicting ToBaCCo"),
+  ncol = 2, nrow = 2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("textural_predictions.png", ncol = 2, nrow = 2)
 
 coef_tbl(zeo_model$mod)
 coef_tbl(tob_t_model$mod)
@@ -586,15 +589,19 @@ First, some random figures that haven't been placed elsewhere for the SI yet.
 ```{r si_distr}
 # Geometric property distributions for the databases
 p_geom_distr <- 
-  textural_props %>% 
-  select(-id, -h2.deliv.77) %>%
+  hmof_textural_data %>% 
+  select(LCD, PLD, vf, density, gsa, vsa) %>% 
+  bind_rows(hMOF = ., ToBaCCo = select(tob_textural, LCD, PLD, vf, density, gsa, vsa), .id = "db") %>% 
   rename(  # plotmath is very messy...
     `atop('Gravimetric surface', 'area'~(m^2/g))` = gsa,
     #`H2 deliverable\ncapacity (g/L)` = h2.deliv.77,
-    `atop('Largest cavity', 'diameter'~(ring(A)))` = lcd,
+    `atop('Largest cavity', 'diameter'~(ring(A)))` = LCD,
+    `atop('Pore limiting', 'diameter'~(ring(A)))` = PLD,
     `'Void fraction'` = vf,
+    `'Density'~(g/cm^3)` = density,
     `atop('Volumetric surface', 'area'~(m^2/cm^3))` = vsa
-    ) %>% 
+    ) %>%
+  select(-`'Density'~(g/cm^3)`) %>%   # behaves strangely in the plot
   gather("property", "value", -db) %>% 
   ggplot(aes(value)) +  # Trying to use ..density.. here results in strange behavior
   geom_histogram(bins=30) +
@@ -602,8 +609,7 @@ p_geom_distr <-
   scale_x_continuous(breaks=scales::pretty_breaks(n=2)) +
   facet_grid(db ~ property, scales = "free", labeller = label_parsed) +
   background_grid()
-p_geom_distr %>% save_si_fig("geom_distr.png", base_aspect_ratio=1.6)
-p_geom_distr
+p_geom_distr %>% save_si_fig("geom_distr.png", base_aspect_ratio=2.0)
 
 p_y_distr <- 
   tobacco_data %>% 
@@ -913,11 +919,6 @@ p_coef_compare$layers[[2]]$data %>%
 
 ## TODO notes from meetings
 ### General
-* Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
-  * Answer from preliminary data: hMOF doesn't transfer to ToBaCCo, though ToBaCCo transfers to the hMOFs
-  * Clean up analysis for next week's meeting.
-  * Think about how to write this up, if we report it.
-  * Are there any (simple) published hMOF models we can validate on the hMOFs and try on ToBaCCo?  That would confirm this behavior.
 * Add z-scored results to the SI
 
 ### More simulations/grids
