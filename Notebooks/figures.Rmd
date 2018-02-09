@@ -401,13 +401,15 @@ zeo_model <-
   hmof_textural_data %>% 
   filter(id %in% hmof_hist_sets$training$id) %>%
   #select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>%
-  select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
+  select(id, y_act, vf, density, gsa, vsa) %>% 
   fit_textural_model()
 expect_equal(nrow(zeo_model$orig_x), 1000)
 hmof_t_test_data <- 
   hmof_textural_data %>% 
   filter(id %in% hmof_hist_sets$testing$id) %>% 
-  select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+  select(id, y_act, vf, density, gsa, vsa)
 eval_textural_model(zeo_model, hmof_t_test_data)
 coef_tbl(zeo_model$mod)
 
@@ -418,13 +420,15 @@ tob_textural <-
 tob_t_model <- 
   tob_textural %>% 
   filter(id %in% tob_hist_sets$training$id) %>% 
-  select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>%
+  select(id, y_act, vf, density, gsa, vsa) %>% 
   fit_textural_model()
 expect_equal(nrow(tob_t_model$orig_x), 1000)
 tob_t_test_data <- 
   tob_textural %>% 
   filter(id %in% tob_hist_sets$testing$id) %>% 
-  select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+  select(id, y_act, vf, density, gsa, vsa)
 
 plot_grid(
   eval_textural_model(zeo_model, hmof_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("hMOFs predicting hMOFs"),
@@ -916,7 +920,7 @@ p_coef_compare$layers[[2]]$data %>%
 
 
 ### Other verifications
-```{r verify_assumptions}
+```{r coarse_model}
 # Are the models at the extremes of the hypertuning plot actually good fits to the data?
 list(0.25, 2.5, 5.0, 7.5) %>% 
   map(.,
@@ -951,6 +955,27 @@ coef_tbl(coarse_hmof_model$trained_mod$mod) %>%
   left_join(bin_loc_from_spec(coarse_binspec, align_bins="downward"), by="bin")
 ```
 
+```{r less_training}
+list(50, 100, 500, 1000) %>% 
+  map(function(mapx) {
+    hmof_hist_sets %>% 
+    (function(x, nsample) {
+      training_data <- x$training
+      training_ids <- x$training$id %>% unique
+      expect_equal(length(training_ids), 1000)  # rigorously DATA_SPLIT, but other things might be hardcoded, too
+      x$training <- 
+        training_data %>% 
+        filter(id %in% sample(training_ids, nsample))
+      x
+      })(., nsample=mapx) %>% 
+    run_model_on_partitions(., hmof_y_to_join, default_binspec, db_name = "hMOFs")
+    })
+# Based on this analysis, as few as 100 samples is enough (Q2 of ~0.96, but 50 samples drops this down to 0.7 and clear outliers, when you use the default_binspec)
+
+
+```
+
+
 
 
 
@@ -970,6 +995,3 @@ coef_tbl(coarse_hmof_model$trained_mod$mod) %>%
 ### Model form and applicability
 * Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
   * Inconclusive, even without the `bin_loc_from_spec` line.  See: `hmof_hist_sets$training %>% stepped_hist_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins = "downward") %>% select(-id) %>% filter(!(near(metric, 0))) %>% group_by(bin) %>% summarize(nsample = n()) %>% inner_join(bin_loc_from_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins="downward"), by="bin")`
-
-### Q2-type analysis
-* Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
