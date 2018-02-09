@@ -13,7 +13,7 @@ parity_plot <- function(act, pred, color=1, alpha=0.50) {
   # Parity plot between actual and predicted data, on square axes for g/L H2
   qplot(act, pred, alpha=I(alpha), color=I(color)) +
     xlab("'Actual' uptake (GCMC simulations)") +
-    ylab("Predicted uptake (ridge regression)") +
+    ylab("Predicted uptake (LASSO model)") +
     expand_limits(x = 0, y = 0) +
     scale_x_continuous(limits = c(0,60)) +
     scale_y_continuous(limits = c(0,60)) +
@@ -76,7 +76,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   class(results) <- "partitioned_glmnet"
   
   if (alpha_glm %in% c(1, 0)) {
-    perf_models <- c("ridge regression", "LASSO")
+    perf_models <- c("ridge regression", "LASSO model")
     perf_model <- perf_models[alpha_glm+1]  # R is one-indexed
   } else {
     perf_model <- "elasticnet"

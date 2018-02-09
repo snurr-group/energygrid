@@ -326,13 +326,55 @@ p_ch4_vol$plots %$%
 ```
 
 ```{r main_textural}
+# Models based on textural properties
+# All of the "good" models so far have been based on methane.  Can we reproduce the good predictivity for CH4 using MLR?  Maybe the problem is like hydrogen storage, where high P is predicted by Chahine's rule
+# Serves as a baseline for how well the energy histogram is working.
+# Selected properties based on a quick literature review of ML:
+# We should use rho, VF, VSA/GSA, and potentially LCD or other pore diameters.
+# Cory Simon, EES 2015, 1190-1199: Density, VF, largest included sphere, AVSA
+# Fernandez, JPCC 2013, 7681-7689: DPD, VF, GSA (and VSA)
+# Pardakhti, ACS Comb Sci 2017, 7681-7689: VF, GSA, density, DPD, LCD, Interp. cap, Cat nets
+# Plus chemical properties: element counts, metal type, degree of saturation, metallic %, ratios of atom types
+# Thornton, Chem Mater 2017, 2844-2854: VF, density, adsorption energy (kJ/mol), pore diameter, GSA, VSA
+
+
 # TODO thoughts:
-# Write a function to generalize model fitting/evaluation
 # Test with avsa vs. avsa+navsa, etc.
 # Probably should also test against ToBaCCo data, which has been imported but not analyzed
 
-# Maybe also see how necessary ridge regression is for this model.  Maybe MLR isn't good enough for this one?
+fit_textural_model <- function(x_with_id_and_y_act, ...) {
+  # Fits a LASSO/ridge regression model on a dataframe, subtracting the id column
+  # and using the y_act column as the response variable.
+  # Other parameters can be fed to fit_glmnet via the elipses
+  fitted_mod <- 
+    x_with_id_and_y_act %>% 
+    select(-id) %>% 
+    {fit_glmnet(select(., -y_act), .$y_act)}
+  parity_plot(fitted_mod$y, pred_glmnet(fitted_mod, fitted_mod$orig_x)) %>% print
+  fitted_mod
+}
 
+eval_textural_model <- function(glmnet_mod, x_with_id_and_y_act, ...) {
+  # Runs a trained textural model on a data frame with the same column order (and y_act)
+  # Returns the predicted data frame, and generates a parity plot and stats for convenience.
+  
+  # Adapted from pred_grid
+  grid_ids <- x_with_id_and_y_act$id
+  grid_y_act <- x_with_id_and_y_act$y_act
+  grid_desc <- x_with_id_and_y_act %>% select(-id, -y_act)
+  
+  grid_y_pred <- pred_glmnet(glmnet_mod, grid_desc)
+  
+  pred_df <-
+    tibble(id = grid_ids, y_act = grid_y_act, y_pred = grid_y_pred) %>%
+    mutate(y_err = abs(y_act - y_pred)) %>% 
+    bind_cols(grid_desc)
+  
+  pred_df %$% parity_plot(y_act, y_pred) %>% print
+  pred_df %$% postResample(pred=y_pred, obs=y_act) %>% print
+
+  pred_df
+}
 
 # Textural property base model
 zeo_tsv_names <- c("filename", "LCD", "PLD", "avf", "navf", "density", "avsa", "agsa", "navsa", "nagsa")
@@ -343,6 +385,7 @@ zeo_hmof <- read_delim(
   skip = 1,
   delim = " "
   ) %>% 
+  mutate(vf = avf + navf, vsa = avsa + navsa, gsa = agsa + nagsa) %>% 
   mutate(id = as.integer(str_sub(filename, 6)))
 zeo_tobmof <- read_delim(
   "BigData/quest/TobPores/all.tsv",
@@ -351,82 +394,47 @@ zeo_tobmof <- read_delim(
   skip = 1,
   delim = " "
   ) %>% 
+  mutate(vf = avf + navf, vsa = avsa + navsa, gsa = agsa + nagsa) %>% 
   mutate(id = filename)  # ToBaCCo id's start with tobmof, so it's already the correct format
-textural_data <- 
+
+hmof_textural_data <- 
   zeo_hmof %>% 
   inner_join(gcmc_data, by="id") %>% 
   mutate(y_act = va100bar - va2bar)
 zeo_model <- 
-  textural_data %>% 
-  filter(id %in% hmof_hist_sets$training$id) %>%  # TODO: check that nfit is actually 1000, once textural property simulations are complete
-  select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>% 
-  select(-id) %>% 
-  {fit_glmnet(select(., -y_act), .$y_act)}
-parity_plot(zeo_model$y, pred_glmnet(zeo_model, zeo_model$orig_x))
-
-zeo_testing_x <- 
-  textural_data %>% 
+  hmof_textural_data %>% 
+  filter(id %in% hmof_hist_sets$training$id) %>%
+  #select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>%
+  select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
+  fit_textural_model()
+expect_equal(nrow(zeo_model$orig_x), 1000)
+hmof_t_test_data <- 
+  hmof_textural_data %>% 
   filter(id %in% hmof_hist_sets$testing$id) %>% 
-  select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>% 
-  select(-id)
-parity_plot(zeo_testing_x$y_act, pred_glmnet(zeo_model, select(zeo_testing_x, -y_act)))
-postResample(pred=pred_glmnet(zeo_model, select(zeo_testing_x, -y_act)), obs=zeo_testing_x$y_act)
+  select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+eval_textural_model(zeo_model, hmof_t_test_data)
+coef_tbl(zeo_model$mod)
+
+tob_textural <- 
+  zeo_tobmof %>% 
+  inner_join(select(tobacco_data, -vf, -gsa, -vsa), by="id") %>% 
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
+tob_t_model <- 
+  tob_textural %>% 
+  filter(id %in% tob_hist_sets$training$id) %>% 
+  select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
+  fit_textural_model()
+expect_equal(nrow(tob_t_model$orig_x), 1000)
+tob_t_test_data <- 
+  tob_textural %>% 
+  filter(id %in% tob_hist_sets$testing$id) %>% 
+  select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+eval_textural_model(tob_t_model, tob_t_test_data)
+eval_textural_model(zeo_model, tob_t_test_data)
+eval_textural_model(tob_t_model, hmof_t_test_data)  # Note, only the ToBaCCo model works on the hMOFs, not vice-versa
 
 coef_tbl(zeo_model$mod)
-# also consider which variables were used earlier...we have some redundancies which might be coding nonlinearities?
-# alternatively fitting on the ToBaCCo MOFs or something similarly non-diverse??
-# see also methane, of course
-  
-
-# OLD CONTENT:
-# Models based on textural properties
-# TODO: all of the "good" models so far have been based on methane.  Can we reproduce the good predictivity for CH4 using MLR?  Maybe the problem is like hydrogen storage, where high P is predicted by Chahine's rule
-# Serves as a baseline for how well the energy histogram is working.
-# Selected properties based on a quick literature review of ML:
-# We should use rho, VF, VSA/GSA, and potentially LCD or other pore diameters.
-# Cory Simon, EES 2015, 1190-1199: Density, VF, largest included sphere, AVSA
-# Fernandez, JPCC 2013, 7681-7689: DPD, VF, GSA (and VSA)
-# Pardakhti, ACS Comb Sci 2017, 7681-7689: VF, GSA, density, DPD, LCD, Interp. cap, Cat nets
-# Plus chemical properties: element counts, metal type, degree of saturation, metallic %, ratios of atom types
-# Thornton, Chem Mater 2017, 2844-2854: VF, density, adsorption energy (kJ/mol), pore diameter, GSA, VSA
-# First, prepare the input data
-textural_props <- 
-  gcmc_data %>% 
-  mutate(h2.deliv.77 = va100bar - va2bar) %>% 
-  select(id, vf=void.frac, lcd, gsa=surf.area..mass., vsa=surf.area..vol., h2.deliv.77) %>% 
-  mutate(id = str_c("h", id))
-textural_props <- 
-  tobacco_data %>% 
-  mutate(h2.deliv.77 = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
-  select(id, vf, lcd, gsa, vsa, h2.deliv.77) %>% 
-  bind_rows(hMOF = textural_props, ToBaCCo = ., .id = "db") %>% 
-  na.omit
-# Run ridge regression models and generate parity plots in the same style as the energy grid method
-textural_hmofs <- 
-  textural_props %>% 
-  filter(db == "hMOF") %>% 
-  select(-db)
-textural_training_rows <- sample(nrow(textural_hmofs), 1000)
-textural_mod <- 
-  textural_hmofs %>% 
-  .[textural_training_rows,] %>% 
-  select(-id) %>% 
-  {fit_glmnet(select(., -h2.deliv.77), .$h2.deliv.77)}
-# (will probably be the same fit_glmnet function)
-textural_pred <- 
-  textural_hmofs %>% 
-  .[-textural_training_rows,] %>% 
-  select(-id, -h2.deliv.77) %>% 
-  pred_glmnet(textural_mod, .)
-textural_act <- textural_hmofs[-textural_training_rows, "h2.deliv.77"]
-parity_plot(textural_act, textural_pred, alpha=0.1)
-postResample(pred=textural_pred, obs=textural_act)
-textural_mod$lambda
-
-
-
-
-
+coef_tbl(tob_t_model$mod)
 
 ```
 
@@ -906,12 +914,17 @@ p_coef_compare$layers[[2]]$data %>%
 ## TODO notes from meetings
 ### General
 * Finish work on textural properties!  Particularly ToBaCCo might be interesting.  Does the model transfer to the CCDC dataset?
+  * Answer from preliminary data: hMOF doesn't transfer to ToBaCCo, though ToBaCCo transfers to the hMOFs
+  * Clean up analysis for next week's meeting.
+  * Think about how to write this up, if we report it.
+  * Are there any (simple) published hMOF models we can validate on the hMOFs and try on ToBaCCo?  That would confirm this behavior.
 * Add z-scored results to the SI
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
   * Update analysis of specific top CCDC candidates
   * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
+  * Set up SI template for the CCDC analysis (write out textural data, histograms, and automated import of figures.  Then we just need to import the snapshot png's, etc.)
 * Get refined GCMC for case study from Arun
 * Grid convergence testing!!!
 
