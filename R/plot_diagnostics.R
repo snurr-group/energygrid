@@ -43,12 +43,12 @@ plot_bin_z_vs_y <- function(zs, y, betas) {
 }
 # Example: # plot_bin_z_vs_y(p_test_mod$x, p_test_mod$y, coef_tbl(p_test_mod$mod))
 
-pred_grid <- function(glmnet_mod, test_grid, binspec) {
+pred_grid <- function(glmnet_mod, test_grid, binspec, align_bins = "strict") {
   # Runs predictions on grids by using binspec to calculate the energy histogram
   # and pred_glmnet(glmnet_mod, x) for z-scoring and evaluation.
   # TODO: consider incorporating binspec as part of glmnet_mod
   grid_desc <- test_grid %>%
-    stepped_hist_spec(binspec) %>% 
+    stepped_hist_spec(binspec, align_bins = align_bins) %>% 
     spread(key=bin, value=metric)
   
   grid_ids <- grid_desc$id
@@ -59,7 +59,7 @@ pred_grid <- function(glmnet_mod, test_grid, binspec) {
   tibble(id = grid_ids, y_pred = grid_y_pred)
 }
 
-eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_name = "MOFs", plot_units = "g/L", q2 = NULL) {
+eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_name = "MOFs", plot_units = "g/L", q2 = NULL, align_bins = "strict") {
   # Runs pred_grid and calculates statistics/plots on model predictivity.
   # Requires a base grid and data.frame including a (renamed) y_act column.
   # TODO: what do do about color?  Custom color for the dataframe?  Maybe just a manual parity plot.
@@ -69,6 +69,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   
   results <- list(
     binspec = binspec,
+    align_bins = align_bins,
     alpha = alpha_glm,
     trained_mod = glmnet_mod,
     plots=list()
@@ -83,7 +84,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   }
   results$model_name <- perf_model
 
-  predictions <- pred_grid(glmnet_mod, test_grid, binspec)
+  predictions <- pred_grid(glmnet_mod, test_grid, binspec, align_bins = align_bins)
   df_with_ys <- predictions %>% 
     inner_join(df_with_y_act, by="id") %>% 
     mutate(y_err = abs(y_act - y_pred))
@@ -182,7 +183,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   results  # return the partitioned_glmnet object
 }
 
-run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha=DEFAULT_ALPHA, lambda=NULL, db_name = "MOFs", plot_units="g/L", ...) {
+run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha=DEFAULT_ALPHA, lambda=NULL, db_name = "MOFs", plot_units="g/L", align_bins="strict", ...) {
   # Calculates the ridge or LASSO model on training data, then evaluates the performance on test data
   # Returns a large object with several plots
   
@@ -193,6 +194,7 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
     binspec[c("from", "to")],
     alpha=alpha,
     lambda=lambda,
+    align_bins = align_bins,
     ...
     )
   trained_mod <- trained_model$fitted_model[[1]]
@@ -200,7 +202,7 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   # Performance on the test data, which hasn't yet been used for anything
   predictions <- y_with_id %>% 
     mutate(y_act = g.L) %>%
-    eval_test_grid(trained_mod, partitioned_hists$testing, binspec, ., db_name, plot_units, trained_model$q2)
+    eval_test_grid(trained_mod, partitioned_hists$testing, binspec, ., db_name, plot_units, trained_model$q2, align_bins=align_bins)
   predictions$trained_model <- trained_model
   predictions  # return the partitioned_glmnet object
 }

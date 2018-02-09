@@ -915,11 +915,49 @@ p_coef_compare$layers[[2]]$data %>%
 ```
 
 
+### Other verifications
+```{r verify_assumptions}
+# Are the models at the extremes of the hypertuning plot actually good fits to the data?
+list(0.25, 2.5, 5.0, 7.5) %>% 
+  map(.,
+    function(x) list(
+      model = run_bin_model(
+        e_data = hmof_hist_sets$training,  # we no longer need hyperparameter data for other purposes
+        y_with_id = hmof_y_to_join,
+        step = x, width = x,
+        bin_lims = c(default_binspec["from"], default_binspec["to"]),
+        lambda = NULL, alpha = DEFAULT_ALPHA,
+        align_bins = "downward"
+        )$fitted_model[[1]],
+      width = x
+      )
+  ) %>% 
+  map(., function(x) eval_test_grid(
+    x$model,
+    hmof_hist_sets$testing,
+    c(default_binspec[c("from", "to")], step=x$width, width=x$width),
+    rename(hmof_y_to_join, y_act = g.L),
+    align_bins = "downward"
+    ))
+# Interestingly, this works even for the super coarse bins, which only have four model terms: y-intercept, repulsive, and two parts of the energy as you'd expect.
+
+coarse_binspec <- c(default_binspec[c("from", "to")], step=10.0, width=10.0)
+coarse_hmof_model <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, coarse_binspec, db_name = "hMOFs", align_bins = "downward")
+print(coarse_hmof_model)
+tobacco_data %>% 
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
+  eval_test_grid(coarse_hmof_model$trained_mod, tob_hist_sets$testing, coarse_binspec, ., db_name = "ToBaCCo", align_bins="downward")
+coef_tbl(coarse_hmof_model$trained_mod$mod) %>%
+  left_join(bin_loc_from_spec(coarse_binspec, align_bins="downward"), by="bin")
+```
+
+
 
 
 ## TODO notes from meetings
 ### General
 * Add z-scored results to the SI
+* See remaining notes in the manuscript
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
@@ -934,6 +972,4 @@ p_coef_compare$layers[[2]]$data %>%
   * Inconclusive, even without the `bin_loc_from_spec` line.  See: `hmof_hist_sets$training %>% stepped_hist_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins = "downward") %>% select(-id) %>% filter(!(near(metric, 0))) %>% group_by(bin) %>% summarize(nsample = n()) %>% inner_join(bin_loc_from_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins="downward"), by="bin")`
 
 ### Q2-type analysis
-* Make a few parity plots from the Q2/binning analysis.  Is the good prediction consistent across histogram parameters?  How about for ToBaCCo, since it's likely more sensitive?
 * Try to break Q2=0 with small n.  How low can we go?  Is 1000 samples way too many for this?
-
