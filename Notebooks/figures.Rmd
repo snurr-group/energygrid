@@ -57,6 +57,39 @@ save_si_fig <- function(p, filename, parent_dir = default_fig_dir, bheight = 3.3
 
 # Example:
 # hmof_partitioned_mod$plots %$% plot_grid(parity_training, make_draft(parity_testing), ncol=1, labels=default_subfig_labels, label_size=12) %>% save_ben_fig("test.png", nrow = 2)
+
+# LaTeX export
+save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_dir=default_fig_dir) {
+  # Writes a table to a Latex file which can be read with \input
+  # https://www.r-bloggers.com/exporting-r-tables-in-latex/
+  append_data <- FALSE
+  if (is.character(col_header) & length(col_header) == 1) {
+    cat(col_header, file = file.path(parent_dir, filename))
+    col_header <- FALSE
+    append_data <- TRUE
+  }
+  df %>% 
+    as.data.frame() %>%  # tibbles add a strange header to the file
+    format(digits = digits) %>%  # Digits is only a suggestion
+    write.table(
+      file.path(parent_dir, filename),
+      quote = FALSE,
+      row.names = FALSE,
+      col.names = col_header,
+      eol="\\\\\n",
+      sep=" & ",
+      append = append_data
+      )
+}
+
+save_fig_table_with_colnames <- function(df, filename, ...) {
+  save_fig_table(
+    df,
+    filename,
+    col_header=paste0(paste(colnames(df), collapse = " & "), "\\\\\n\\hline\n"),
+    ...
+    )
+}
 ```
 
 ## Figures for manuscript: main text
@@ -482,7 +515,7 @@ parse_vol_data <- function(filename) {
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
 }
 screening_gcmc <- 
-  list(orig="ScreenCSD", extended="ExtraCSD2") %>% 
+  list(orig="ScreenCSD", extended="ExtraCSD2", fill3="ExtraCSD3") %>% 
   map_chr(~paste0("BigData/Mateo/EnergyGrid/", .x, "/volume.tsv")) %>% 
   #list("BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv") %>% #, "ExtraCSD2") %>% 
   map_dfr(parse_vol_data, .id = "src") %>% 
@@ -573,6 +606,31 @@ screening_gcmc %>%
 
 ```
 
+```{r ccdc_report}
+# Report the top CSD candidates to a nice table in the SI
+screening_3d <- 
+  screening_accuracy %>% 
+  left_join(ccdc_dimensionality, by="id") %>% 
+  mutate(has_3d = (f3d>0)) %>% 
+  filter(has_3d) %>% 
+  arrange(desc(y_act))
+
+# TODO: how many structures have an actual GCMC capacity more than 50 g/L?
+
+
+# CCDC candidates containing a 3D framework and having a GCMC deliverable capacity > 45 g/L
+screening_3d %>%
+  filter(y_act > 45) %>% 
+  mutate(Refcode = str_sub(id, 0, -10)) %>% 
+  mutate(Visualization = paste0("\\includegraphics[height=3cm]{TopCCDC/", Refcode, "}")) %>% 
+  select(Refcode, Visualization, y_act, y_pred) %>% # also consider VF, LCD, PLD, ASA
+  rename(
+    `Predicted uptake (g/L)` = y_pred,
+    `GCMC uptake (g/L)` = y_act
+    ) %>% 
+  save_fig_table_with_colnames("ccdc_screening.tex")
+
+```
 
 
 ## Supporting Information for manuscript
@@ -802,38 +860,6 @@ p_si_lambda %>% save_si_fig("lambda.png")
 
 
 # Combining LASSO, MLR, and ridge in a single figure
-save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_dir=default_fig_dir) {
-  # Writes a table to a Latex file which can be read with \input
-  # https://www.r-bloggers.com/exporting-r-tables-in-latex/
-  append_data <- FALSE
-  if (is.character(col_header) & length(col_header) == 1) {
-    cat(col_header, file = file.path(parent_dir, filename))
-    col_header <- FALSE
-    append_data <- TRUE
-  }
-  df %>% 
-    as.data.frame() %>%  # tibbles add a strange header to the file
-    format(digits = digits) %>%  # Digits is only a suggestion
-    write.table(
-      file.path(parent_dir, filename),
-      quote = FALSE,
-      row.names = FALSE,
-      col.names = col_header,
-      eol="\\\\\n",
-      sep=" & ",
-      append = append_data
-      )
-}
-
-save_fig_table_with_colnames <- function(df, filename, ...) {
-  save_fig_table(
-    df,
-    filename,
-    col_header=paste0(paste(colnames(df), collapse = " & "), "\\\\\n\\hline\n"),
-    ...
-    )
-}
-
 trained_model_regu <- list(
   Ridge = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 0, db_name = "hMOFs"),
   LASSO = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, 1, db_name = "hMOFs"),
@@ -983,12 +1009,18 @@ list(50, 100, 500, 1000) %>%
 ### General
 * Add z-scored results to the SI
 * See remaining notes in the manuscript
+* Add a few sentences about the fully robust 4-term beta model.  Maybe also the small number of samples (consider a plot of accuracy versus number of samples for the SI)
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
+  * Delegate snapshots to Arun
+  * Update main text in the paper
+  * Comment on a few non-physical structures
+  * OLD:
   * Update analysis of specific top CCDC candidates
   * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
   * Set up SI template for the CCDC analysis (write out textural data, histograms, and automated import of figures.  Then we just need to import the snapshot png's, etc.)
+  * Potential columns for template: CCDC refcode, reference paper?, CIF viz, energy histogram, y_act, y_pred, textural properties (VF, LCD, PLD, ASA)
 * Get refined GCMC for case study from Arun
 * Grid convergence testing!!!
 
