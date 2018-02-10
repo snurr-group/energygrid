@@ -625,10 +625,10 @@ screening_3d %>%
   mutate(Visualization = paste0("\\includegraphics[height=3cm]{TopCCDC/", Refcode, "}")) %>% 
   select(Refcode, Visualization, y_act, y_pred) %>% # also consider VF, LCD, PLD, ASA
   rename(
-    `Predicted uptake (g/L)` = y_pred,
+    `Predicted uptake (g/L) (will automatically add VF, LCD, PLD, and ASA once calculated)` = y_pred,
     `GCMC uptake (g/L)` = y_act
     ) %>% 
-  save_fig_table_with_colnames("ccdc_screening.tex")
+  save_fig_table_with_colnames("ccdc_screening.tex", digits=3)
 
 ```
 
@@ -704,14 +704,14 @@ plot_grid(
 
 # How many samples are there for each bin in the training data?
 # Answer: LASSO takes care of this automatically.
-# Justify the model using the regu_coef.tex table (showing -13 to -11 kJ/mol is set to zero.)
-# Also consider adding a column with the number of nonzero training points.
-hmof_hist_sets$training %>%
+n_hmof_bin_samples <- 
+  hmof_hist_sets$training %>%
   stepped_hist_spec(default_binspec) %>%
   select(-id) %>%
   filter(!(near(metric, 0))) %>%
   group_by(bin) %>% summarize(nsample = n()) %>%
   inner_join(bin_loc_from_spec(default_binspec), by="bin")
+n_hmof_bin_samples
 
 # In general, there should be an inverse relationship between void fraction and the infinite bin.
 # The match will not be exact because the energy cutoffs are rather different.
@@ -883,11 +883,13 @@ trained_model_regu %>%
   map_dfr(~ coef_tbl(.x$trained_mod$mod), .id="method") %>% 
   spread(method, beta) %>% 
   left_join(bin_loc_from_spec(default_binspec), by="bin") %>% 
-  select(-bin) %>% 
+  #select(-bin) %>% 
   mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
   mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
   arrange(lower) %>% 
-  select(Bin, Ridge, LASSO, MLR) %>% 
+  left_join(n_hmof_bin_samples, select(bin, nsample), by="bin") %>% 
+  select(Bin, Ridge, LASSO, MLR, nsample) %>% 
+  rename(`Number of nonzero samples` = nsample) %>% 
   save_fig_table_with_colnames("regu_coef.tex")
 
 trained_model_regu %>%  # What are the lambda/alpha for the models?
@@ -1009,18 +1011,14 @@ list(50, 100, 500, 1000) %>%
 ### General
 * Add z-scored results to the SI
 * See remaining notes in the manuscript
-* Add a few sentences about the fully robust 4-term beta model.  Maybe also the small number of samples (consider a plot of accuracy versus number of samples for the SI)
+* Maybe also the small number of samples (consider a plot of accuracy versus number of samples for the SI)
 
 ### More simulations/grids
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
-  * Delegate snapshots to Arun
+  * Delegate snapshots to Arun next week
   * Update main text in the paper
   * Comment on a few non-physical structures
-  * OLD:
-  * Update analysis of specific top CCDC candidates
-  * Reviewers will like seeing detailed analysis of the top candidates (and possibly screenshots/details of the top ~10 in the SI)
-  * Set up SI template for the CCDC analysis (write out textural data, histograms, and automated import of figures.  Then we just need to import the snapshot png's, etc.)
-  * Potential columns for template: CCDC refcode, reference paper?, CIF viz, energy histogram, y_act, y_pred, textural properties (VF, LCD, PLD, ASA)
+  * SI template: add textural properties and try to set up in a separate SI document
 * Get refined GCMC for case study from Arun
 * Grid convergence testing!!!
 
