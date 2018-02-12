@@ -98,55 +98,40 @@ Recreate (and export) figures in a few blocks.  Possibly will be externalized in
 
 ```{r prep_conceptual_figures}
 # Figures on adsorption strength (conceptual) and ML workflow (to update, but external pptx in the Box Projects folder)
-p_concept_isotherms <- read_tsv(
-  "BigData/Emails/isotherm-a-b-20180112/tidy_isotherms.tsv",
-  skip=0, col_types="cdd"
+p_concept_isotherms <-
+  list("hMOF-1898", "hMOF-5072244") %>% 
+  set_names(., .) %>% 
+  map_chr(~paste0("BigData/Emails/isotherm-a-b-20180210/hydrogen_77_", .x, ".dat")) %>% 
+  map_dfr(
+    ~ read_tsv(.x, skip=2, col_types="d--d----", col_names=c("Pa", "cm3.cm3")),
+    .id = "id"
   ) %>% 
-  mutate(g.L = cm3.cm3 * 2.0 / 22.4)
+  mutate(g.L = cm3.cm3 * 2.0 / 22.4, bar = Pa / 1e5)
 p_concept_isotherms %>% 
   ggplot(aes(bar, g.L, color=id)) +
   geom_smooth(se=FALSE)
 
-# Instead of collecting more data to draw this figure, let's just fit a Type I Langmuir isotherm to sketch it for the outline
-p_isotherm_fit <- 
-  p_concept_isotherms %>%
-  group_by(id) %>% nest() %>%
-  # We need to fit on an inverted langmuir model to get K^-1 in the numerator with our constant
-  # P = x / (K*(1-x))
-  mutate(model = map(data, ~ lm(.x, formula = bar ~ g.L / (1 - g.L) + 0))) %>%
-  mutate(k = map_dbl(model, ~ 1 / coef(.x))) %>% 
-  #select(-model) %>% unnest()  # Can get back a data.frame instead of the next part with the fit
-  select(id, k)
-# Instead of using this, let's use the fits from Arun, saved in the same directory as the source data
+# Add a fit to a Type I Langmuir isotherm, based on Arun's data (see PDF in data directory)
 cartoon_pressures <- c(seq(0.05, 0.95, 0.05), 1:100)
-double_arrow <- arrow(ends="both", type="closed", length=unit(2, "mm"))
+double_arrow <- arrow(ends="both", type="closed", length=unit(1.5, "mm"))
 p_sub_isotherm <- 
-  # p_isotherm_fit %>% 
-  #deframe() %>%  # tibble function to convert two-column df to a named list
-  #map_dfr(~ data_frame(bar = 1:100, k = .x), .id = "id") %>% 
-  #mutate(g.L = 50 * k * bar / (1 + k * bar)) %>% 
   list(
-    `hMOF-1898` = c(3.16783, 0.04234),
-    `hMOF-5072244` = c(62.03316, 1.15935)
+    `hMOF-1898` = c(2.62529e-5, 4.0579e-7) * 1e5,  # convert fit from Pa to bar
+    # also fix error in spreadsheet converting from cm3/cm3 to g/L (mult. vs. division)
+    `hMOF-5072244` = c(0.05656/ 11.2^2, 9.43599E-6) * 1e5
   ) %>% 
-  #expand.grid(bar = cartoon_pressures, id = c("hMOF-1898", "hMOF-5072244")) %>% 
   map_dfr(~ data_frame(bar = cartoon_pressures, A = .x[1], B = .x[2]), .id = "id") %>% 
   mutate(g.L = A*bar / (1 + B * bar)) %>% 
   ggplot(aes(bar, g.L, color = id)) +
   geom_line() +
-  #geom_point(data = p_concept_isotherms) +
+  geom_point(data = p_concept_isotherms) +
   xlab("Pressure (bar)") + ylab("Uptake (g/L)") +
   geom_vline(xintercept = c(2, 100), linetype="dotted") +
   scale_color_manual(values = c(2, 4), breaks = c("hMOF-1898", "hMOF-5072244"), guide = FALSE) +
-  #annotate("segment", x = 25, xend = 25, y = 4.1, yend = 51.1, color = 4, arrow = double_arrow) +
-  #annotate("segment", x = 90, xend = 90, y = 27.4, yend = 47.4, color = 2, arrow = double_arrow) +
-  annotate("segment", x = 90, xend = 90, y = 5.6, yend = 60.6, color = 2, arrow = double_arrow) +
-  #annotate("segment", x = 25, xend = 25, y = 36.3, yend = 55.7, color = 4, arrow = double_arrow) +
-  annotate("segment", x = 15, xend = 15, y = 36.3, yend = 53, color = 4, arrow = double_arrow) +
-  annotate("text", 90, 45, label = "47 g/L", color = 2, hjust = 1.1) +
-  annotate("text", 15, 45, label = "20 g/L", color = 4, hjust = -0.1) +
-  annotate("text", 10, 60, label = "Steep isotherm", color = 4, hjust = 0) +
-  annotate("text", 50, 20, label = "Better deliverable capacity", color = 2)
+  annotate("segment", x = 95, xend = 95, y = 4.1, yend = 51.1, color = 2, arrow = double_arrow) +
+  annotate("segment", x = 85, xend = 85, y = 27.4, yend = 47.4, color = 4, arrow = double_arrow) +
+  annotate("text", 92, 4.1, label = "47 g/L\nBetter deliverable capacity", color = 2, hjust = 1, vjust = 0) +
+  annotate("text", 82, 27.4, label = "20 g/L\nSteep isotherm", color = 4, hjust = 1, vjust = 0)
 
 # Import ad-hoc grids
 ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
@@ -1000,6 +985,8 @@ list(50, 100, 500, 1000) %>%
     })
 # Based on this analysis, as few as 100 samples is enough (Q2 of ~0.96, but 50 samples drops this down to 0.7 and clear outliers, when you use the default_binspec)
 
+# Note, print returns its argument invisibly, so in a pipe it works like Bash's `tee`
+# Consider extracting the first few to print, then otherwise saving the full set to the sI
 
 ```
 
@@ -1019,7 +1006,6 @@ list(50, 100, 500, 1000) %>%
   * Update main text in the paper
   * Comment on a few non-physical structures
   * SI template: add textural properties and try to set up in a separate SI document
-* Get refined GCMC for case study from Arun
 * Grid convergence testing!!!
 
 ### Model form and applicability
