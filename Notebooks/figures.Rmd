@@ -800,14 +800,14 @@ p_err_topology <-
   left_join(tobacco_data, by="id") %>% 
   ggplot(aes(y_act, y_pred)) + 
   geom_point() + parity_line +
-  facet_wrap(~topology) +
+  facet_wrap(~topology, nrow = 4) +
   coord_fixed() +
   scale_x_continuous(breaks=c(0,40)) +
   #scale_y_continuous(breaks=scales::pretty_breaks(n=2)) +
   scale_y_continuous(breaks=c(0, 40)) +
   xlab("'Actual' uptake (GCMC simulations)") +
   ylab("Predicted uptake (ridge regression)")
-p_err_topology %>% save_si_fig("err_by_topology.png", bheight=5)
+p_err_topology %>% save_si_fig("err_by_topology.png", base_aspect_ratio = 1.5)
 
 ```
 
@@ -906,6 +906,32 @@ p_beta_ch4$layers[[2]]$data %>%
 
 ```
 
+```{r si_z_scores}
+# Do we get the same conclusions if we preprocess the explanatory variables with z-scoring?
+z_hmofs <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs", zscore = TRUE)
+#print(z_hmofs)
+
+# TODO: could consider z-scoring the MOF-5 results before making a base_hist
+p_beta_z_diff_p <- 
+  list(`100 bar` = "va100bar", `2 bar` = "va2bar") %>% 
+  map(mutate_col_to_gL, df = gcmc_data) %>%
+  map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec, zscore = TRUE)) %>% 
+  map(function(x) x$trained_mod$mod) %>% 
+  map_dfr(coef_tbl, .id="cat") %>% 
+  overlay_cat_betas(base_hist, ., default_binspec, 10)
+
+plot_grid(
+  z_hmofs$plots$parity_testing,
+  p_beta_z_diff_p + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
+  ncol = 2,
+  rel_widths = c(1, 2.0/1.1),
+  labels = default_subfig_labels, label_size = 12
+  ) %>% 
+  save_si_fig("z_scored_hmofs.png", ncol = 2)
+
+```
+
+
 ### Consistency between different datasets
 hMOF vs. ToBaCCo, etc.
 
@@ -996,7 +1022,6 @@ list(50, 100, 500, 1000) %>%
 
 ## TODO notes from meetings
 ### General
-* Add z-scored results to the SI
 * See remaining notes in the manuscript
 * Maybe also the small number of samples (consider a plot of accuracy versus number of samples for the SI)
 
