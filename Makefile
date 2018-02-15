@@ -62,3 +62,16 @@ BigData/csd_formula.txt:
 
 BigData/Robj/csd_formulas.Rds: BigData/csd_formula.txt
 	${RUN_R} R/filter_ccdc_chemistry.R
+
+BigData/TopCCDC/top.smi: Figs/ccdc_screening.tex
+	top3d=$$(tail -n +3 $< | cut -f1 -d' '); \
+	rm -r BigData/TopCCDC; \
+	mkdir BigData/TopCCDC; \
+	mkdir -p Test/; \
+	for structure in $$top3d; \
+		do cif="$${structure}_stripped.cif"; \
+		cp "BigData/cifs_from_csddata/$${cif}" BigData/TopCCDC; \
+		python ../mofid/Python/extract_moffles.py "BigData/TopCCDC/$${cif}" >> $@; \
+		done ;\
+	obabel $@ -O BigData/TopCCDC/top.svg
+
