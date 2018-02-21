@@ -1032,6 +1032,15 @@ list(50, 100, 500, 1000) %>%
   * Comment on a few non-physical structures
   * SI template: add textural properties and try to set up in a separate SI document
 * Grid convergence testing!!!
+* Use 160 K grids (and model) to see if top CCDC candidates are the same as a pure 77 K pressure swing
+  * If the results are interesting, possibly also try at 300 K?
+  * Run top CCDC candidates based on the T-swing model
+  * Reran GCMC on the top CCDC candidate for Omar
+
+### Figures
+* Methane: combined histogram, which will make it easier to see weak attraction, etc.
+* Ridge/LASSO/MLR in a single line
+* Defer textural property predictions to a follow-up paper, likely with Maciek's help
 
 ### Model form and applicability
 * Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
