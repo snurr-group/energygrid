@@ -326,20 +326,31 @@ p_beta_ch4 <-
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = BETA_CH4_SCALING)
+p_beta_comb_ch4 <- 
+  p_ch4_vol$trained_mod$mod %>% 
+  coef_tbl() %>% 
+  overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = BETA_CH4_SCALING/5.0)
 
 p_ch4_vol$plots %$%
   plot_grid(
-    #parity_training %>% rescale_ch4_parity(),
     parity_testing %>% rescale_ch4_parity(),
     p_beta_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
-    ncol = 1,
-    #rel_heights = c(1, 1, 1.1/1.5),
-    rel_heights = c(1, 1.1/2.0),
+    p_beta_comb_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
+    ncol = 1, nrow = 3,
+    #rel_heights = c(1.0, 1.1/2.0),
+    rel_heights=c(1.0/1.1, 1.0/2.0, 1.0/2.0),
     labels=default_subfig_labels, label_size=12
     ) %>% 
-  #save_ben_fig("ch4_plots.png", nrow = 2, ncol = 2)
-  #save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1)
-  save_ben_fig("ch4_plots.png", nrow = 2, ncol = 1)
+  #save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1, base_aspect_ratio=1.1)
+  save_plot(
+    file.path(default_fig_dir, "ch4_plots.png"),
+    .,
+    base_width = 8.3 / 2.54,
+    #base_height = 8.3 / 2.54 / c(1.1, 2.0, 2.0),
+    base_height = 8.3 / 2.54 / 1.1,
+    nrow = 1.0/1.1 + 1,  # Need to set the total height, not the actual number of rows here
+    dpi = default_dpi,
+  )
 
 ```
 
@@ -857,12 +868,12 @@ trained_model_regu %>%
   {do.call(  # For future reference, purrr:invoke is probably what I was looking for as a wrapper
     plot_grid,
     c(., list(  # https://stackoverflow.com/questions/25962605/how-to-add-more-arguments-of-a-function-in-do-call-in-r
-      ncol=2, nrow=2,
+      ncol=3, nrow=1,
       labels=default_subfig_labels, label_size=12
       )
     )
     )} %>% 
-  save_si_fig("regu_parity.png", ncol=2, nrow=2)
+  save_si_fig("regu_parity.png", ncol=3, nrow=1)
 
 trained_model_regu %>% 
   map_dfr(~ coef_tbl(.x$trained_mod$mod), .id="method") %>% 
@@ -1038,8 +1049,6 @@ list(50, 100, 500, 1000) %>%
   * Reran GCMC on the top CCDC candidate for Omar
 
 ### Figures
-* Methane: combined histogram, which will make it easier to see weak attraction, etc.
-* Ridge/LASSO/MLR in a single line
 * Defer textural property predictions to a follow-up paper, likely with Maciek's help
 
 ### Model form and applicability
