@@ -310,4 +310,5 @@ ccdc_gcmc <-
   # See https://stackoverflow.com/questions/39279724/use-mutate-at-to-change-multiple-column-types
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
   na.omit()
+ccdc_h2_160k_grids <- read_rds("BigData/Robj/ccdc_hist_160k.Rds")
 

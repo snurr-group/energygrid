@@ -17,6 +17,9 @@ BigData/init_h2_hist_vals.Rds:
 BigData/Robj/ccdc_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/csd_h2
 
+BigData/Robj/ccdc_hist_160k.Rds:
+	$(RUN_R) R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/CSD-160K
+
 BigData/ccdc_500_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/500cifs-CCDC
 	# Process test subset of CCDC MOFs from Scotty 2017-11-07

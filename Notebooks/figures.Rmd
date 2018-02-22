@@ -602,6 +602,72 @@ screening_gcmc %>%
 
 ```
 
+```{r ccdc_t_swing}
+# Try a temperature swing (77 K -> 160 K) in addition to the pressure swing (100 bar -> 2 bar)
+# First, let's begin with 77 K grids (instead of the 160 K).  It's less complex, and I've shown the 160 K grids not to be too important (especially if you train against 77 K grids, but even if you predict on the grids interchangeably)
+
+if (!exists("ccdc_160k_predicted")) {
+  # If we use 160 K grids, we'll have to retrain the hMOF model on 160 K grids, too
+  # Train the hMOF model.  Based on the p_beta_diff_t figure.
+  trained_160k_mod <- run_bin_model_spec(
+    p_2bar_sets$training,
+    mutate(p_2bar_data, g.L = va100bar - h2.g.L.2.160),
+    default_binspec
+    ) %>% 
+    .$fitted_model %>% 
+    .[[1]]
+  ccdc_160k_predicted <- 
+    ccdc_h2_grids %>% 
+    pred_grid(trained_160k_mod, ., default_binspec)
+}
+
+# What do the new model coefficients look like?
+coef_tbl(trained_160k_mod$mod)
+
+# How much improvement do we get from desorbing at the higher temperature?
+# Comparison between ranking?
+ccdc_desorb_strategy <- 
+  ccdc_160k_predicted %>% 
+  rename(y_160k_pred = y_pred) %>% 
+  left_join(rename(ccdc_predicted, y_77k_pred = y_pred), by="id") %>% 
+  mutate(r_160k = rank(desc(y_160k_pred)), r_77k = rank(desc(y_77k_pred))) %>% 
+  left_join(ccdc_dimensionality, by="id") %>% 
+  mutate(has_3d = (f3d > 0))
+
+ccdc_desorb_strategy %>% 
+  ggplot(aes(y_77k_pred, y_160k_pred)) +
+  geom_point() +
+  parity_line +
+  xlab("Deliverable capacity, 77 K (g/L)") +
+  ylab("Deliverable capacity, 160 + 77 K (g/L)") +
+  coord_fixed(0.5)
+
+ccdc_desorb_strategy %>% 
+  ggplot(aes(y_160k_pred)) +
+  geom_histogram()
+
+ccdc_desorb_strategy %>% 
+  filter(y_160k_pred < 100 & y_160k_pred > 0) %>% 
+  ggplot(aes(y_160k_pred)) +
+  geom_histogram()
+
+# Ranking plot
+#ccdc_desorb_strategy %>% 
+#  ggplot(aes(r_77k, r_160k)) +
+#  geom_point() +
+#  parity_line +
+#  scale_x_reverse() + scale_y_reverse()
+
+ccdc_desorb_strategy %>%
+  filter(has_3d) %>%
+  filter(y_160k_pred > 50) %>% nrow
+
+
+
+
+```
+
+
 ```{r ccdc_report}
 # Report the top CSD candidates to a nice table in the SI
 screening_3d <- 
@@ -1047,6 +1113,8 @@ list(50, 100, 500, 1000) %>%
   * If the results are interesting, possibly also try at 300 K?
   * Run top CCDC candidates based on the T-swing model
   * Reran GCMC on the top CCDC candidate for Omar
+  * The predictions look highly sensitive to the lowest bin, so be sure to implement Neda's binning suggestion before running more GCMC on the "top" CCDC structures
+  * It looks like there ~500 3D structures predicted with a deliverable capacity over 50 g/L once you add in temperature swing, so those seem the most exciting.  To study those, it's mostly just calculating the 2 bar 160 K data, plus any 100 bar MOFs that are missing.
 
 ### Figures
 * Defer textural property predictions to a follow-up paper, likely with Maciek's help
