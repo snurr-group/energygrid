@@ -1,0 +1,22 @@
+Let's actually check for the bottleneck instead of assuming:
+# See also slides from the last R Users Group meeting: https://northwestern-r-users.github.io/resources/TimingCode.html#14
+profvis(run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH), interval=0.005)
+
+readr::read_tsv is a good chunk of the time (way to ignore column seps, and one value per line???)
+
+Surprisingly, 85% of the time is readr::read_tsv and importing the data in the first place. (18685 / 23675)
+The histogram itself is only 1410.  all_stats assignment (with the slice) is 3345, so the next biggest bottleneck.
+
+
+Looking at individual reading commands, the results are surprising:
+microbenchmark(read_tsv("BigData/Mateo/EnergyGrid/csd_h2/ABAZAF_stripped.grid", col_names="V1", col_types="d")$V1)
+# Median 4.5
+microbenchmark(scan("BigData/Mateo/EnergyGrid/csd_h2/ABAZAF_stripped.grid", quiet=TRUE))
+# Median 4.8
+microbenchmark(read_table("BigData/Mateo/EnergyGrid/csd_h2/ABAZAF_stripped.grid", col_names="V1", col_types="d")$V1)
+# Median 2.96/2.85, so we've shaved off about 30% though it's still inevitably lengthy based on file IO, etc.
+microbenchmark(fread("BigData/Mateo/EnergyGrid/csd_h2/ABAZAF_stripped.grid", header=FALSE, na.strings=NULL, select=1, colClasses=double()), times=1000L)
+# Median 6.6, so not this one.
+
+
+

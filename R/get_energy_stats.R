@@ -54,7 +54,8 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
     }
     
     # print(energy_file)
-    energy <- read_tsv(energy_file, col_names = "V1", col_types = "d")$V1
+    # File I/O (next line) is the bottleneck.  read_table is faster than read_tsv
+    energy <- read_table(energy_file, col_names = "V1", col_types = "d")$V1  # faster than read_tsv for similar purposes
     end_row <- current_row + num_rows - 1
     all_stats[current_row:end_row, ] <- stats_fcn(energy)
     current_row = current_row + num_rows

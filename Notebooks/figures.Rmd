@@ -1115,6 +1115,9 @@ list(50, 100, 500, 1000) %>%
   * Reran GCMC on the top CCDC candidate for Omar
   * The predictions look highly sensitive to the lowest bin, so be sure to implement Neda's binning suggestion before running more GCMC on the "top" CCDC structures
   * It looks like there ~500 3D structures predicted with a deliverable capacity over 50 g/L once you add in temperature swing, so those seem the most exciting.  To study those, it's mostly just calculating the 2 bar 160 K data, plus any 100 bar MOFs that are missing.
+* Discuss CCDC scripts with Scotty
+  * "When I get back I will think about rerunning the solvent script without the monodentate flag. Once I remember how to use the CCDC API it won't take that long and then we can decide to either use them or just ignore it. As you say, it is not "wrong" to use the script as we did so long as that is made clear in the paper. And there probably would be cases where there are monodentate solvents that should be removed and are not. It's a two way street and solvent removal is difficult."
+  * "acknowledging the difficulty of automating structure processing in the manuscript"
 
 ### Figures
 * Defer textural property predictions to a follow-up paper, likely with Maciek's help
