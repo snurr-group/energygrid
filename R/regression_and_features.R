@@ -35,7 +35,7 @@ bounds_from_params <- function(step, width, from, to, align_bins="strict") {
   list(lower=lower_bounds, upper=upper_bounds)
 }
 
-stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, align_bins="strict") {
+stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TRUE, align_bins="strict") {
   # Calculates a stepped histogram, where bins contain the overlap from the parent distribution
   # Usage: stepped_hist(only_one, 0.5, 0.5, -8, 0) %>% View
   # bin_above designates a bin to infinity above the "to" argument.
@@ -53,6 +53,10 @@ stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, align_bins="
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, to, Inf, warn=FALSE), bin="Inf"))
   }
+  if (bin_below) {
+    result_hist <- result_hist %>% 
+      bind_rows(mutate(metric_from_hists(df, -Inf, from, warn=FALSE), bin="-Inf"))
+  }
   
   # < 2 sec per bin calculation  Just run metric_from_hists (an integral-type equation)
   result_hist
@@ -63,7 +67,7 @@ stepped_hist_spec <- function(df, binspec, ...) {
   stepped_hist(df, binspec["step"], binspec["width"], binspec["from"], binspec["to"], ...)
 }
 
-bin_loc_from_spec <- function(binspec, bin_above=TRUE, align_bins="strict") {
+bin_loc_from_spec <- function(binspec, bin_above=TRUE, bin_below=TRUE, align_bins="strict") {
   # Retrieves the locations of bins specified from stepped_hists
   both_bounds <- bounds_from_params(
     binspec["step"], binspec["width"],
@@ -86,6 +90,15 @@ bin_loc_from_spec <- function(binspec, bin_above=TRUE, align_bins="strict") {
         upper = Inf,
         bin = "Inf",
         loc = binspec["to"] + 0.5*binspec["width"]
+        )
+  }
+  if (bin_below) {
+    bins <- bins %>%
+      add_row(
+        lower = -Inf,
+        upper = binspec["from"],
+        bin = "-Inf",
+        loc = binspec["from"] - 0.5*binspec["width"]
         )
   }
   bins
