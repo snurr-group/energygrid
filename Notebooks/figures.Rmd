@@ -357,6 +357,7 @@ p_ch4_vol$plots %$%
 ```{r main_textural}
 # Models based on textural properties
 # All of the "good" models so far have been based on methane.  Can we reproduce the good predictivity for CH4 using MLR?  Maybe the problem is like hydrogen storage, where high P is predicted by Chahine's rule
+# * What to do about accessible vs. non-accessible properties?  Just use the hMOFs verbatim (plus density)?  Do a combined void fraction?
 # Serves as a baseline for how well the energy histogram is working.
 # Selected properties based on a quick literature review of ML:
 # We should use rho, VF, VSA/GSA, and potentially LCD or other pore diameters.
@@ -703,8 +704,41 @@ This section is still largely TODO but at least can be done in part for some of 
 First, some random figures that haven't been placed elsewhere for the SI yet.
 
 ```{r unsorted_si_figures}
-# * See base case analysis above for plain textural properties.  Understand the limitations of MLR on CH4 (vs. H2).  Has this sort of analysis been done before, except for the ANNs?
-# * What to do about accessible vs. non-accessible properties?  Just use the hMOFs verbatim (plus density)?  Do a combined void fraction?
+# Run some predictions for Timur, using different metals for the identified MOF (March 9, 2018)
+# 77 K P swing predictions:
+ad_hoc_h2_grids %>% 
+  pred_grid(trained_mod, ., default_binspec)
+
+# 160 K P/T swing predictions (but still 2 bar, not 5 bar)
+ad_hoc_h2_grids %>% 
+  pred_grid(trained_160k_mod, ., default_binspec)
+
+# Get the occupancy of EnergyGrid bins, which will help systematically establish suitable ranges for the histograms
+n_binspec <- default_binspec
+n_binspec["from"] <- -20
+n_binspec["to"] <- 0
+nsample_h2_db <- 
+  list(
+    "hMOF" = hmof_hist_sets$training,
+    "ToBaCCo" = tob_hist_sets$training,
+    "CCDC Validation" = ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id)
+  ) %>% 
+  map_dfr(function(x) {
+    x %>% 
+      stepped_hist_spec(n_binspec) %>% 
+      select(-id) %>% 
+      filter(!near(metric, 0)) %>% 
+      group_by(bin) %>% summarize(nsample = n()) %>% 
+      inner_join(bin_loc_from_spec(n_binspec), by="bin") %>% 
+      arrange(lower) %>%
+      select(-loc, -bin)
+    }, .id="Database") %>% 
+  spread(Database, nsample) %>% 
+  arrange(lower)
+# If we look at weak adsorption (slightly positive regime), we still see occupancy from lots of MOFs.  But the absolute fraction is still tiny with low occupancy, so the beta values would probably be wildly variable.
+# Now, export the nsample table to include in the SI as justification for the energy cutoffs.
+# Comment that we want uniform bin spacing for its simplicity, but it's an area that could be explored in a future investigation/follow-up.
+# Note: nsample_h2_db will have to be saved later below, once the tex exporter function is defined.
 
 ```
 
@@ -981,6 +1015,13 @@ p_beta_ch4$layers[[2]]$data %>%
   select(lower, upper, `5.8 bar`, `65 bar`) %>% 
   save_fig_table_with_colnames("coef_ch4.tex")
 
+# Save the number of samples justification from up above, to determine the binspec in the first place.
+nsample_h2_db %>% 
+  mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
+  mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
+  select(-lower, -upper) %>% select(Bin, everything()) %>% 
+  save_fig_table_with_colnames("nsample_lower.tex")
+
 ```
 
 ```{r si_z_scores}
@@ -1119,6 +1160,9 @@ list(50, 100, 500, 1000) %>%
   * "When I get back I will think about rerunning the solvent script without the monodentate flag. Once I remember how to use the CCDC API it won't take that long and then we can decide to either use them or just ignore it. As you say, it is not "wrong" to use the script as we did so long as that is made clear in the paper. And there probably would be cases where there are monodentate solvents that should be removed and are not. It's a two way street and solvent removal is difficult."
   * "acknowledging the difficulty of automating structure processing in the manuscript"
 * Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?  Fit a new "highly simplified model" for the text in the manuscript.
+* Set up CV error bars, etc., from the manuscript.
+* Update the "simple" equation in the manuscript.
+* Check out this proton diffusion NEB/grid paper? https://arxiv.org/pdf/1710.03468.pdf
 
 ### Figures
 * Defer textural property predictions to a follow-up paper, likely with Maciek's help
