@@ -962,6 +962,10 @@ trained_model_regu <- list(
   MLR = run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, alpha=1, lambda=0, thresh=1e-16, db_name = "hMOFs")
 )
 
+trained_model_regu$MLR$plots$parity_testing <- 
+  trained_model_regu$MLR$plots$parity_testing +
+  ylab("Predicted uptake (MLR model)")  # fix the label
+
 trained_model_regu %>% 
   #set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
   map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=45, y=20, label=y, size=6)}) %>% 
@@ -1113,20 +1117,35 @@ coef_tbl(coarse_hmof_model$trained_mod$mod) %>%
 ```
 
 ```{r less_training}
-list(50, 100, 500, 1000) %>% 
+#list(50, 100, 500, 1000) %>%
+less_trained_models <- 
+  list(30, 50, 75, 100, 150, 200, 300, 400, 500, 1000) %>% 
   map(function(mapx) {
     hmof_hist_sets %>% 
     (function(x, nsample) {
       training_data <- x$training
       training_ids <- x$training$id %>% unique
       expect_equal(length(training_ids), 1000)  # rigorously DATA_SPLIT, but other things might be hardcoded, too
+      sampled_ids <- sample(training_ids, nsample)
       x$training <- 
         training_data %>% 
-        filter(id %in% sample(training_ids, nsample))
+        filter(id %in% sampled_ids)
       x
       })(., nsample=mapx) %>% 
     run_model_on_partitions(., hmof_y_to_join, default_binspec, db_name = "hMOFs")
     })
+less_trained_stats <- 
+  less_trained_models %>% 
+  map_dfr(
+    ~ data_frame(
+      nfit = .x$trained_mod$nfit,
+      prmse = .x$testing_fit["RMSE"],
+      pmae = .x$testing_fit["MAE"],
+      spearman = .x$test_spearman["y_pred", "y_act"],
+      kendall = .x$test_kendall["y_pred", "y_act"]
+    )
+  )
+print(less_trained_stats)
 # Based on this analysis, as few as 100 samples is enough (Q2 of ~0.96, but 50 samples drops this down to 0.7 and clear outliers, when you use the default_binspec)
 
 # Note, print returns its argument invisibly, so in a pipe it works like Bash's `tee`
@@ -1140,28 +1159,26 @@ list(50, 100, 500, 1000) %>%
 
 ## TODO notes from meetings
 ### General
-* See remaining notes in the manuscript
-* Maybe also the small number of samples (consider a plot of accuracy versus number of samples for the SI)
+* Clear remaining notes in the manuscript
+* Grid convergence testing!!!
+* Import/train 5 bar, 160 K model
+* Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?  Fit a new "highly simplified model" for the text in the manuscript.
+* Set up CV error bars, etc., from the manuscript.
+* Update the "simple" equation in the manuscript.
+* Check the beta robustness figure (see bottom)
 
-### More simulations/grids
+### More simulations/grids (older notes)
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
-  * Delegate snapshots to Arun next week
+  * Delegate snapshots to Arun
   * Update main text in the paper
   * Comment on a few non-physical structures
   * SI template: add textural properties and try to set up in a separate SI document
-* Grid convergence testing!!!
 * Use 160 K grids (and model) to see if top CCDC candidates are the same as a pure 77 K pressure swing
-  * If the results are interesting, possibly also try at 300 K?
   * Run top CCDC candidates based on the T-swing model
-  * Reran GCMC on the top CCDC candidate for Omar
-  * The predictions look highly sensitive to the lowest bin, so be sure to implement Neda's binning suggestion before running more GCMC on the "top" CCDC structures
   * It looks like there ~500 3D structures predicted with a deliverable capacity over 50 g/L once you add in temperature swing, so those seem the most exciting.  To study those, it's mostly just calculating the 2 bar 160 K data, plus any 100 bar MOFs that are missing.
 * Discuss CCDC scripts with Scotty
   * "When I get back I will think about rerunning the solvent script without the monodentate flag. Once I remember how to use the CCDC API it won't take that long and then we can decide to either use them or just ignore it. As you say, it is not "wrong" to use the script as we did so long as that is made clear in the paper. And there probably would be cases where there are monodentate solvents that should be removed and are not. It's a two way street and solvent removal is difficult."
   * "acknowledging the difficulty of automating structure processing in the manuscript"
-* Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?  Fit a new "highly simplified model" for the text in the manuscript.
-* Set up CV error bars, etc., from the manuscript.
-* Update the "simple" equation in the manuscript.
 * Check out this proton diffusion NEB/grid paper? https://arxiv.org/pdf/1710.03468.pdf
 
 ### Figures
