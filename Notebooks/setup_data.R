@@ -312,3 +312,16 @@ ccdc_gcmc <-
   na.omit()
 ccdc_h2_160k_grids <- read_rds("BigData/Robj/ccdc_hist_160k.Rds")
 
+
+# Import 160 K, 5 bar data for the 2500 hMOFs.  Use it to train (and validate) a model for CCDC screening.
+p_160k_5bar_data <- 
+  read_table2(
+    "BigData/Mateo/EnergyGrid/GCMC-160k-2500hMOF/volume-uptake_combined.txt",
+    col_names = c("id", "filebasename", "fh.h2.v.v.5.160", "fh.h2.err.v.v.5.160"),
+    col_types = "icnn"
+  ) %>% 
+  select(-filebasename) %>% 
+  mutate(`fh.h2.g.L.5.160` = `fh.h2.v.v.5.160` * 2.0 / 22.4) %>% 
+  mutate(`fh.h2.err.g.L.5.160` = `fh.h2.err.v.v.5.160` * 2.0 / 22.4) %>% 
+  left_join(gcmc_data, by="id")
+

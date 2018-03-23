@@ -858,6 +858,10 @@ tobacco_data %>%
   )} %>% 
   save_si_fig("fh_correction.png", ncol=2)
 
+# How much is this as a percentage?  ~12.6 to 14.3%, normalized to LJ
+# tobacco_data %>% mutate(p_under = (lj.h2.g.L.100.77 - fh.h2.g.L.100.77) / lj.h2.g.L.100.77 * 100) %>% .$p_under %>% mean(na.rm=TRUE)
+# tobacco_data %>% mutate(p_under = (nofh.h2.g.L.2.77 - fh.h2.g.L.2.77) / nofh.h2.g.L.2.77 * 100) %>% .$p_under %>% mean(na.rm=TRUE)
+
 (list(
   `160 K grid` = filter(p_160k_grids, id %in% p_2bar_sets$testing$id),
   `77 K grid` = filter(p_2bar_sets$testing, id %in% p_160k_grids$id)
@@ -1154,20 +1158,121 @@ print(less_trained_stats)
 ```
 
 
+```{r grid_convergence}
+# Determine if energy grids have been sampled enough (small enough grid spacing)
+# In the analysis, I used 1 AA for simplicity and a small file size.  See if that's enough.
+
+# Import convergence testing data
+fine_h2_grids <- read_rds("BigData/Robj/fine_h2.Rds")
+
+# Start with our classic MOF-5 to see if there's a considerable difference. (double bar chart, or a side-by-side chart)
+fine_mof_5_comparison <- 
+  list(
+    coarse = ad_hoc_h2_grids,
+    fine = fine_h2_grids
+    ) %>% 
+  map_dfr(
+    ~ .x %>% 
+      filter(id == "hMOF-0") %>% 
+      stepped_hist_spec(default_binspec) %>% 
+      spread(key=bin, value=metric),
+    .id = "spacing"
+    )
+fine_mof_5_comparison %>% 
+  gather(bin, metric, -c("spacing", "id")) %>%
+  inner_join(bin_loc_from_spec(default_binspec), by="bin") %>%
+  arrange(lower) %>% 
+  mutate(bin = factor(bin, levels = unique(bin))) %>% 
+  #mutate(bin_e = paste(lower, "to", upper, "kJ/mol")) %>% 
+  ggplot(aes(bin, metric, fill=spacing)) +
+  geom_col(position = position_dodge())
+
+# How do model predictions compare?  Answer is they're 5 g/L different, which could explain some of the model spread.
+list(
+  coarse = ad_hoc_h2_grids,
+  fine = fine_h2_grids
+  ) %>%
+  map(~ filter(.x, id == "hMOF-0")) %>% 
+  map_dfr(
+    ~ pred_grid(trained_mod, .x, default_binspec),
+    .id = "spacing"
+    )
+
+# Then, extend this analysis to ~100 MOFs to see if it's systematic.
+# sample(unique(hmof_hist_sets$training$id), 100)  # get the random list of 100
+fine_num_ids <- 
+  fine_h2_grids$id %>% 
+  unique %>% 
+  str_sub(6) %>% 
+  as.numeric()
+fine_diff_df <- 
+  hmof_h2_grid %>% 
+  filter(id %in% fine_num_ids) %>% 
+  mutate(id = paste0("hMOF-", id)) %>% 
+  rbind(filter(ad_hoc_h2_grids, id=="hMOF-0")) %>% 
+  list(
+    coarse = .,
+    fine = fine_h2_grids
+    ) %>%
+  map_dfr(
+    ~ pred_grid(trained_mod, .x, default_binspec),
+    .id = "spacing"
+  ) %>% 
+  spread(spacing, y_pred) %>% 
+  left_join(gcmc_data %>% select(id, y_act=g.L) %>% mutate(id = paste0("hMOF-",id)), by="id")
+fine_diff_df
+fine_diff_df %$% parity_plot(coarse, fine)
+fine_diff_df %$% hist(coarse - fine)
+# Also look at a heatmap of errors to see if one model is necessarily better.
+# If both models provide similar analysis (converged), we would expect them to systematically
+# have the same error vs. GCMC, thus lie along the diagonal line.
+# Off-diagonals indicate instances where the models have substantially different predictions.
+# Added guides 3 g/L different to highlight points where the models diverge by more than 3 g/L.
+fine_diff_df %>% 
+  mutate(coarse_err = coarse - y_act, fine_err = fine - y_act) %>% 
+  ggplot(aes(fine_err, coarse_err)) +
+  #geom_density2d()
+  stat_bin2d() +
+  geom_hline(yintercept=0, linetype="dashed") + geom_vline(xintercept=0, linetype="dashed") +
+  geom_abline(slope=1, intercept=0, linetype="dotted") +
+  geom_abline(slope=1, intercept=3, linetype="dotted") +
+  geom_abline(slope=1, intercept=-3, linetype="dotted") +
+  coord_fixed()
+
+# Finally, let's look back at old analysis from CCDC screening and number of points to see if it's insufficient sampling
+fine_h2_grids %>% 
+  group_by(id) %>% 
+  summarize(num_pts = sum(counts)) %>% 
+  arrange(num_pts) %>% 
+  select(id, num_pts) %>% 
+  ungroup() %>% 
+  left_join(fine_diff_df, by="id") %>% 
+  ggplot(aes(num_pts, coarse - fine)) +  # Granted, num_pts will be 1000x as high as earlier
+  geom_point()
+
+# TODO: ADD INTERMEDIATE 0.5 AA grid RESULTS HERE
+
+```
 
 
 
 ## TODO notes from meetings
 ### General
 * Clear remaining notes in the manuscript
-* Grid convergence testing!!!
+* Grid convergence testing!!!  Test on ~100 structures, then maybe with 0.5 AA spacing as an intermediate.  Would it be interesting/worthwhile to train on a 0.5 AA set?
+  * Easy simulation: see if there's a difference between 0.5 AA and 0.1 AA predictions.  That could give good confidence in the method.
 * Import/train 5 bar, 160 K model
+  * TODO: PUT THIS UP ABOVE SOMEWHERE IN THE CCDC SECTION, THEN MAKE THE PARITY PLOT/PREDICTIONS.  SAME MOFs?
 * Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?  Fit a new "highly simplified model" for the text in the manuscript.
+  * Update the "simple" equation in the manuscript.
+  * This should just be a binspec of 7.5 kJ/mol, and the bin_below parameter.
+  * Also need to extract the parity plot (for SI) which shows that the fit is worse, but still not too bad.
 * Set up CV error bars, etc., from the manuscript.
-* Update the "simple" equation in the manuscript.
-* Check the beta robustness figure (see bottom)
+* Check the beta robustness figure (see bottom).  Also regenerate it.
 
 ### More simulations/grids (older notes)
+* Check that the CCDC MOF simulations are complete (original 77 K might only be 497/500?)
+  * Also see if we need to run new simulations for 5 bar, 160 K conditions
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
   * Delegate snapshots to Arun
   * Update main text in the paper
