@@ -953,8 +953,8 @@ p_si_lambda <-
   qplot(log(lambda), cvm) +
   xlab("log(lambda)") +
   ylab("Mean-Squared Error") +
-  geom_vline(xintercept=log(p_si_lambda_lambdamin), linetype="dotted") +
-  geom_vline(xintercept=log(p_si_lambda_lambda1se), linetype="dashed")
+  geom_vline(xintercept=log(p_si_lambda_lambdamin), linetype="dotted")# +
+  #geom_vline(xintercept=log(p_si_lambda_lambda1se), linetype="dashed")  # Hide to prevent figure clutter
 p_si_lambda
 p_si_lambda %>% save_si_fig("lambda.png")
 
@@ -1110,14 +1110,24 @@ list(0.25, 2.5, 5.0, 7.5) %>%
     ))
 # Interestingly, this works even for the super coarse bins, which only have four model terms: y-intercept, repulsive, and two parts of the energy as you'd expect.
 
-coarse_binspec <- c(default_binspec[c("from", "to")], step=10.0, width=10.0)
-coarse_hmof_model <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, coarse_binspec, db_name = "hMOFs", align_bins = "downward")
+#coarse_binspec <- c(default_binspec[c("from", "to")], step=10.0, width=10.0)
+coarse_binspec <- c(from=-7.5, to=0.0, step=7.5, width=7.5)
+coarse_hmof_model <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, coarse_binspec, db_name = "hMOFs", align_bins = "strict")
 print(coarse_hmof_model)
-tobacco_data %>% 
+coarse_tob_pred <- 
+  tobacco_data %>% 
   mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
-  eval_test_grid(coarse_hmof_model$trained_mod, tob_hist_sets$testing, coarse_binspec, ., db_name = "ToBaCCo", align_bins="downward")
+  eval_test_grid(coarse_hmof_model$trained_mod, tob_hist_sets$testing, coarse_binspec, ., db_name = "ToBaCCo MOFs", align_bins="strict")
+print(coarse_tob_pred)
+plot_grid(
+  coarse_hmof_model$plots$parity_testing,
+  coarse_tob_pred$plots$parity_testing,
+  ncol = 2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("coarse_parity.png", ncol = 2)
 coef_tbl(coarse_hmof_model$trained_mod$mod) %>%
-  left_join(bin_loc_from_spec(coarse_binspec, align_bins="downward"), by="bin")
+  left_join(bin_loc_from_spec(coarse_binspec, align_bins="strict"), by="bin")
 ```
 
 ```{r less_training}
@@ -1163,13 +1173,15 @@ print(less_trained_stats)
 # In the analysis, I used 1 AA for simplicity and a small file size.  See if that's enough.
 
 # Import convergence testing data
-fine_h2_grids <- read_rds("BigData/Robj/fine_h2.Rds")
+fine_01_h2_grids <- read_rds("BigData/Robj/fine_01_h2.Rds")
+fine_05_h2_grids <- read_rds("BigData/Robj/fine_05_h2.Rds")
 
 # Start with our classic MOF-5 to see if there's a considerable difference. (double bar chart, or a side-by-side chart)
 fine_mof_5_comparison <- 
   list(
-    coarse = ad_hoc_h2_grids,
-    fine = fine_h2_grids
+    coarse10 = ad_hoc_h2_grids,
+    fine05 = fine_05_h2_grids,
+    fine01 = fine_01_h2_grids
     ) %>% 
   map_dfr(
     ~ .x %>% 
@@ -1183,14 +1195,16 @@ fine_mof_5_comparison %>%
   inner_join(bin_loc_from_spec(default_binspec), by="bin") %>%
   arrange(lower) %>% 
   mutate(bin = factor(bin, levels = unique(bin))) %>% 
-  #mutate(bin_e = paste(lower, "to", upper, "kJ/mol")) %>% 
-  ggplot(aes(bin, metric, fill=spacing)) +
-  geom_col(position = position_dodge())
+  mutate(bin_e = ifelse(spacing=="coarse10", paste(lower, "to", upper), "")) %>% 
+  ggplot(aes(bin, metric, fill=spacing, label=bin_e)) +
+  geom_col(position = position_dodge()) +
+  geom_text(vjust=-0.5)
 
 # How do model predictions compare?  Answer is they're 5 g/L different, which could explain some of the model spread.
 list(
-  coarse = ad_hoc_h2_grids,
-  fine = fine_h2_grids
+  coarse10 = ad_hoc_h2_grids,
+  fine05 = fine_05_h2_grids,
+  fine01 = fine_01_h2_grids
   ) %>%
   map(~ filter(.x, id == "hMOF-0")) %>% 
   map_dfr(
@@ -1201,7 +1215,7 @@ list(
 # Then, extend this analysis to ~100 MOFs to see if it's systematic.
 # sample(unique(hmof_hist_sets$training$id), 100)  # get the random list of 100
 fine_num_ids <- 
-  fine_h2_grids$id %>% 
+  fine_05_h2_grids$id %>% 
   unique %>% 
   str_sub(6) %>% 
   as.numeric()
@@ -1211,8 +1225,9 @@ fine_diff_df <-
   mutate(id = paste0("hMOF-", id)) %>% 
   rbind(filter(ad_hoc_h2_grids, id=="hMOF-0")) %>% 
   list(
-    coarse = .,
-    fine = fine_h2_grids
+    coarse10 = .,
+    fine05 = fine_05_h2_grids,
+    fine01 = fine_01_h2_grids
     ) %>%
   map_dfr(
     ~ pred_grid(trained_mod, .x, default_binspec),
@@ -1221,15 +1236,18 @@ fine_diff_df <-
   spread(spacing, y_pred) %>% 
   left_join(gcmc_data %>% select(id, y_act=g.L) %>% mutate(id = paste0("hMOF-",id)), by="id")
 fine_diff_df
-fine_diff_df %$% parity_plot(coarse, fine)
-fine_diff_df %$% hist(coarse - fine)
+fine_diff_df %$%
+  parity_plot(fine01, coarse10) +
+  xlab("prediction from 0.1 Angstrom grid (fine)") +
+  ylab("Prediction from 1.0 Angstrom grid (coarse)")
+fine_diff_df %$% hist(coarse10 - fine01)
 # Also look at a heatmap of errors to see if one model is necessarily better.
 # If both models provide similar analysis (converged), we would expect them to systematically
 # have the same error vs. GCMC, thus lie along the diagonal line.
 # Off-diagonals indicate instances where the models have substantially different predictions.
 # Added guides 3 g/L different to highlight points where the models diverge by more than 3 g/L.
 fine_diff_df %>% 
-  mutate(coarse_err = coarse - y_act, fine_err = fine - y_act) %>% 
+  mutate(coarse_err = coarse10 - y_act, fine_err = fine01 - y_act) %>% 
   ggplot(aes(fine_err, coarse_err)) +
   #geom_density2d()
   stat_bin2d() +
@@ -1240,18 +1258,52 @@ fine_diff_df %>%
   coord_fixed()
 
 # Finally, let's look back at old analysis from CCDC screening and number of points to see if it's insufficient sampling
-fine_h2_grids %>% 
+fine_01_h2_grids %>% 
   group_by(id) %>% 
   summarize(num_pts = sum(counts)) %>% 
   arrange(num_pts) %>% 
   select(id, num_pts) %>% 
   ungroup() %>% 
   left_join(fine_diff_df, by="id") %>% 
-  ggplot(aes(num_pts, coarse - fine)) +  # Granted, num_pts will be 1000x as high as earlier
+  ggplot(aes(num_pts, coarse10 - fine01)) +  # Granted, num_pts will be 1000x as high as earlier
   geom_point()
 
-# TODO: ADD INTERMEDIATE 0.5 AA grid RESULTS HERE
+# Now that we've looked at the finest 0.1 AA grid, consider an intermediate point, 0.5 AA, which will only
+# be about one order of magnitude slower than 1.0 AA instead of three.
+fine_diff_df %$% hist(fine05 - fine01)
+p_fine_diff_hist <- 
+  fine_diff_df %>%
+  ggplot(aes(coarse10 - fine05)) +
+  geom_histogram() + 
+  xlab("Difference in predictions using grid spacings of 1.0 - 0.5 Angstroms")
+print(p_fine_diff_hist)
 
+```
+
+```{r grid_conv_models}
+# Also test the grid spacing convergence by training models at a finer grid spacing
+# of 0.5 AA instead of 1.0 AA.
+hmof_fine_h2_grid <- read_rds("BigData/Robj/hmof_2500_fine05_h2.Rds")  # from definition of hmof_h2_grid
+hmof_fine_h2_grid <- 
+  hmof_fine_h2_grid %>%
+  mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
+  mutate(id = as.integer(str_id)) %>% 
+  select(-str_id)
+hmof_fine_hist_sets <- partition_data_subsets(hmof_fine_h2_grid, hmof_y_to_join, DATA_SPLIT)
+hmof_fine_partitioned_mod <- run_model_on_partitions(hmof_fine_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
+print(hmof_fine_partitioned_mod)
+
+plot_grid(
+  hmof_fine_partitioned_mod$plots$parity_testing,
+  p_fine_diff_hist,
+  ncol = 2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("coarse_grid_points.png", ncol = 2)
+
+# This model shows that the fit isn't too much better when you use a finer grid spacing of 0.5 AA instead of 1.0,
+# probably for the same reason that it's insensitive to bin width spacing: if it works with only four terms,
+# why should the precision be important?  Model is robust and based on overall pore properties.
 ```
 
 
@@ -1259,16 +1311,11 @@ fine_h2_grids %>%
 ## TODO notes from meetings
 ### General
 * Clear remaining notes in the manuscript
-* Grid convergence testing!!!  Test on ~100 structures, then maybe with 0.5 AA spacing as an intermediate.  Would it be interesting/worthwhile to train on a 0.5 AA set?
-  * Easy simulation: see if there's a difference between 0.5 AA and 0.1 AA predictions.  That could give good confidence in the method.
 * Import/train 5 bar, 160 K model
   * TODO: PUT THIS UP ABOVE SOMEWHERE IN THE CCDC SECTION, THEN MAKE THE PARITY PLOT/PREDICTIONS.  SAME MOFs?
-* Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?  Fit a new "highly simplified model" for the text in the manuscript.
-  * Update the "simple" equation in the manuscript.
-  * This should just be a binspec of 7.5 kJ/mol, and the bin_below parameter.
-  * Also need to extract the parity plot (for SI) which shows that the fit is worse, but still not too bad.
-* Set up CV error bars, etc., from the manuscript.
+* Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?
 * Check the beta robustness figure (see bottom).  Also regenerate it.
+* Set up CV error bars, etc., from the manuscript.
 
 ### More simulations/grids (older notes)
 * Check that the CCDC MOF simulations are complete (original 77 K might only be 497/500?)
@@ -1285,9 +1332,6 @@ fine_h2_grids %>%
   * "When I get back I will think about rerunning the solvent script without the monodentate flag. Once I remember how to use the CCDC API it won't take that long and then we can decide to either use them or just ignore it. As you say, it is not "wrong" to use the script as we did so long as that is made clear in the paper. And there probably would be cases where there are monodentate solvents that should be removed and are not. It's a two way street and solvent removal is difficult."
   * "acknowledging the difficulty of automating structure processing in the manuscript"
 * Check out this proton diffusion NEB/grid paper? https://arxiv.org/pdf/1710.03468.pdf
-
-### Figures
-* Defer textural property predictions to a follow-up paper, likely with Maciek's help
 
 ### Model form and applicability
 * Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)

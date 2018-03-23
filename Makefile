@@ -36,8 +36,14 @@ BigData/Robj/hmof_h2.Rds:
 BigData/Robj/hmof_ch4.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/Methane2500 use_ch4
 
-BigData/Robj/fine_h2.Rds:
+BigData/Robj/fine_01_h2.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/FineGrid01AA
+
+BigData/Robj/fine_05_h2.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/FineGrid05AA
+
+BigData/Robj/hmof_2500_fine05_h2.Rds:
+	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/2500hMOF-05AA
 
 BigData/Robj/hmof_160k.Rds:
 	${RUN_R} R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/Grids160K
