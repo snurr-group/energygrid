@@ -579,7 +579,7 @@ ggplotly(p_top_ccdc_by_dim)
   geom_histogram() +
   facet_wrap(~dim_tag, scales="free") +
   ggtitle("Dimensionality of framework") +
-  xlab("Predicted - Actual")
+  xlab("Predicted - Actual Deliverable Capacity (g/L)")
   ) %>% 
   save_si_fig("top_ccdc_by_dims.png", base_aspect_ratio=2)
 
@@ -599,6 +599,7 @@ p_top_ccdc_by_dim$data %>%
 ccdc_dimensionality %>% nrow
 ccdc_dimensionality %>% mutate(has_3d = (f3d>0)) %>% filter(has_3d) %>% nrow
 14493/54775  # 26.5% of the MOFs have a 3D framework
+p_top_ccdc_by_dim$data %>% filter(has_3d) %>% nrow
 
 
 
@@ -637,9 +638,19 @@ trained_160k_mod <- run_bin_model_spec(
   .$fitted_model %>% 
   .[[1]]
 # Check the model fit, etc.
-p_160k_5bar_data %>% 
+p_160k_testing <- 
+  p_160k_5bar_data %>% 
   mutate(y_act = va100bar - fh.h2.g.L.5.160) %>% 
   eval_test_grid(trained_160k_mod, p_2bar_sets$testing, default_binspec, .)
+p_160k_testing
+plot_grid(
+  p_160k_testing$plots$parity_testing,
+  p_ccdc_parity %>% make_draft("TODO"),
+  ncol = 2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("tested_160k_model.png", ncol = 2)
+
 
 if (!exists("ccdc_160k_predicted")) {
   ccdc_160k_predicted <- 
@@ -684,6 +695,39 @@ nrow(p_top500_160k)
 p_top500_160k %>% 
   filter(id %in% ccdc_top500$id)
 
+# What are the stats on the top 500?  Overlap with the 3D candidates from the other database?
+nrow(p_top500_160k)
+top_23_ids_isothermal <- 
+  p_top_ccdc_by_dim$data %>% 
+  filter(has_3d & y_act > 45)
+filter(p_top500_160k, id %in% top_23_ids_isothermal$id)
+filter(top_23_ids_isothermal, ! id %in% p_top500_160k$id) %>% select(id)  # "18 of the top 23 MOFs at isothermal conditions are also among the top 500 at the alternative conditions"
+
+
+# Now, make an xy scatterplot for the two conditions using actual GCMC data
+# TODO: come back to this part with (b) 1000 CCDC testing data and (c) the top 500 of each.
+label_77k_vs_160k <- function(p) {
+  p +
+    xlab("Deliv. cap. w/ release at 2 bar, 77 K") +
+    ylab("Deliv. cap. w/ release at 5 bar, 160 K")  
+}
+p_160k_xy_hmof <- 
+  (
+    p_160k_5bar_data %>% 
+    mutate(dc.5bar.160k = va100bar - fh.h2.g.L.5.160, dc.2bar.77k = va100bar - va2bar) %$% 
+    parity_plot(dc.2bar.77k, dc.5bar.160k)
+    ) %>% 
+  #annotate_plot("2500 hMOFs") %>% 
+  label_77k_vs_160k()
+
+plot_grid(
+  p_160k_xy_hmof %>% annotate_plot("2500 hMOFs"),
+  p_160k_xy_hmof %>% annotate_plot("1000 CCDC MOFs") %>% make_draft("TODO"),
+  p_160k_xy_hmof %>% annotate_plot("Top CCDC MOFs") %>% make_draft("TODO"),
+  ncol=3,
+  labels=default_subfig_labels, label_size=12
+  ) %>%
+  save_si_fig("xy_160k_vs_77k.png", ncol = 3)
 
 
 ```
