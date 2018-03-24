@@ -5,7 +5,7 @@
 source("Notebooks/setup_data.R")
 
 hyper_tuned_hist <-
-  seq(0.25, 2.5, 0.25) %>%
+  seq(0.5, 2.5, 0.25) %>%
   as.list() %>% 
   map(.,
     function(x) run_bin_model(

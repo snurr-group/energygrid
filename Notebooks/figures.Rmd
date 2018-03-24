@@ -573,7 +573,16 @@ p_top_ccdc_by_dim <-
   facet_wrap(~dim_tag) +
   ggtitle("Dimensionality of framework")
 ggplotly(p_top_ccdc_by_dim)
-p_top_ccdc_by_dim %>% save_si_fig("top_ccdc_by_dims.png", base_aspect_ratio=1.5)
+#p_top_ccdc_by_dim %>% save_si_fig("top_ccdc_by_dims.png", base_aspect_ratio=1.5)
+(p_top_ccdc_by_dim$data %>% 
+  ggplot(aes(y_pred - y_act, id=id)) +
+  geom_histogram() +
+  facet_wrap(~dim_tag, scales="free") +
+  ggtitle("Dimensionality of framework") +
+  xlab("Predicted - Actual")
+  ) %>% 
+  save_si_fig("top_ccdc_by_dims.png", base_aspect_ratio=2)
+
 
 p_top_ccdc_by_dim$data %>% 
   filter(has_3d) %>% 
@@ -585,6 +594,12 @@ p_top_ccdc_by_dim$data %>%
   select(id, y_act, y_pred) %>% 
   arrange(desc(y_act)) %>% 
   rownames_to_column("Rank")
+
+# Stats for the overall database
+ccdc_dimensionality %>% nrow
+ccdc_dimensionality %>% mutate(has_3d = (f3d>0)) %>% filter(has_3d) %>% nrow
+14493/54775  # 26.5% of the MOFs have a 3D framework
+
 
 
 # Note: GUNFAW01 is one of the top structures in Thornton 2017 but has poor performance (6 g/L) in the RR
@@ -682,6 +697,9 @@ screening_3d <-
   mutate(has_3d = (f3d>0)) %>% 
   filter(has_3d) %>% 
   arrange(desc(y_act))
+
+# PAPER: View screening_3d and find that there are only 31 CIFs characterized as 3D by Zeo++, and
+# only 23 have an "actual" capacity above 45 g/L.
 
 # TODO: how many structures have an actual GCMC capacity more than 50 g/L?
 
@@ -1317,7 +1335,7 @@ plot_grid(
 ### General
 * Clear remaining notes in the manuscript
 * Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?
-* Check the beta robustness figure (see bottom).  Also regenerate it.
+* Check the beta robustness figure (see bottom).  Also regenerate it.  Need to adjust the bin_below to fix one of the gaps.
 * Set up CV error bars, etc., from the manuscript.
 
 ### More simulations/grids (older notes)
