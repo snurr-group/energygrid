@@ -1374,6 +1374,34 @@ plot_grid(
 ```
 
 
+```{r toc_fig}
+# Relevant plot, etc., for TOC figure
+# Let's start with MOF-5 as a good representative example
+# Based loosely on the poster's simplified figures
+(hmof_partitioned_mod$pred_df %>% 
+  #sample_n(100) %>% #.[1:100,] %>%
+  .[1:100,] %>%
+  ggplot(aes(y_act, y_pred, color=I("#0070C0"))) +
+  geom_point(size = 3) +
+  expand_limits(x = 0, y = 0) +
+  scale_x_continuous(limits = c(0,60)) +
+  scale_y_continuous(limits = c(0,60)) +
+  coord_fixed() +
+  parity_line +
+  ylab("Machine\nlearning\nprediction") + xlab("GCMC simulation") +
+  theme_cowplot(font_size = 14) +
+  theme(axis.text = element_blank(), axis.ticks = element_blank()) +
+  theme(axis.title.y = element_text(angle = 0)) +
+  scale_size_manual(values=I(200))
+) %>% 
+  save_si_fig("for_toc_parity.png")
+
+#base_hist + theme_diagram_min
+base_hist %>% make_minimal() %>% save_si_fig("for_toc_histogram.png")
+
+```
+
+
 
 ## TODO notes from meetings
 ### General
