@@ -1407,7 +1407,6 @@ base_hist %>% make_minimal() %>% save_si_fig("for_toc_histogram.png")
 ### General
 * Clear remaining notes in the manuscript
 * Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?
-* Check the beta robustness figure (see bottom).  Also regenerate it.  Need to adjust the bin_below to fix one of the gaps.
 * Set up CV error bars, etc., from the manuscript.
 
 ### More simulations/grids (older notes)
@@ -1419,11 +1418,4 @@ base_hist %>% make_minimal() %>% save_si_fig("for_toc_histogram.png")
   * Comment on a few non-physical structures
   * SI template: add textural properties and try to set up in a separate SI document
 * See if there's any CCDC 100 bar or 5 bar data remaining to calculate to check out these top MOFs.
-* Discuss CCDC scripts with Scotty
-  * "When I get back I will think about rerunning the solvent script without the monodentate flag. Once I remember how to use the CCDC API it won't take that long and then we can decide to either use them or just ignore it. As you say, it is not "wrong" to use the script as we did so long as that is made clear in the paper. And there probably would be cases where there are monodentate solvents that should be removed and are not. It's a two way street and solvent removal is difficult."
-  * "acknowledging the difficulty of automating structure processing in the manuscript"
-* Check out this proton diffusion NEB/grid paper? https://arxiv.org/pdf/1710.03468.pdf
 
-### Model form and applicability
-* Recalculate the beta robustness figure (cached as an Rds file.  Should figure out if missing energy bins are caused by the new code, hMOF pecularity, or other.  Maybe it's how "low variance" is calculated, which doesn't work for small bins?)
-  * Inconclusive, even without the `bin_loc_from_spec` line.  See: `hmof_hist_sets$training %>% stepped_hist_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins = "downward") %>% select(-id) %>% filter(!(near(metric, 0))) %>% group_by(bin) %>% summarize(nsample = n()) %>% inner_join(bin_loc_from_spec(c(from=-20, to=0, step=0.25, width=0.25), align_bins="downward"), by="bin")`

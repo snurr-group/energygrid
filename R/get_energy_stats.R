@@ -108,8 +108,10 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
     warning("Metric bounds do not exactly line up with a histogram bin")
   }
   
+  # be safer with float comparisons, and avoid double counting
   good_counts <- hist_df %>%
-    filter(lower >= lower_bound) %>% filter(upper < upper_bound) %>% 
+    filter(near(lower, lower_bound) | lower > lower_bound) %>%
+    filter(near(upper, upper_bound) | upper < upper_bound) %>%
     group_by(id) %>% summarize(good = sum(counts))
   
   total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))

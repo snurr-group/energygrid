@@ -4,17 +4,33 @@
 
 source("Notebooks/setup_data.R")
 
+# Ideally, we'd just throw seq(0.5, 2.5, 0.25) into as.list() then plain map to get our step/width, but
+# unfortunately the way that bin_below/"downward" currently works is to leave a gap between the original
+# "from" variable and the bottom bin, since the bin_below is from c(-Inf, from)
+# To fix this, manually calculate what the bottom bins should be, then feed it in using map2
+
+widths <- seq(0.25, 2.5, 0.25) %>% as.list()
+
+bottoms <- map(
+  widths,
+  function(x) {
+    bounds_from_params(
+      step = x, width = x,
+      from = default_binspec["from"], default_binspec["to"],
+      align_bins = "downward"
+      )$lower[1]  # we only care about the limit of the bottommost bin
+    }
+  )
+
 hyper_tuned_hist <-
-  seq(0.5, 2.5, 0.25) %>%
-  as.list() %>% 
-  map(.,
-    function(x) run_bin_model(
+  map2(widths, bottoms,
+    function(x, y) run_bin_model(
       e_data = hmof_hist_sets$training,  # we no longer need hyperparameter data for other purposes
       y_with_id = hmof_y_to_join,
       step = x, width = x,
-      bin_lims = c(default_binspec["from"], default_binspec["to"]),
+      bin_lims = c(y, default_binspec["to"]),
       lambda = NULL, alpha = DEFAULT_ALPHA,
-      align_bins = "downward"
+      align_bins = "strict"  # used to be "downward", but now that we're specifying the bottom bin, strict will be a more rigorous check
     )
   ) %>% 
   # Warning: the above output cannot be viewed without deleting the fitted_model and id_list list columns

@@ -4,6 +4,7 @@ library(dplyr)
 library(purrr)
 library(glmnet)
 library(caret)
+library(testthat)
 
 # TODO: long-term, consider writing a data frame with beta, bin number, bin extremes, etc., for easy transfer of models
 
@@ -35,10 +36,11 @@ bounds_from_params <- function(step, width, from, to, align_bins="strict") {
   list(lower=lower_bounds, upper=upper_bounds)
 }
 
-stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TRUE, align_bins="strict") {
+stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TRUE, align_bins="strict", check_sums=TRUE) {
   # Calculates a stepped histogram, where bins contain the overlap from the parent distribution
   # Usage: stepped_hist(only_one, 0.5, 0.5, -8, 0) %>% View
   # bin_above designates a bin to infinity above the "to" argument.
+  # check_sums enables a verification test that the bins for each MOF sum to one, within a given tolerance
   
   lower_bounds <- bounds_from_params(step, width, from, to, align_bins)$lower
   upper_bounds <- bounds_from_params(step, width, from, to, align_bins)$upper
@@ -56,6 +58,18 @@ stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TR
   if (bin_below) {
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, -Inf, from, warn=FALSE), bin="-Inf"))
+  }
+  
+  if (check_sums & bin_above & bin_below) {
+    # can test that this fails by temporarily disabling bin_above here and as default args.  Then it won't sum to one.
+    expect_equal(
+      result_hist %>% 
+        group_by(id) %>%
+        summarize(totals = sum(metric)) %>%
+        filter(!near(totals, 1)) %>% 
+        nrow,
+      0  # not expecting any rows where sum != 1, so an empty d_f
+      )
   }
   
   # < 2 sec per bin calculation  Just run metric_from_hists (an integral-type equation)
