@@ -780,33 +780,6 @@ ad_hoc_h2_grids %>%
 ad_hoc_h2_grids %>% 
   pred_grid(trained_160k_mod, ., default_binspec)
 
-# Get the occupancy of EnergyGrid bins, which will help systematically establish suitable ranges for the histograms
-n_binspec <- default_binspec
-n_binspec["from"] <- -20
-n_binspec["to"] <- 0
-nsample_h2_db <- 
-  list(
-    "hMOF" = hmof_hist_sets$training,
-    "ToBaCCo" = tob_hist_sets$training,
-    "CCDC Validation" = ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id)
-  ) %>% 
-  map_dfr(function(x) {
-    x %>% 
-      stepped_hist_spec(n_binspec) %>% 
-      select(-id) %>% 
-      filter(!near(metric, 0)) %>% 
-      group_by(bin) %>% summarize(nsample = n()) %>% 
-      inner_join(bin_loc_from_spec(n_binspec), by="bin") %>% 
-      arrange(lower) %>%
-      select(-loc, -bin)
-    }, .id="Database") %>% 
-  spread(Database, nsample) %>% 
-  arrange(lower)
-# If we look at weak adsorption (slightly positive regime), we still see occupancy from lots of MOFs.  But the absolute fraction is still tiny with low occupancy, so the beta values would probably be wildly variable.
-# Now, export the nsample table to include in the SI as justification for the energy cutoffs.
-# Comment that we want uniform bin spacing for its simplicity, but it's an area that could be explored in a future investigation/follow-up.
-# Note: nsample_h2_db will have to be saved later below, once the tex exporter function is defined.
-
 ```
 
 ### Database distributions
@@ -1088,15 +1061,100 @@ p_beta_ch4$layers[[2]]$data %>%
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `5.8 bar`, `65 bar`) %>% 
+  save_fig_table_with_colnames("coef_ch4_sep.tex")
+
+# see regu_coef.tex above
+n_ch4_bin_samples <- 
+  p_ch4_sets$training %>%
+  stepped_hist_spec(ch4_binspec) %>%
+  select(-id) %>%
+  filter(!(near(metric, 0))) %>%
+  group_by(bin) %>% summarize(nsample = n()) %>%
+  inner_join(bin_loc_from_spec(ch4_binspec), by="bin")
+p_ch4_vol %>% 
+  #map_dfr(~ coef_tbl(.x$trained_mod$mod), .id="method") %>% 
+  .$trained_mod %>% 
+  .$mod %>% 
+  coef_tbl() %>% 
+  #spread(method, beta) %>% 
+  left_join(bin_loc_from_spec(ch4_binspec), by="bin") %>% 
+  #select(-bin) %>% 
+  mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
+  mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
+  arrange(lower) %>% 
+  left_join(n_ch4_bin_samples, select(bin, nsample), by="bin") %>% 
+  select(Bin, beta, nsample) %>% 
+  rename(`Number of nonzero samples` = nsample) %>% 
   save_fig_table_with_colnames("coef_ch4.tex")
 
-# Save the number of samples justification from up above, to determine the binspec in the first place.
+```
+
+```{r nsample}
+# Number of required samples in the bins, used to determine where the lowest bin should be established
+
+# Get the occupancy of EnergyGrid bins, which will help systematically establish suitable ranges for the histograms
+n_binspec <- default_binspec
+n_binspec["from"] <- -20
+n_binspec["to"] <- 0
+nsample_h2_db <- 
+  list(
+    "hMOF" = hmof_hist_sets$training,
+    "ToBaCCo" = tob_hist_sets$training,
+    "CCDC Validation" = ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id)
+  ) %>% 
+  map_dfr(function(x) {
+    x %>% 
+      stepped_hist_spec(n_binspec) %>% 
+      select(-id) %>% 
+      filter(!near(metric, 0)) %>% 
+      group_by(bin) %>% summarize(nsample = n()) %>% 
+      inner_join(bin_loc_from_spec(n_binspec), by="bin") %>% 
+      arrange(lower) %>%
+      select(-loc, -bin)
+    }, .id="Database") %>% 
+  spread(Database, nsample) %>% 
+  arrange(lower)
+# If we look at weak adsorption (slightly positive regime), we still see occupancy from lots of MOFs.  But the absolute fraction is still tiny with low occupancy, so the beta values would probably be wildly variable.
+# Now, export the nsample table to include in the SI as justification for the energy cutoffs.
+# Comment that we want uniform bin spacing for its simplicity, but it's an area that could be explored in a future investigation/follow-up.
+
+# Save the number of samples justification to determine the binspec in the first place.
 nsample_h2_db %>% 
   mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
   mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
   select(-lower, -upper) %>% select(Bin, everything()) %>% 
   save_fig_table_with_colnames("nsample_lower.tex")
 
+
+## Repeat the analysis for methane! ##
+# Can't write a simple function for that, since the data sources are different for CH4 vs. H2, sadly
+nch4_binspec <- ch4_binspec
+nch4_binspec["from"] <- -40
+nch4_binspec["to"] <- 0
+nsample_ch4_db <- 
+  list(
+    "hMOF" = p_ch4_sets$training
+  ) %>% 
+  map_dfr(function(x) {
+    x %>% 
+      stepped_hist_spec(nch4_binspec) %>% 
+      select(-id) %>% 
+      filter(!near(metric, 0)) %>% 
+      group_by(bin) %>% summarize(nsample = n()) %>% 
+      inner_join(bin_loc_from_spec(nch4_binspec), by="bin") %>% 
+      arrange(lower) %>%
+      select(-loc, -bin)
+    }, .id="Database") %>% 
+  spread(Database, nsample) %>% 
+  arrange(lower) %>% 
+  rename(nsample = hMOF)
+nsample_ch4_db %>% 
+  mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
+  mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
+  select(-lower, -upper) %>% select(Bin, everything()) %>% 
+  save_fig_table_with_colnames("nsample_ch4.tex")
+
+# See previous block for the full table of H2/CH4 coefficients and nsample's used in the reported coef graph
 ```
 
 ```{r si_z_scores}
@@ -1406,7 +1464,6 @@ base_hist %>% make_minimal() %>% save_si_fig("for_toc_histogram.png")
 ## TODO notes from meetings
 ### General
 * Clear remaining notes in the manuscript
-* Check the new parameters for the bottom bin in default_binspec.  Does it use enough samples?  How is it (and the model type) justified?
 * Set up CV error bars, etc., from the manuscript.
 
 ### More simulations/grids (older notes)
@@ -1414,6 +1471,7 @@ base_hist %>% make_minimal() %>% save_si_fig("for_toc_histogram.png")
   * Also see if we need to run new simulations for 5 bar, 160 K conditions
 * Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
   * Delegate snapshots to Arun
+  * Textural properties of the top 25 are in Box:from_arun_apr2_2018_ben_top_25
   * Update main text in the paper
   * Comment on a few non-physical structures
   * SI template: add textural properties and try to set up in a separate SI document
