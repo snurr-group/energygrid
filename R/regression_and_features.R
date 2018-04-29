@@ -52,22 +52,39 @@ stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TR
   if (bin_above) {
     # If specified, add a bin above containing the remainder.
     # For whatever reason, the "bin" column from purrr is of type "character"
+    if (align_bins == "upward") {  # Before calculating above/below, figure out which cutoffs we need
+      to_above <- upper_bounds[length(upper_bounds)]
+    } else {
+      to_above <- to
+    }
     result_hist <- result_hist %>% 
-      bind_rows(mutate(metric_from_hists(df, to, Inf, warn=FALSE), bin="Inf"))
+      bind_rows(mutate(metric_from_hists(df, to_above, Inf, warn=FALSE), bin="Inf"))
   }
   if (bin_below) {
+    if (align_bins == "downward") {
+      from_below <- lower_bounds[1]
+    } else {
+      from_below <- from
+    }
     result_hist <- result_hist %>% 
-      bind_rows(mutate(metric_from_hists(df, -Inf, from, warn=FALSE), bin="-Inf"))
+      bind_rows(mutate(metric_from_hists(df, -Inf, from_below, warn=FALSE), bin="-Inf"))
   }
   
   if (check_sums & bin_above & bin_below) {
     # can test that this fails by temporarily disabling bin_above here and as default args.  Then it won't sum to one.
+    non_unity_hists <- result_hist %>% 
+      group_by(id) %>%
+      summarize(totals = sum(metric)) %>%
+      filter(!near(totals, 1))
+    # Can't figure out printing on expect_equal, so manually print the df as well
+    if (!(nrow(non_unity_hists) == 0)) {
+      print(non_unity_hists)
+      print(lower_bounds)
+      print(upper_bounds)
+      print(non_unity_hists[1,"id"] %>% left_join(result_hist, by="id") %>% mutate(metric = format(metric, digits=7)))
+    }
     expect_equal(
-      result_hist %>% 
-        group_by(id) %>%
-        summarize(totals = sum(metric)) %>%
-        filter(!near(totals, 1)) %>% 
-        nrow,
+      nrow(non_unity_hists),
       0  # not expecting any rows where sum != 1, so an empty d_f
       )
   }
