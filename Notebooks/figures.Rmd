@@ -39,10 +39,10 @@ save_ben_fig <- function(p, filename, parent_dir = default_fig_dir, ...) {
     ...
     )
 }
-make_draft <- function(p, msg="DRAFT!") {
+make_draft <- function(p, msg="DRAFT!", size=72) {
   # Derived from cowplot intro
   ggdraw(p) +
-    draw_label(msg, angle = 45, size = 72, alpha = .2)
+    draw_label(msg, angle = 45, size = size, alpha = .2)
 }
 save_si_fig <- function(p, filename, parent_dir = default_fig_dir, bheight = 3.3, bwidth = NULL, ...) {
   save_plot(
@@ -761,6 +761,36 @@ screening_3d %>%
   save_fig_table_with_colnames("ccdc_screening.tex", digits=3)
 
 ```
+
+```{r mfu_mof}
+# Figure describing MFU-4l MOF, adapted from the example case study isotherms
+p_mfu_isotherm <- 
+  p_concept_isotherms %>%  # FIXME: update with real data
+  mutate(id=ifelse(id=="hMOF-5072244", "Simulation", id)) %>% 
+  mutate(id=ifelse(id=="hMOF-1898", "Experiment", id)) %>% 
+  # TODO: update section above with the actual H2 data
+  ggplot(aes(bar, g.L, color = id)) +
+  geom_line() +  # possibly from an 
+  geom_point() +
+  #geom_point(data = p_concept_isotherms) +
+  xlab("Pressure (bar)") + ylab("Uptake (g/L)") +
+  #geom_vline(xintercept = c(2, 100), linetype="dotted") +
+  scale_color_manual(values = c(2, 4), breaks = c("Simulation", "Experiment")) +
+  theme(legend.position=c(0.6, 0.25), legend.title = element_blank())
+
+plot_grid(
+  #p_sub_energies,
+  ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
+  p_mfu_isotherm %>% make_draft("ADD\nDATA", size=48),
+  ncol=1,
+  labels=default_subfig_labels, label_size=12
+  ) %>%
+  save_ben_fig("mfu_fig.png", nrow = 2, base_aspect_ratio = 2.0)
+
+```
+
+
+
 
 
 ## Supporting Information for manuscript
