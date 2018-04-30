@@ -641,7 +641,7 @@ trained_160k_mod <- run_bin_model_spec(
 p_160k_testing <- 
   p_160k_5bar_data %>% 
   mutate(y_act = va100bar - fh.h2.g.L.5.160) %>% 
-  eval_test_grid(trained_160k_mod, p_2bar_sets$testing, default_binspec, .)
+  eval_test_grid(trained_160k_mod, p_2bar_sets$testing, default_binspec, ., db_name="hMOFs")
 p_160k_testing
 plot_grid(
   p_160k_testing$plots$parity_testing,
