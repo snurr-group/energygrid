@@ -962,9 +962,9 @@ plot_resid_vs_act <- function(df) {
 }
 plot_grid(
   hmof_partitioned_mod$plots$resid_normality,
-  p_tob_mod$plots$resid_normality,
+  p_tob_from_hmof$plots$resid_normality,
   plot_resid_vs_act(hmof_partitioned_mod$pred_df),
-  plot_resid_vs_act(p_tob_mod$pred_df),
+  plot_resid_vs_act(p_tob_from_hmof$pred_df),
   ncol=2, nrow=2,
   labels=default_subfig_labels, label_size=12
   ) %>% 
@@ -973,7 +973,7 @@ plot_grid(
 # Ranking of hMOF and ToBaCCo
 plot_grid(
   hmof_partitioned_mod$plots$test_ranking,
-  p_tob_mod$plots$test_ranking,
+  p_tob_from_hmof$plots$test_ranking,
   ncol=2,
   labels=default_subfig_labels, label_size=12
   ) %>% 
@@ -981,15 +981,19 @@ plot_grid(
 
 # Error breakdown by topology
 p_err_topology <- 
-  p_tob_mod$pred_df %>% 
-  left_join(tobacco_data, by="id") %>% 
-  ggplot(aes(y_act, y_pred)) + 
+  p_tob_from_hmof$pred_df %>% 
+  #left_join(tobacco_data, by="id") %>%  # only needed for p_tob_mod since it doesn't have composition data
+  arrange(y_err) %>%  # consistently overplot the highest errors on top
+  rename(`Prediction error` = y_err) %>% 
+  ggplot(aes(y_act, y_pred, col=`Prediction error`)) + 
   geom_point() + parity_line +
   facet_wrap(~topology, nrow = 4) +
   coord_fixed() +
-  scale_x_continuous(breaks=c(0,40)) +
+  scale_x_continuous(breaks=c(0, 40)) +  # this doesn't set the range, but rather the position of labels
   #scale_y_continuous(breaks=scales::pretty_breaks(n=2)) +
   scale_y_continuous(breaks=c(0, 40)) +
+  scale_color_continuous(guide=guide_colorbar(title.position="top")) +
+  theme(legend.position=c(0.75, 0.05), legend.direction="horizontal") +
   xlab("'Actual' uptake (GCMC simulations)") +
   ylab("Predicted uptake (ridge regression)")
 p_err_topology %>% save_si_fig("err_by_topology.png", base_aspect_ratio = 1.5)
