@@ -1320,6 +1320,16 @@ less_trained_stats <-
   )
 print(less_trained_stats)
 # Based on this analysis, as few as 100 samples is enough (Q2 of ~0.96, but 50 samples drops this down to 0.7 and clear outliers, when you use the default_binspec)
+less_trained_stats %>% 
+  rename(
+    `Number of MOFs` = nfit,
+    `RMSE` = prmse,
+    `MAE` = pmae,
+    `$r_{spearman}$` = spearman,
+    `$r_{kendall}$` = kendall
+    ) %>% 
+  save_fig_table_with_colnames("small_n_stats.tex", digits=4)
+
 
 # Note, print returns its argument invisibly, so in a pipe it works like Bash's `tee`
 # Consider extracting the first few to print, then otherwise saving the full set to the sI
