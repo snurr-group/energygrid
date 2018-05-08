@@ -764,24 +764,54 @@ screening_3d %>%
 
 ```{r mfu_mof}
 # Figure describing MFU-4l MOF, adapted from the example case study isotherms
+mfu_simulated <-
+  read_xlsx(
+    "BigData/Emails/high-T-GCMC-data-plots-20180501.xlsx",
+    sheet = "highT",
+    range = "F6:H17"
+    ) %>% 
+  full_join(read_xlsx(
+    "BigData/Emails/high-T-GCMC-data-plots-20180501.xlsx",
+    sheet = "highT",
+    range = "B4:C17"
+    ), by=c("P bar" = "P, bar")) %>% 
+  gather("T", "mol.kg", ends_with(" K")) %>% 
+  arrange(T, `P bar`) %>% 
+  na.omit
+
+mfu_pore_vol <- 1.3  # cm3/g from N2 experiment
+mfu_pv_m3.kg <- 1.3 / 10^6 * 1000
+mfu_expt <-
+  read_xlsx(
+    "BigData/Emails/20180504-expt-diff-T.xlsx",
+    sheet = "Sheet1",
+    range = "A1:E54"
+    ) %>% 
+  mutate(mol.kg = `XS expt (mol/kg)` + mfu_pv_m3.kg * `NIST rho (mol/m3)`)
+
 p_mfu_isotherm <- 
-  p_concept_isotherms %>%  # FIXME: update with real data
-  mutate(id=ifelse(id=="hMOF-5072244", "Simulation", id)) %>% 
-  mutate(id=ifelse(id=="hMOF-1898", "Experiment", id)) %>% 
-  # TODO: update section above with the actual H2 data
-  ggplot(aes(bar, g.L, color = id)) +
-  geom_line() +  # possibly from an 
+  mfu_expt %>% 
+  mutate(T = str_c(`T (K)`, " K")) %>% 
+  select(`P bar` = "P (bar)", "T", "mol.kg") %>%
+  bind_rows(
+    GCMC = mfu_simulated,
+    Expt = .,
+    .id = "source"
+  ) %>%
+  ggplot(aes(`P bar`, mol.kg, color=T, shape=source)) +
+  # geom_line() +
   geom_point() +
-  #geom_point(data = p_concept_isotherms) +
-  xlab("Pressure (bar)") + ylab("Uptake (g/L)") +
-  #geom_vline(xintercept = c(2, 100), linetype="dotted") +
-  scale_color_manual(values = c(2, 4), breaks = c("Simulation", "Experiment")) +
-  theme(legend.position=c(0.6, 0.25), legend.title = element_blank())
+  #scale_shape_manual(values=c(15, 0))  +  # hollow symbols for simulation, solid for experiment
+  xlab("Pressure (bar)") + ylab("Uptake (mmol/g)") +
+  theme(legend.position="none") +
+  geom_text(
+    data = tibble(T=c("77 K", "160 K", "298 K"), `P bar`=90, mol.kg=c(37, 23, 2), source=NA),
+    aes(label=T)
+    )
 
 plot_grid(
-  #p_sub_energies,
   ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
-  p_mfu_isotherm %>% make_draft("ADD\nDATA", size=48),
+  p_mfu_isotherm,
   ncol=1,
   labels=default_subfig_labels, label_size=12
   ) %>%
