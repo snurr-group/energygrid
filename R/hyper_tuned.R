@@ -22,6 +22,10 @@ bottoms <- map(
     }
   )
 
+get_training_fit_stats <- function(package_mod) {
+  postResample(pred=predict(package_mod$mod, as.matrix(package_mod$x)), obs=package_mod$y)
+}
+
 hyper_tuned_hist <-
   map2(widths, bottoms,
     function(x, y) run_bin_model(
@@ -38,7 +42,7 @@ hyper_tuned_hist <-
     .,
     function(x) {
       coef_tbl(x$fitted_model[[1]]$mod) %>% 
-        mutate(q2 = x$q2, binwidth = x$width) %>% 
+        mutate(q2 = x$q2, binwidth = x$width, MAE=get_training_fit_stats(x$fitted_model[[1]])["MAE"]) %>% 
         inner_join(
           bin_loc_from_spec(
             c(

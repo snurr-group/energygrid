@@ -120,6 +120,7 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
     inner_join(good_counts, by="id") %>% 
     mutate(metric = good / total) %>% 
     select(id, metric)
+  lj_metric
 }
 
 

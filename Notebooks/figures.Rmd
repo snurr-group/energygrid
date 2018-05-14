@@ -219,8 +219,8 @@ p_beta_diff_t <-
 # Generate the plots
 plot_grid(
   p_beta_orig,
-  p_beta_diff_p + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
-  p_beta_diff_t + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
+  p_beta_diff_p + theme(legend.position=c(0.2, 0.2), legend.direction="horizontal"),
+  p_beta_diff_t + theme(legend.position=c(0.2, 0.2), legend.direction="horizontal"),
   ncol=1,
   #align = "v",
   labels=default_subfig_labels, label_size=12
@@ -302,7 +302,9 @@ p_robust <-
   labs(
     y = "Energy (kJ/mol)",
     x = "Width of histogram bins (kJ/mol)"
-  )
+  ) +
+  #ylim(c(-12.5, 2.5))
+  geom_text(data=filter(hyper_tuned_hist, upper==Inf), aes(binwidth+0.10, lower-1.0, label=format(MAE, digits=3)), color="purple", size=3)  # add the MAE of the training data/fit to the plot
 save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
 p_robust
 
@@ -789,6 +791,9 @@ mfu_expt <-
     ) %>% 
   mutate(mol.kg = `XS expt (mol/kg)` + mfu_pv_m3.kg * `NIST rho (mol/m3)`)
 
+mfu_dens <- 0.588  # g/cm3 from Zeo++ -- this matches the He pore volume from RASPA, but not the 1.3 from experiment!
+mmol.g_to_g.L <- 1 / 1000 * 2.02 * mfu_dens * 1000
+
 p_mfu_isotherm <- 
   mfu_expt %>% 
   mutate(T = str_c(`T (K)`, " K")) %>% 
@@ -807,7 +812,8 @@ p_mfu_isotherm <-
   geom_text(
     data = tibble(T=c("77 K", "160 K", "298 K"), `P bar`=90, mol.kg=c(37, 23, 2), source=NA),
     aes(label=T)
-    )
+    ) +
+  scale_y_continuous(sec.axis = sec_axis(~.*mmol.g_to_g.L, name="Uptake (g/L)"))
 
 plot_grid(
   ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
@@ -1530,6 +1536,29 @@ plot_grid(
 
 #base_hist + theme_diagram_min
 base_hist %>% make_minimal() %>% save_si_fig("for_toc_histogram.png")
+
+```
+
+
+```{r diagnose_tobacco}
+# What is the cause for the new error on the ToBaCCo parity plot?
+# My suspicion is not enough granularity in the weakly attractive region (or lumping this together with repulsion), which is predicting adsorption when the binding is actually too weak.
+# This would be apparent in the ToBaCCo large pores, so let's look at the Largest Cavity Diameter.
+# The challenge then is that the bins might have to be different widths to account for this region--you can't just adjust the end points, because then the bin_above also shifts (e.g. from 0 to -0.25 as the "to" param)
+p_tob_from_hmof$pred_df %>% ggplot(aes(y_act, y_pred, color=lcd)) + geom_point() + parity_line
+
+# Also is this misprediction at low or high loadings?  My hypothesis is high loadings since it overpredicts the useful part of the void fraction.
+## Adapted from p_beta_diff_p
+gcmc_data %>% 
+  mutate(g.L = va100bar) %>% 
+  run_model_on_partitions(hmof_hist_sets, ., default_binspec) %>% 
+  .$trained_mod %>%
+  eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.100.77))
+gcmc_data %>% 
+  mutate(g.L = va2bar) %>% 
+  run_model_on_partitions(hmof_hist_sets, ., default_binspec) %>% 
+  .$trained_mod %>%
+  eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.2.77))
 
 ```
 
