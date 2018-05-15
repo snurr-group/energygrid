@@ -1553,12 +1553,47 @@ gcmc_data %>%
   mutate(g.L = va100bar) %>% 
   run_model_on_partitions(hmof_hist_sets, ., default_binspec) %>% 
   .$trained_mod %>%
-  eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.100.77))
+  eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.100.77)) %>% 
+  .$plots %>% .$parity_testing %>%
+  annotate_plot("ToBaCCo high P", "bottom left")
 gcmc_data %>% 
   mutate(g.L = va2bar) %>% 
   run_model_on_partitions(hmof_hist_sets, ., default_binspec) %>% 
   .$trained_mod %>%
-  eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.2.77))
+  eval_test_grid(., tob_hist_sets$testing, default_binspec, mutate(tobacco_data, y_act=fh.h2.g.L.2.77)) %>% 
+  .$plots %>% .$parity_testing %>%
+  annotate_plot("ToBaCCo low P", "bottom left")
+
+# Conclusions: shifting alone doesn't work, because then the overfitting gets moved to the Inf repulsive bin.
+# Using a smaller bin size gives nice agreement between ToBaCCo and hMOF coef's, except at strong adsorption (not enough data to make a reliable prediction?).
+# Shifting by 0.5 kJ/mol and keeping the 1 kJ/mol bin width overfits ToBaCCo for huge pores (>40 Ang), but otherwise not too bad
+
+test_h_to_tob_binspec <- function(binspec) {
+  run_bin_model_spec(
+    e_data = hmof_hist_sets$training,
+    y_with_id = hmof_y_to_join,
+    binspec = binspec,
+    lambda = NULL, alpha = DEFAULT_ALPHA,
+    align_bins = "strict"
+    ) %>% 
+    .$fitted_model %>% .[[1]] %>% 
+    eval_test_grid(., tob_hist_sets$testing, binspec, mutate(tobacco_data, y_act=fh.h2.g.L.100.77-fh.h2.g.L.2.77))
+}
+test_h_to_tob_binspec(default_binspec) %>% 
+  .$plots %>% .$parity_testing %>%
+  annotate_plot("Default binspec", "bottom left")
+test_h_to_tob_binspec(c(from=-9.75, to=0.0, step=0.75, width=0.75)) %>% 
+  .$plots %>% .$parity_testing %>%
+  annotate_plot("-9.75:0.75:0.0", "bottom left")
+test_h_to_tob_binspec(c(from=-10.5, to=0.5, step=1.0, width=1.0)) %>% 
+  .$plots %>% .$parity_testing %>%
+  annotate_plot("-10.5:1.0:0.5", "bottom left")  # these params mostly work, though there's still a small lump due to high LCD
+test_h_to_tob_binspec(c(from=-10.0, to=0.0, step=0.5, width=0.5)) %>% 
+  .$plots %>% .$parity_testing %>%
+  annotate_plot("-10.0:0.5:0.0", "bottom left")
+test_h_to_tob_binspec(c(from=-10.0, to=0.0, step=0.5, width=0.5)) %>% 
+  .$trained_mod %>% .$mod %>%
+  coef_tbl() %>% overlay_cat_betas(base_hist, ., c(from=-10.0, to=0.0, step=0.5, width=0.5))
 
 ```
 
