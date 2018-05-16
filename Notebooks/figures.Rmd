@@ -279,6 +279,14 @@ p_tob_mod$plots %$%
 hyper_tuned_hist <- read_rds("BigData/Robj/hyper_tuned.Rds")  # FIXME: This will need to be regenerated
 plot_robustness_bin_gap <- 0.05
 plot_robustness_beta_max <- 0.5 * BETA_H2_SCALING / 5.0  # match the parameters on the beta plots, scaled back a little bit
+hyper_tuned_labels <- 
+  hyper_tuned_hist %>% 
+  filter(upper==Inf) %>% 
+  gather(labeltype, labelval, c("q2", "MAE")) %>% 
+  mutate(binwidth = binwidth + 0.10) %>% # shift the labels slightly
+  mutate(labelval = format(labelval, digits=3)) %>% 
+  mutate(labelval = ifelse(near(binwidth, 2.5+0.10), paste(labeltype, "=", labelval), labelval)) %>% 
+  mutate(lower = ifelse((labeltype=="q2"), -6, lower))
 p_robust <- 
   hyper_tuned_hist %>% 
   mutate(beta = ifelse(beta > plot_robustness_beta_max, plot_robustness_beta_max, beta)) %>% 
@@ -304,7 +312,7 @@ p_robust <-
     x = "Width of histogram bins (kJ/mol)"
   ) +
   #ylim(c(-12.5, 2.5))
-  geom_text(data=filter(hyper_tuned_hist, upper==Inf), aes(binwidth+0.10, lower-1.0, label=format(MAE, digits=3)), color="purple", size=3)  # add the MAE of the training data/fit to the plot
+  geom_text(data=hyper_tuned_labels, aes(x=binwidth, y=lower, label=labelval), color="purple", size=3, hjust=1)  # add training data/fit to the plot
 save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
 p_robust
 
