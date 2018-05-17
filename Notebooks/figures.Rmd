@@ -177,7 +177,9 @@ for (hid in c(55, 2000189, 5072190)) {
 ```{r make_figures}
 # Coefficients for ridge regression model
 hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
-trained_mod <- hmof_partitioned_mod$trained_mod
+mixed_partitioned_mod <- run_model_on_partitions(mixed_h2_hist_sets, mixed_h2_y_to_join, default_binspec, db_name = "mixed")
+#trained_mod <- hmof_partitioned_mod$trained_mod  # Overwrite this with the mixed model immediately below
+trained_mod <- mixed_partitioned_mod$trained_mod  # Note: the graphs below aren't yet consistent
 
 
 base_hist <-
@@ -362,6 +364,127 @@ p_ch4_vol$plots %$%
     dpi = default_dpi,
   )
 
+```
+
+```{r main_textural}
+# Models based on textural properties
+# This analysis is currently unused for this paper, but the textural property import, etc., are referenced later in this document, so let's keep it and revisit the results in the follow-up.
+# All of the "good" models so far have been based on methane.  Can we reproduce the good predictivity for CH4 using MLR?  Maybe the problem is like hydrogen storage, where high P is predicted by Chahine's rule
+# * What to do about accessible vs. non-accessible properties?  Just use the hMOFs verbatim (plus density)?  Do a combined void fraction?
+# Serves as a baseline for how well the energy histogram is working.
+# Selected properties based on a quick literature review of ML:
+# We should use rho, VF, VSA/GSA, and potentially LCD or other pore diameters.
+# Cory Simon, EES 2015, 1190-1199: Density, VF, largest included sphere, AVSA
+# Fernandez, JPCC 2013, 7681-7689: DPD, VF, GSA (and VSA)
+# Pardakhti, ACS Comb Sci 2017, 7681-7689: VF, GSA, density, DPD, LCD, Interp. cap, Cat nets
+# Plus chemical properties: element counts, metal type, degree of saturation, metallic %, ratios of atom types
+# Thornton, Chem Mater 2017, 2844-2854: VF, density, adsorption energy (kJ/mol), pore diameter, GSA, VSA
+
+
+fit_textural_model <- function(x_with_id_and_y_act, ...) {
+  # Fits a LASSO/ridge regression model on a dataframe, subtracting the id column
+  # and using the y_act column as the response variable.
+  # Other parameters can be fed to fit_glmnet via the elipses
+  fitted_mod <- 
+    x_with_id_and_y_act %>% 
+    select(-id) %>% 
+    {fit_glmnet(select(., -y_act), .$y_act)}
+  parity_plot(fitted_mod$y, pred_glmnet(fitted_mod, fitted_mod$orig_x)) %>% print
+  fitted_mod
+}
+
+eval_textural_model <- function(glmnet_mod, x_with_id_and_y_act, ...) {
+  # Runs a trained textural model on a data frame with the same column order (and y_act)
+  # Returns the predicted data frame, and generates a parity plot and stats for convenience.
+  
+  # Adapted from pred_grid
+  grid_ids <- x_with_id_and_y_act$id
+  grid_y_act <- x_with_id_and_y_act$y_act
+  grid_desc <- x_with_id_and_y_act %>% select(-id, -y_act)
+  
+  grid_y_pred <- pred_glmnet(glmnet_mod, grid_desc)
+  
+  pred_df <-
+    tibble(id = grid_ids, y_act = grid_y_act, y_pred = grid_y_pred) %>%
+    mutate(y_err = abs(y_act - y_pred)) %>% 
+    bind_cols(grid_desc)
+  
+  pred_df %$% parity_plot(y_act, y_pred) %>% print
+  pred_df %$% postResample(pred=y_pred, obs=y_act) %>% print
+
+  pred_df
+}
+
+# Textural property base model
+zeo_tsv_names <- c("filename", "LCD", "PLD", "avf", "navf", "density", "avsa", "agsa", "navsa", "nagsa")
+zeo_hmof <- read_delim(
+  "BigData/quest/PoreChar/all.tsv",
+  col_names = zeo_tsv_names,
+  col_types = "cddddddddd",  # parse_number doesn't process scientific notation, so we need to use dbl's
+  skip = 1,
+  delim = " "
+  ) %>% 
+  mutate(vf = avf + navf, vsa = avsa + navsa, gsa = agsa + nagsa) %>% 
+  mutate(id = as.integer(str_sub(filename, 6)))
+zeo_tobmof <- read_delim(
+  "BigData/quest/TobPores/all.tsv",
+  col_names = zeo_tsv_names,
+  col_types = "cddddddddd",  # parse_number doesn't process scientific notation, so we need to use dbl's
+  skip = 1,
+  delim = " "
+  ) %>% 
+  mutate(vf = avf + navf, vsa = avsa + navsa, gsa = agsa + nagsa) %>% 
+  mutate(id = filename)  # ToBaCCo id's start with tobmof, so it's already the correct format
+
+hmof_textural_data <- 
+  zeo_hmof %>% 
+  inner_join(gcmc_data, by="id") %>% 
+  mutate(y_act = va100bar - va2bar)
+zeo_model <- 
+  hmof_textural_data %>% 
+  filter(id %in% hmof_hist_sets$training$id) %>%
+  #select(id, y_act, LCD, PLD, avf, density, agsa, avsa) %>%
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
+  select(id, y_act, vf, density, gsa, vsa) %>% 
+  fit_textural_model()
+expect_equal(nrow(zeo_model$orig_x), 1000)
+hmof_t_test_data <- 
+  hmof_textural_data %>% 
+  filter(id %in% hmof_hist_sets$testing$id) %>% 
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+  select(id, y_act, vf, density, gsa, vsa)
+eval_textural_model(zeo_model, hmof_t_test_data)
+coef_tbl(zeo_model$mod)
+
+tob_textural <- 
+  zeo_tobmof %>% 
+  inner_join(select(tobacco_data, -vf, -gsa, -vsa), by="id") %>% 
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
+tob_t_model <- 
+  tob_textural %>% 
+  filter(id %in% tob_hist_sets$training$id) %>% 
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>%
+  select(id, y_act, vf, density, gsa, vsa) %>% 
+  fit_textural_model()
+expect_equal(nrow(tob_t_model$orig_x), 1000)
+tob_t_test_data <- 
+  tob_textural %>% 
+  filter(id %in% tob_hist_sets$testing$id) %>% 
+  #select(id, y_act, LCD, PLD, vf, density, gsa, vsa)
+  select(id, y_act, vf, density, gsa, vsa)
+
+plot_grid(
+  eval_textural_model(zeo_model, hmof_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("hMOFs predicting hMOFs"),
+  eval_textural_model(zeo_model, tob_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("hMOFs predicting ToBaCCo"),
+  eval_textural_model(tob_t_model, hmof_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("ToBaCCo predicting hMOFs"),
+  eval_textural_model(tob_t_model, tob_t_test_data) %$% parity_plot(y_act, y_pred) %>% annotate_plot("ToBaCCo predicting ToBaCCo"),
+  ncol = 2, nrow = 2,
+  labels=default_subfig_labels, label_size=12
+  ) %>% 
+  save_si_fig("textural_predictions.png", ncol = 2, nrow = 2)
+
+coef_tbl(zeo_model$mod)
+coef_tbl(tob_t_model$mod)
 ```
 
 
@@ -1481,6 +1604,12 @@ test_h_to_tob_binspec(c(from=-10.0, to=0.0, step=0.5, width=0.5)) %>%
 test_h_to_tob_binspec(c(from=-10.0, to=0.0, step=0.5, width=0.5)) %>% 
   .$trained_mod %>% .$mod %>%
   coef_tbl() %>% overlay_cat_betas(base_hist, ., c(from=-10.0, to=0.0, step=0.5, width=0.5))
+
+# Using a mixed model doesn't solve the problem completely.  There simply isn't enough granularity in the low attraction regime to account for the large pores.
+tobacco_data %>%
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>%
+  eval_test_grid(trained_mod, tob_hist_sets$testing, default_binspec, ., db_name = "ToBaCCo MOFs\n(mixed model)") %>%
+  .$pred_df %>% ggplot(aes(y_act, y_act-y_pred, color=lcd)) + geom_point()
 
 ```
 

@@ -10,6 +10,7 @@ source("Notebooks/setup_data.R")
 # To fix this, manually calculate what the bottom bins should be, then feed it in using map2
 
 widths <- seq(0.25, 2.5, 0.25) %>% as.list()
+hyper_tuned_alpha <- DEFAULT_ALPHA
 
 bottoms <- map(
   widths,
@@ -29,11 +30,11 @@ get_training_fit_stats <- function(package_mod) {
 hyper_tuned_hist <-
   map2(widths, bottoms,
     function(x, y) run_bin_model(
-      e_data = hmof_hist_sets$training,  # we no longer need hyperparameter data for other purposes
-      y_with_id = hmof_y_to_join,
+      e_data = mixed_h2_hist_sets$training,  # we no longer need hyperparameter data for other purposes
+      y_with_id = mixed_h2_y_to_join,
       step = x, width = x,
       bin_lims = c(y, default_binspec["to"]),
-      lambda = NULL, alpha = DEFAULT_ALPHA,
+      lambda = NULL, alpha = hyper_tuned_alpha,
       align_bins = "strict"  # used to be "downward", but now that we're specifying the bottom bin, strict will be a more rigorous check
     )
   ) %>% 

@@ -182,7 +182,6 @@ tobacco_data <- tobacco_data %>% inner_join(raw_ch4_6_bar, by="MOF.ID")
 ### From load_grids code block
 if (!exists("raw_grids_h2")) {
   raw_grids_h2 <- read_rds("BigData/Robj/tobacco_h2.Rds")
-  # TODO: we should calculate the base histogram with less granularity (0.05 kJ/mol instead of 0.01) to considerably reduce file and processing size
 }
 
 
@@ -323,4 +322,24 @@ p_160k_5bar_data <-
   mutate(`fh.h2.g.L.5.160` = `fh.h2.v.v.5.160` * 2.0 / 22.4) %>% 
   mutate(`fh.h2.err.g.L.5.160` = `fh.h2.err.v.v.5.160` * 2.0 / 22.4) %>% 
   left_join(gcmc_data, by="id")
+
+# Set up datasets that combine hMOFs and ToBaCCo in a 50:50 proportion
+# Can't do this merely by sampling 1000 from the combined database, because then the proportion will be different
+mixed_h2_hist_sets <- list(
+  hmof = partition_data_subsets(
+    mutate(hmof_h2_grid, id=paste0("h", id)),
+    mutate(hmof_y_to_join, id=paste0("h", id)),
+    DATA_SPLIT/2
+    ),
+  tob = partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT/2)
+  ) %>% 
+  transpose %>% 
+  map(~bind_rows(.x))
+expect_equal(mixed_h2_hist_sets$training$id %>% unique %>% length, DATA_SPLIT)
+expect_equal(mixed_h2_hist_sets$training %>% select(id) %>% unique %>% filter(str_detect(id, "^h")) %>% nrow, DATA_SPLIT/2)
+mixed_h2_y_to_join <- bind_rows(
+  mutate(hmof_y_to_join, id=paste0("h", id)),
+  tob_y_to_join
+  )
+# TODO: if we continue down this route, consider implementing mixed_ch4_hist_sets, similarly
 
