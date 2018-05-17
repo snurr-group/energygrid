@@ -269,6 +269,11 @@ tob_from_mixed <-
   tobacco_data %>%
   mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>%
   eval_test_grid(mixed_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, ., db_name = "ToBaCCo MOFs\n(mixed model)")
+# And the hMOFs for good measure
+hmof_from_mixed <- 
+  hmof_y_to_join %>% 
+  mutate(y_act = g.L) %>% 
+  eval_test_grid(mixed_partitioned_mod$trained_mod, hmof_hist_sets$testing, default_binspec, ., db_name = "hMOFs\n(mixed model)")
 
 # Generate the (large) figure for model generality
 p_tob_mod$plots %$%
@@ -529,15 +534,15 @@ if (!exists("ccdc_predicted")) {
 
 ccdc_predicted %>% arrange(desc(y_pred)) %>% View
 
-ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(750, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
+ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
 
-ccdc_top500 <- ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(500, y_pred)
+ccdc_top1000 <- ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
 
 
 # Get the difference of the two lists to submit to mateo for additional screening
 old_screening <- read_tsv("BigData/Output/top_ccdc_20180122.txt", skip=0, col_names="id", col_types="c")$id
 old2_screening <- read_tsv("BigData/Output/new_ccdc_20180131.txt", skip=0, col_names="id", col_types="c")$id  # only ~250
-ccdc_top500 %>% filter(!(id %in% old_screening) & !(id %in% old2_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only 11 in the top 750 in round three, none of which are in the top 600.  Get around to this if there's any remaining in the top 500 in the final model.
+ccdc_top1000 %>% filter(!(id %in% old_screening) & !(id %in% old2_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only 11 in the top 750 in round three, none of which are in the top 600.  Get around to this if there's any remaining in the top 500 in the final model.
 
 
 
@@ -562,13 +567,13 @@ screening_gcmc <-
 screening_top_performance <- 
   ccdc_h2_grids %>%
   filter(id %in% screening_gcmc$id) %>%
-  filter(id %in% ccdc_top500$id) %>%  # In the paper, we'll only be looking at the top 500 MOFs
+  filter(id %in% ccdc_top1000$id) %>%  # In the paper, we'll only be looking at the top 1000 MOFs
   eval_test_grid(mixed_partitioned_mod$trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L))
 screening_top_performance
 screening_accuracy <- 
   screening_gcmc %>% 
   mutate(y_act = g.L) %>% 
-  filter(id %in% ccdc_top500$id) %>% 
+  filter(id %in% ccdc_top1000$id) %>% 
   inner_join(ccdc_predicted, by="id") %>% 
   mutate(y_err = y_pred - y_act) %>% 
   arrange(desc(abs(y_err)))
@@ -585,10 +590,10 @@ nrow(filter(screening_accuracy, y_act > 46)) / nrow(filter(screening_accuracy, y
   ggplotly
 
 # Which simulation points are still missing?
-ccdc_top500 %>% 
+ccdc_top1000 %>% 
   filter(!(id %in% screening_accuracy$id)) %>% 
   select(id) %>%
-  write_tsv("BigData/Output/missing_500_ccdc.txt", col_names=FALSE)
+  write_tsv("BigData/Output/missing_1000_ccdc.txt", col_names=FALSE)
   
 
 # Finally, let's stratify by dimensionality using previous code deleted in 29a74040
@@ -722,6 +727,7 @@ p_compare_strategies <-
   coord_fixed(0.5)
 p_compare_strategies
 p_compare_strategies +
+  facet_wrap(~has_3d) +
   geom_point(color="red", data=filter(ccdc_desorb_strategy, id=="UPOZAB_stripped"))
 
 ccdc_desorb_strategy %>% 
@@ -733,7 +739,7 @@ p_top500_160k <-
   filter(y_160k_pred > 53)
 nrow(p_top500_160k)
 p_top500_160k %>% 
-  filter(id %in% ccdc_top500$id)
+  filter(id %in% ccdc_top1000$id)
 
 # What are the stats on the top 500?  Overlap with the 3D candidates from the other database?
 nrow(p_top500_160k)
@@ -1034,11 +1040,12 @@ plot_resid_vs_act <- function(df) {
     geom_hline(yintercept = 0) +
     xlab("y") + ylab(expression('Residuals '~y-hat(y)))
 }
+
 plot_grid(
-  hmof_partitioned_mod$plots$resid_normality,
-  p_tob_from_hmof$plots$resid_normality,
+  hmof_from_mixed$plots$resid_normality,
+  tob_from_mixed$plots$resid_normality,
   plot_resid_vs_act(hmof_partitioned_mod$pred_df),
-  plot_resid_vs_act(p_tob_from_hmof$pred_df),
+  plot_resid_vs_act(tob_from_mixed$pred_df),
   ncol=2, nrow=2,
   labels=default_subfig_labels, label_size=12
   ) %>% 
@@ -1055,7 +1062,7 @@ plot_grid(
 
 # Error breakdown by topology
 p_err_topology <- 
-  p_tob_from_hmof$pred_df %>% 
+  tob_from_mixed$pred_df %>% 
   #left_join(tobacco_data, by="id") %>%  # only needed for p_tob_mod since it doesn't have composition data
   arrange(y_err) %>%  # consistently overplot the highest errors on top
   rename(`Prediction error` = y_err) %>% 
@@ -1298,10 +1305,14 @@ hMOF vs. ToBaCCo, etc.
 # Comparison of beta coefficients from ridge regression for the two databases.
 # This code will have a similar structure to plotting multiple temperatures or pressures.
 p_coef_compare <- 
-  list(`hMOF` = hmof_partitioned_mod$trained_mod$mod, `ToBaCCo` = p_tob_mod$trained_mod$mod) %>% 
+  list(
+    `hMOF` = hmof_partitioned_mod$trained_mod$mod,
+    `ToBaCCo` = p_tob_mod$trained_mod$mod,
+    `Mixed` = mixed_partitioned_mod$trained_mod$mod
+    ) %>% 
   map_dfr(coef_tbl, .id="cat") %>%
   overlay_cat_betas(base_hist, ., default_binspec) +
-  theme(legend.position=c(0, 0.2), legend.direction="horizontal")
+  theme(legend.position=c(0.4, 0.2), legend.direction="horizontal")
 p_coef_compare
 p_coef_compare %>% save_si_fig("coef_compare.png", base_aspect_ratio = 1.5)
 
@@ -1638,6 +1649,14 @@ tob_from_mixed %>% .$pred_df %>% ggplot(aes(y_act, y_act-y_pred, color=lcd)) + g
 tob_from_mixed$plots$parity_testing
 tob_from_mixed$plots$parity_full
 base_hist %>% overlay_cat_betas(coef_tbl(tob_from_mixed$trained_mod$mod), default_binspec)
+
+```
+
+```{r si_other_tobacco_preds}
+tob_hist_sets %>% 
+  map(~filter(.x, !(near(upper, 0.0) | near(upper, -0.25)))) %>% 
+  run_model_on_partitions(., tob_y_to_join, default_binspec, db_name = "ToBaCCo MOFs\n(empirical model)")
+# Not used--it's just confusing, probbaly is missing the nearly exact 0 section, etc.
 
 ```
 
