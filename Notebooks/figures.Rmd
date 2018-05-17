@@ -180,14 +180,14 @@ for (hid in c(55, 2000189, 5072190)) {
 hmof_partitioned_mod <- run_model_on_partitions(hmof_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
 mixed_partitioned_mod <- run_model_on_partitions(mixed_h2_hist_sets, mixed_h2_y_to_join, default_binspec, db_name = "mixed")
 #trained_mod <- hmof_partitioned_mod$trained_mod  # Overwrite this with the mixed model immediately below
-trained_mod <- mixed_partitioned_mod$trained_mod  # Note: the graphs below aren't yet consistent
+#trained_mod <- mixed_partitioned_mod$trained_mod  # Note: removing the definition of `trained_mod` so that the plots are more explicit about which model is being selected
 
 
 base_hist <-
   ad_hoc_h2_grids %>% 
   filter(id == "hMOF-0") %>% 
   plot_hist_bins(default_binspec)
-p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(trained_mod$mod), default_binspec)
+p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(hmof_partitioned_mod$trained_mod$mod), default_binspec)
 p_beta_orig
 
 # Beta coefficients for different pressures and temperatures
@@ -260,16 +260,43 @@ p_ccdc_random <-
   filter(id %in% ccdc_gcmc$id) %>% 
   #mutate(has_cnps = !(id %in% no_cnps)) %>% 
   #filter(!(id %in% no_cnps)) %>% 
-  eval_test_grid(trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L), db_name = "CCDC MOFs\n(hMOF model)")
+  eval_test_grid(mixed_partitioned_mod$trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L), db_name = "CCDC MOFs\n(mixed model)")
 p_ccdc_parity <- 
   p_ccdc_random$plots$parity_testing
+
+# Trying the mixed model to predict the ToBACCo MOFs
+tob_from_mixed <- 
+  tobacco_data %>%
+  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>%
+  eval_test_grid(mixed_partitioned_mod$trained_mod, tob_hist_sets$testing, default_binspec, ., db_name = "ToBaCCo MOFs\n(mixed model)")
 
 # Generate the (large) figure for model generality
 p_tob_mod$plots %$%
   plot_grid(
-    parity_training,
     parity_testing,
-    p_tob_from_hmof$plots$parity_testing,
+    #p_tob_from_hmof$plots$parity_testing,
+    p_tob_from_hmof$pred_df %>%  
+      rename(LCD = lcd) %>% # adapted from $plots$parity_testing and parity_plot
+      arrange(LCD) %>% 
+      {ggplot(., aes(y_act, y_pred, color=LCD)) +
+        geom_point() +
+        xlab("'Actual' uptake (GCMC simulations)") +
+        ylab("Predicted uptake (LASSO model)") +
+        expand_limits(x = 0, y = 0) +
+        scale_x_continuous(limits = c(0,60)) +
+        scale_y_continuous(limits = c(0,60)) +
+        coord_fixed() +
+        parity_line +
+        theme(legend.position=c(0, 0.45)) +
+        scale_color_gradient(low="gray", high="purple4")
+        } %>% 
+      annotate_plot(paste0("Testing data\n", nrow(p_tob_from_hmof$pred_df), " ToBaCCo MOFs\n(hMOF model)"), "top.left", "#0070C0") %>% 
+      annotate_plot(paste0(
+        "R\u00B2 = ", format(p_tob_from_hmof$testing_fit["Rsquared"], digits=2), "\n",
+        "MAE = ", format(p_tob_from_hmof$testing_fit["MAE"], digits=2), " ", "g/L", "\n",
+        "RMSE = ", format(p_tob_from_hmof$testing_fit["RMSE"], digits=2), " ", "g/L"
+        ), "bottom.right"),
+    tob_from_mixed$plots$parity_testing,
     p_ccdc_parity,
     ncol = 2,
     labels=default_subfig_labels, label_size=12
@@ -497,7 +524,7 @@ coef_tbl(tob_t_model$mod)
 if (!exists("ccdc_predicted")) {
   ccdc_predicted <- 
     ccdc_h2_grids %>% 
-    pred_grid(trained_mod, ., default_binspec)
+    pred_grid(mixed_partitioned_mod$trained_mod, ., default_binspec)
 }
 
 ccdc_predicted %>% arrange(desc(y_pred)) %>% View
@@ -536,7 +563,7 @@ screening_top_performance <-
   ccdc_h2_grids %>%
   filter(id %in% screening_gcmc$id) %>%
   filter(id %in% ccdc_top500$id) %>%  # In the paper, we'll only be looking at the top 500 MOFs
-  eval_test_grid(trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L))
+  eval_test_grid(mixed_partitioned_mod$trained_mod, ., default_binspec, mutate(screening_gcmc, y_act=g.L))
 screening_top_performance
 screening_accuracy <- 
   screening_gcmc %>% 
@@ -851,7 +878,7 @@ First, some random figures that haven't been placed elsewhere for the SI yet.
 # Run some predictions for Timur, using different metals for the identified MOF (March 9, 2018)
 # 77 K P swing predictions:
 ad_hoc_h2_grids %>% 
-  pred_grid(trained_mod, ., default_binspec)
+  pred_grid(mixed_partitioned_mod$trained_mod, ., default_binspec)
 
 # 160 K P/T swing predictions (including 5 bar desorption)
 ad_hoc_h2_grids %>% 
@@ -983,7 +1010,7 @@ tobacco_data %>%
   `160 K grid` = filter(p_160k_grids, id %in% p_2bar_sets$testing$id),
   `77 K grid` = filter(p_2bar_sets$testing, id %in% p_160k_grids$id)
   ) %>% 
-  map(~ eval_test_grid(trained_mod, .x, default_binspec, mutate(p_2bar_data, y_act = g.L))) %>% 
+  map(~ eval_test_grid(hmof_partitioned_mod$trained_mod, .x, default_binspec, mutate(p_2bar_data, y_act = g.L))) %>% 
   map_dfr(~ .x$pred_df, .id = "grid") %>% 
   select(id, grid, y_pred) %>% 
   #spread(grid, y_pred) %$%
@@ -1058,7 +1085,7 @@ set_li <- function(x, label, value) {
   x[[label]] <- value
   x
 }
-trained_mod$cv_for_lambda %>% 
+hmof_partitioned_mod$trained_mod$cv_for_lambda %>% 
   set_li("lambda.1se", NA) %>%  # Remove the 1SE line for clarity
   set_li(., "nzero", rep("", length(.$nzero))) %>%  # Hide the number of variables used
   plot
@@ -1067,10 +1094,10 @@ trained_mod$cv_for_lambda %>%
 #  save_si_fig("lambda.png")
 # This works, but it'll be easier to figure out labels, aspect, etc. if we just replot it.
 # After all, we have the plot.cv.glmnet source code easily available.
-p_si_lambda_lambdamin <- trained_mod$cv_for_lambda$lambda.min
-p_si_lambda_lambda1se <- trained_mod$cv_for_lambda$lambda.1se
+p_si_lambda_lambdamin <- hmof_partitioned_mod$trained_mod$cv_for_lambda$lambda.min
+p_si_lambda_lambda1se <- hmof_partitioned_mod$trained_mod$cv_for_lambda$lambda.1se
 p_si_lambda <- 
-  trained_mod$cv_for_lambda %$% 
+  hmof_partitioned_mod$trained_mod$cv_for_lambda %$% 
   qplot(log(lambda), cvm) +
   xlab("log(lambda)") +
   ylab("Mean-Squared Error") +
@@ -1271,7 +1298,7 @@ hMOF vs. ToBaCCo, etc.
 # Comparison of beta coefficients from ridge regression for the two databases.
 # This code will have a similar structure to plotting multiple temperatures or pressures.
 p_coef_compare <- 
-  list(`hMOF` = trained_mod$mod, `ToBaCCo` = p_tob_mod$trained_mod$mod) %>% 
+  list(`hMOF` = hmof_partitioned_mod$trained_mod$mod, `ToBaCCo` = p_tob_mod$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>%
   overlay_cat_betas(base_hist, ., default_binspec) +
   theme(legend.position=c(0, 0.2), legend.direction="horizontal")
@@ -1424,7 +1451,7 @@ list(
   ) %>%
   map(~ filter(.x, id == "hMOF-0")) %>% 
   map_dfr(
-    ~ pred_grid(trained_mod, .x, default_binspec),
+    ~ pred_grid(hmof_partitioned_mod$trained_mod, .x, default_binspec),
     .id = "spacing"
     )
 
@@ -1446,7 +1473,7 @@ fine_diff_df <-
     fine01 = fine_01_h2_grids
     ) %>%
   map_dfr(
-    ~ pred_grid(trained_mod, .x, default_binspec),
+    ~ pred_grid(hmof_partitioned_mod$trained_mod, .x, default_binspec),
     .id = "spacing"
   ) %>% 
   spread(spacing, y_pred) %>% 
@@ -1607,10 +1634,10 @@ test_h_to_tob_binspec(c(from=-10.0, to=0.0, step=0.5, width=0.5)) %>%
   coef_tbl() %>% overlay_cat_betas(base_hist, ., c(from=-10.0, to=0.0, step=0.5, width=0.5))
 
 # Using a mixed model doesn't solve the problem completely.  There simply isn't enough granularity in the low attraction regime to account for the large pores.
-tobacco_data %>%
-  mutate(y_act = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>%
-  eval_test_grid(trained_mod, tob_hist_sets$testing, default_binspec, ., db_name = "ToBaCCo MOFs\n(mixed model)") %>%
-  .$pred_df %>% ggplot(aes(y_act, y_act-y_pred, color=lcd)) + geom_point()
+tob_from_mixed %>% .$pred_df %>% ggplot(aes(y_act, y_act-y_pred, color=lcd)) + geom_point()
+tob_from_mixed$plots$parity_testing
+tob_from_mixed$plots$parity_full
+base_hist %>% overlay_cat_betas(coef_tbl(tob_from_mixed$trained_mod$mod), default_binspec)
 
 ```
 

@@ -30,8 +30,8 @@ get_training_fit_stats <- function(package_mod) {
 hyper_tuned_hist <-
   map2(widths, bottoms,
     function(x, y) run_bin_model(
-      e_data = mixed_h2_hist_sets$training,  # we no longer need hyperparameter data for other purposes
-      y_with_id = mixed_h2_y_to_join,
+      e_data = hmof_hist_sets$training,  # we no longer need hyperparameter data for other purposes
+      y_with_id = hmof_y_to_join,
       step = x, width = x,
       bin_lims = c(y, default_binspec["to"]),
       lambda = NULL, alpha = hyper_tuned_alpha,
