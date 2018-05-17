@@ -122,12 +122,13 @@ p_sub_isotherm <-
   ) %>% 
   map_dfr(~ data_frame(bar = cartoon_pressures, A = .x[1], B = .x[2]), .id = "id") %>% 
   mutate(g.L = A*bar / (1 + B * bar)) %>% 
-  ggplot(aes(bar, g.L, color = id)) +
+  ggplot(aes(bar, g.L, color = id, shape = id)) +
   geom_line() +
   geom_point(data = p_concept_isotherms) +
   xlab("Pressure (bar)") + ylab("Uptake (g/L)") +
   geom_vline(xintercept = c(2, 100), linetype="dotted") +
   scale_color_manual(values = c(2, 4), breaks = c("hMOF-1898", "hMOF-5072244"), guide = FALSE) +
+  scale_shape_discrete(guide=FALSE) +
   annotate("segment", x = 95, xend = 95, y = 4.1, yend = 51.1, color = 2, arrow = double_arrow) +
   annotate("segment", x = 85, xend = 85, y = 27.4, yend = 47.4, color = 4, arrow = double_arrow) +
   annotate("text", 92, 4.1, label = "47 g/L\nBetter deliverable capacity", color = 2, hjust = 1, vjust = 0) +
@@ -141,7 +142,7 @@ p_sub_energies <-
   mutate(id = str_sub(id, 4)) %>% filter(id %in% c("hMOF-1898", "hMOF-5072244")) %>%
   mutate(loc = lower + upper) %>% 
   group_by(id) %>% mutate(dens = counts / sum(counts)) %>% ungroup() %>% 
-  ggplot(aes(loc, dens, color = id)) + geom_point() +
+  ggplot(aes(loc, dens, color = id, shape = id)) + geom_point() +
   xlim(c(-15, 0)) + ylim(c(0, 0.15)) +
   xlab("Energy (kJ/mol)") + ylab("Fraction of UC") +
   scale_color_manual(values = c(2, 4), breaks = c("hMOF-1898", "hMOF-5072244")) +

@@ -80,24 +80,27 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALI
     inner_join(bin_loc_from_spec(binspec), by="bin") %>% 
     mutate(beta = beta / scaling)
   if ("cat" %in% colnames(beta_data)) {
-    beta_data <- beta_data %>% mutate(color = `cat`)
+    beta_data <- beta_data %>% mutate(color = `cat`, shp = `cat`)
   } else {
     cat_missing <- TRUE
     if (color_if_cat_missing) {
-      beta_data <- beta_data %>% mutate(color = beta)
+      beta_data <- beta_data %>% mutate(color = beta, shp = I(16))
     } else {
-      beta_data <- beta_data %>% mutate(color = I("darkgray"))
+      beta_data <- beta_data %>% mutate(color = I("darkgray"), shp = I(16))
     }
     # Consider adding shapes based on color cat (or I(16)).
     # Why shape 16?  It's the default and drawn in the outline color (not fill)
     # See also http://sape.inf.usi.ch/quick-reference/ggplot2/shape
     # But also ggplot doesn't play nicely with combining the aesthetics, so maybe there's another way, like using a column as-is with I.
+    # It looks like you can handle the shape below automatically by disabling the relevant guide titles or setting them equal.
+    # https://stackoverflow.com/questions/37140266/how-to-merge-color-line-style-and-shape-legends-in-ggplot
+    # http://environmentalcomputing.net/plotting-with-ggplot-colours-and-symbols/
   }
   
   p <- hist_plot +
     geom_point(
       data = beta_data,
-      aes(y = beta, col = color),
+      aes(y = beta, col = color, shape = shp),
       size = 2
       ) +
     coord_cartesian(ylim = c(-1.1*hist_max, 1.1*hist_max)) +
@@ -110,7 +113,8 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALI
         )
       ) +
     theme(axis.title.y.right = element_text(angle=0, vjust = 0.5)) +
-    geom_hline(yintercept=0)
+    geom_hline(yintercept=0) +
+    labs(shape="", color="")
   
   if (cat_missing & color_if_cat_missing) {  # use colorbar
     p <- p +
