@@ -562,6 +562,15 @@ screening_gcmc <-
   #list("BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv") %>% #, "ExtraCSD2") %>% 
   map_dfr(parse_vol_data, .id = "src") %>% 
   distinct(id, .keep_all=TRUE)  # only keep the first instance when multiple simulations have been run
+screening_ccdc_160 <- 
+  read_tsv(
+    "BigData/quest/ccdc-160k-volume.tsv",
+    skip=1,
+    col_names=c("id", "fh.h2.g.L.5.160", "fh.h2.g.L.5.160.err"),
+    col_types="cdd"
+    ) %>% 
+  mutate_at(vars(starts_with("fh.h2")), funs(. * 2.0 / 22.4))
+screening_gcmc <- screening_gcmc %>% left_join(screening_ccdc_160, by="id")
 
 # Or, screening_gcmc %>% inner_join(ccdc_predicted, by="id") %$% parity_plot(g.L, y_pred)
 screening_top_performance <- 
@@ -757,19 +766,27 @@ label_77k_vs_160k <- function(p) {
     xlab("Deliv. cap. w/ release at 2 bar, 77 K") +
     ylab("Deliv. cap. w/ release at 5 bar, 160 K")  
 }
-p_160k_xy_hmof <- 
-  (
-    p_160k_5bar_data %>% 
-    mutate(dc.5bar.160k = va100bar - fh.h2.g.L.5.160, dc.2bar.77k = va100bar - va2bar) %$% 
-    parity_plot(dc.2bar.77k, dc.5bar.160k)
+
+p_160k_xy_all <- 
+  list(
+    `2500 hMOFs` = mutate(p_160k_5bar_data, fh.h2.g.L.100.77 = va100bar, fh.h2.g.L.2.77 = va2bar),
+    `CCDC MOFs (validation data)` = ccdc_gcmc,
+    `Top CCDC MOFs` = screening_gcmc
     ) %>% 
-  #annotate_plot("2500 hMOFs") %>% 
-  label_77k_vs_160k()
+  map(., ~ mutate(.x,
+        dc.5bar.160k = fh.h2.g.L.100.77 - fh.h2.g.L.5.160,
+        dc.2bar.77k = fh.h2.g.L.100.77 - fh.h2.g.L.2.77
+        ) %$% 
+      parity_plot(dc.2bar.77k, dc.5bar.160k)
+    ) %>% 
+  map(., ~ label_77k_vs_160k(.x)) %>% 
+  map2(., names(.), ~annotate_plot(.x, .y))
+
 
 plot_grid(
-  p_160k_xy_hmof %>% annotate_plot("2500 hMOFs"),
-  p_160k_xy_hmof %>% annotate_plot("1000 CCDC MOFs") %>% make_draft("TODO"),
-  p_160k_xy_hmof %>% annotate_plot("Top CCDC MOFs") %>% make_draft("TODO"),
+  p_160k_xy_all[[1]],
+  p_160k_xy_all[[2]],
+  p_160k_xy_all[[3]],
   ncol=3,
   labels=default_subfig_labels, label_size=12
   ) %>%

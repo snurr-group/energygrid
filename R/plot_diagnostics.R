@@ -12,8 +12,8 @@ parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 parity_plot <- function(act, pred, color=1, alpha=0.50) {
   # Parity plot between actual and predicted data, on square axes for g/L H2
   qplot(act, pred, alpha=I(alpha), color=I(color)) +
-    xlab("'Actual' uptake (GCMC simulations)") +
-    ylab("Predicted uptake (LASSO model)") +
+    xlab("'Actual' capacity (GCMC simulations)") +
+    ylab("Predicted capacity (LASSO model)") +
     expand_limits(x = 0, y = 0) +
     scale_x_continuous(limits = c(0,60)) +
     scale_y_continuous(limits = c(0,60)) +
@@ -99,7 +99,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   results$testing_fit <- postResample(pred=y_pred, obs=y_act)
   
   # Begin the plots
-  results$plots$parity_bw <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted uptake (", perf_model,")"))
+  results$plots$parity_bw <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted capacity (", perf_model,")"))
   
   # Let's add two more plots, one with just the training data, and another with both training and test (color-coded)
   results$plots$parity_training <-
@@ -108,7 +108,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       pred_glmnet(trained_mod, trained_mod$orig_x),
       "#CA7C1B"
     ) +
-    ylab(paste0("Predicted uptake (", perf_model,")"))
+    ylab(paste0("Predicted capacity (", perf_model,")"))
   # Add test data
   results$plots$parity_full <- results$plots$parity_training +
     geom_point(
@@ -144,7 +144,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     parity_plot(y_act, y_pred, "#0070C0") %>% 
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
     label_stats(results$testing_fit) +
-    ylab(paste0("Predicted uptake (", perf_model,")"))
+    ylab(paste0("Predicted capacity (", perf_model,")"))
   
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 

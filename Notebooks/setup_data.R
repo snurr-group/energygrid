@@ -298,12 +298,12 @@ tob_ch4_sets <- partition_data_subsets(grids_ch4_tobacco, tobacco_data, DATA_SPL
 ccdc_h2_grids <- read_rds("BigData/Robj/ccdc_hist_vals.Rds")
 ccdc_gcmc <- 
   read_tsv(
-    "BigData/Emails/ccdc-random-20180111/cleaned_vol_from_xlsx.tsv",
+    "BigData/Emails/ccdc-random-20180111/completed_20180518_ccdc_vol.tsv",
     skip = 3,
     na = c("", "null", "#NAME?", "#VALUE!", "-"),
     col_names = c("id", paste("fh.h2.g.L", c(2, 5, 5, 100), c(77, 77, 160, 77), sep=".")),
     col_types = "cnnnn"
-  ) %>% 
+    ) %>% 
   mutate_at(vars(starts_with("fh.h2")), funs(. * 2.0 / 22.4)) %>% 
   # See https://stackoverflow.com/questions/39279724/use-mutate-at-to-change-multiple-column-types
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
@@ -341,5 +341,5 @@ mixed_h2_y_to_join <- bind_rows(
   mutate(hmof_y_to_join, id=paste0("h", id)),
   tob_y_to_join
   )
-# TODO: if we continue down this route, consider implementing mixed_ch4_hist_sets, similarly
+
 
