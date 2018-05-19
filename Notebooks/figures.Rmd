@@ -557,7 +557,7 @@ parse_vol_data <- function(filename) {
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
 }
 screening_gcmc <- 
-  list(orig="ScreenCSD", extended="ExtraCSD2", fill3="ExtraCSD3") %>% 
+  list(orig="ScreenCSD", extended="ExtraCSD2", fill3="ExtraCSD3", quest_mixed="../../quest/FillCCDC77K") %>% 
   map_chr(~paste0("BigData/Mateo/EnergyGrid/", .x, "/volume.tsv")) %>% 
   #list("BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv") %>% #, "ExtraCSD2") %>% 
   map_dfr(parse_vol_data, .id = "src") %>% 
