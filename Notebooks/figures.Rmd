@@ -1093,7 +1093,7 @@ p_err_topology <-
   scale_color_continuous(guide=guide_colorbar(title.position="top")) +
   theme(legend.position=c(0.75, 0.05), legend.direction="horizontal") +
   xlab("'Actual' uptake (GCMC simulations)") +
-  ylab("Predicted uptake (ridge regression)")
+  ylab("Predicted uptake (LASSO regression)")
 p_err_topology %>% save_si_fig("err_by_topology.png", base_aspect_ratio = 1.5)
 
 ```
@@ -1677,6 +1677,26 @@ tob_hist_sets %>%
 
 ```
 
+
+```{r opt_all_hmof_benchmarking}
+if (FALSE) {
+  full_hmof_grids <- read_rds("BigData/Robj/all_hmof_h2.Rds")
+  full_hmof_predictions <- 
+    full_hmof_grids %>% 
+    pred_grid(hmof_partitioned_mod$trained_mod, ., default_binspec)
+  full_hmof_accuracy <- 
+    full_hmof_predictions %>%
+    mutate(id=as.integer(str_sub(id, 6))) %>%
+    left_join(gcmc_data, by="id") %>% 
+    mutate(y_act = g.L)
+  full_hmof_accuracy %$% parity_plot(y_act, y_pred, alpha=0.01) %>% save_si_fig("temp_full_hmof_parity.png")
+  full_hmof_accuracy %>% ggplot(aes(y_act, y_pred-y_act)) + geom_point()
+  full_hmof_accuracy %>% filter((y_pred-y_act)<30) %>% ggplot(aes(y_act, y_pred-y_act)) + geom_point()
+  full_hmof_accuracy %>% filter((y_pred-y_act)<30) %>% {ggplot(., aes(y_pred-y_act)) + geom_histogram(bins = 30)} %>% save_si_fig("temp_full_hmof_resid_without_top_cluster.png")
+  full_hmof_accuracy %$% postResample(pred=y_pred, obs=y_act)
+}
+
+```
 
 
 ## TODO notes from meetings
