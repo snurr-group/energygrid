@@ -1698,6 +1698,26 @@ if (FALSE) {
 
 ```
 
+```{r test_privileged_mofs, eval=FALSE, include=FALSE}
+# Do a quick test on the David Sholl's list of 20 "privileged MOFs" which are optimal for over 60 separations
+# https://doi.org/10.1002/cssc.201702289
+library(wrapr)
+library(forcats)
+privileged_list <- qc(TEDGOA, XINHOT, OHAKIS, ZERNAN, AZIXUD, GOMRAC, GOMREG, ISEQIH, UVEXAV, EKOPOK, SUHHOT, KAXQIL, MOGVAG, LEGGEK, DOQGUM, VAHSIH, KAXQOR01, CIGYAU, XOKHAH, HUTTIA)
+ccdc_h2_grids %>% 
+  filter(id %in% str_c(privileged_list, "_stripped")) %>% 
+  stepped_hist_spec(default_binspec) %>% 
+  left_join(bin_loc_from_spec(default_binspec), by="bin") %>%
+  mutate(bin=fct_reorder(bin, upper)) %>% 
+  ggplot(aes(bin, metric, fill=id)) +
+  geom_col(position = position_dodge()) + coord_cartesian(ylim=c(0, 0.05))
+ccdc_h2_grids %>% 
+  filter(id %in% str_c("TEDGOA", "_stripped")) %>% 
+  plot_hist_bins(., default_binspec) + scale_y_continuous()
+
+ccdc_h2_grids %>% filter(id %in% (ccdc_dimensionality %>% filter(f3d>0) %>% .$id)) %>% plot_avg_with_distr(., default_binspec, print_violin = TRUE) + coord_cartesian(ylim=c(0, 0.05))
+```
+
 
 ## TODO notes from meetings
 ### General
