@@ -9,17 +9,28 @@ BETA_H2_SCALING <- 1000.0
 BETA_CH4_SCALING <- 10 * BETA_H2_SCALING
 
 # e.g. plot_hist_bins(filter(hist_vals, id==55), default_binspec)
-plot_hist_bins <- function(one_grid, binspec, y_title = NULL) {
+plot_hist_bins <- function(one_grid, binspec, y_title = NULL, extend_top=TRUE) {
   # Returns an energy histogram plot, possibly as a base layer to beta coefficients
   # If y_title is NULL, skip plotting the primary y axis.
-  result <- 
+  # If extend_top is TRUE, make the top bin wider to denote its width
+  result_data <- 
     one_grid %>% 
     stepped_hist_spec(binspec) %>% 
     mutate(height = metric) %>%
     filter(!near(height, 0)) %>%  # Remove columns where height == 0, floating point
     inner_join(color_from_binloc(bin_loc_from_spec(binspec)), by="bin") %>% 
+    mutate(bar_width=1)
+  if (extend_top) {
+    result_data <- 
+      result_data %>% 
+      mutate(bar_width = ifelse((is.infinite(upper) & upper > 0), 1.5, bar_width)) %>% 
+      # mutate(height = ifelse((is.infinite(upper) & upper > 0), 0.1, height)) %>%  # useful for debugging widths in this section
+      mutate(loc = ifelse((is.infinite(upper) & upper > 0), loc+0.5/2.0, loc))
+  }
+  result <- 
+    result_data %>% 
     ggplot(aes(loc, height)) +
-    geom_col(aes(fill = I(color))) +  # need I() so ggplot doesn't think the rgb strings are a factor
+    geom_col(aes(fill = I(color), width=bar_width)) +  # need I() so ggplot doesn't think the rgb strings are a factor
     guides(fill = FALSE) +
     labs(
       x = "Energy (kJ/mol)",

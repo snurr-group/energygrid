@@ -108,7 +108,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       pred_glmnet(trained_mod, trained_mod$orig_x),
       "#CA7C1B"
     ) +
-    ylab(paste0("Predicted capacity (", perf_model,")"))
+    ylab(paste0("Fitted capacity (", perf_model,")"))
   # Add test data
   results$plots$parity_full <- results$plots$parity_training +
     geom_point(
@@ -119,26 +119,33 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     )
   
   # Label stats on the training and testing plots
-  label_stats <- function(p, postresample_results, label_q2=NULL) {
+  label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE) {
+    training_stats <- ""
+    if (!is.null(label_q2)) {
+      training_stats <- paste0(
+        training_stats, "\n",
+        "Q\u00B2 = ", format(label_q2, digits=2)
+        )
+    }
+    if (do_label_r2) {
+      training_stats <- paste0(
+        training_stats, "\n",
+        "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2)
+        )
+    }
     training_stats <- paste0(
-      "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2), "\n",
+      training_stats, "\n",
       "MAE = ", format(postresample_results["MAE"], digits=2), " ", plot_units, "\n",
       "RMSE = ", format(postresample_results["RMSE"], digits=2), " ", plot_units
        )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
-    if (!is.null(label_q2)) {
-      training_stats <- 
-        paste0(
-          training_stats, "\n",
-          "Q\u00B2 = ", format(label_q2, digits=2)
-        )
-    }
     p %>% annotate_plot(training_stats, "bottom.right")
   }
 
   results$plots$parity_training <- 
     results$plots$parity_training %>% 
     annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
-    label_stats(results$training_fit, label_q2=NULL)  # skip Q2 stats
+    #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
+    label_stats(results$training_fit, label_q2=NULL)  # decided against labeling R2 on any of the figures
   
   results$plots$parity_testing <- 
     parity_plot(y_act, y_pred, "#0070C0") %>% 
