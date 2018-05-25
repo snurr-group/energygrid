@@ -12,8 +12,8 @@ parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 parity_plot <- function(act, pred, color=1, alpha=0.50) {
   # Parity plot between actual and predicted data, on square axes for g/L H2
   qplot(act, pred, alpha=I(alpha), color=I(color)) +
-    xlab("'Actual' capacity (GCMC simulations)") +
-    ylab("Predicted capacity (LASSO model)") +
+    xlab("'Actual' capacity (GCMC)") +
+    ylab("Predicted capacity (LASSO)") +
     expand_limits(x = 0, y = 0) +
     scale_x_continuous(limits = c(0,60)) +
     scale_y_continuous(limits = c(0,60)) +
@@ -77,11 +77,12 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   class(results) <- "partitioned_glmnet"
   
   if (alpha_glm %in% c(1, 0)) {
-    perf_models <- c("ridge regression", "LASSO model")
+    perf_models <- c("ridge", "LASSO")
     perf_model <- perf_models[alpha_glm+1]  # R is one-indexed
   } else {
     perf_model <- "elasticnet"
   }
+  perf_label <- paste0(perf_model, ", ", plot_units)  # Label axes with corresponding units
   results$model_name <- perf_model
 
   predictions <- pred_grid(glmnet_mod, test_grid, binspec, align_bins = align_bins)
@@ -99,7 +100,9 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   results$testing_fit <- postResample(pred=y_pred, obs=y_act)
   
   # Begin the plots
-  results$plots$parity_bw <- parity_plot(y_act, y_pred) + ylab(paste0("Predicted capacity (", perf_model,")"))
+  results$plots$parity_bw <- parity_plot(y_act, y_pred) +
+    xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
+    ylab(paste0("Predicted capacity (", perf_label,")"))
   
   # Let's add two more plots, one with just the training data, and another with both training and test (color-coded)
   results$plots$parity_training <-
@@ -108,7 +111,8 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       pred_glmnet(trained_mod, trained_mod$orig_x),
       "#CA7C1B"
     ) +
-    ylab(paste0("Fitted capacity (", perf_model,")"))
+    xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
+    ylab(paste0("Fitted capacity (", perf_label,")"))
   # Add test data
   results$plots$parity_full <- results$plots$parity_training +
     geom_point(
@@ -149,9 +153,12 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   
   results$plots$parity_testing <- 
     parity_plot(y_act, y_pred, "#0070C0") %>% 
+    # We could use a thousands separator within the figures, but it looks weird and out of place
+    #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
     label_stats(results$testing_fit) +
-    ylab(paste0("Predicted capacity (", perf_model,")"))
+    xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
+    ylab(paste0("Predicted capacity (", perf_label,")"))
   
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 
@@ -172,7 +179,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     mutate(r_act = rank(desc(y_act)), r_pred = rank(desc(y_pred))) %>% 
     ggplot(aes(r_act, r_pred)) +
     geom_point() +
-    xlab("'Actual' ranking (GCMC simulations): 1 is the best") +
+    xlab("'Actual' ranking (GCMC): 1 is the best") +
     ylab(paste0("Predicted ranking (", perf_model,")")) +
     scale_x_reverse() + scale_y_reverse()  # Consistent interpretation as top right for best MOFs
   results$plots$test_ranking <- 

@@ -285,8 +285,8 @@ p_tob_mod$plots %$%
       arrange(LCD) %>% 
       {ggplot(., aes(y_act, y_pred, color=LCD)) +
         geom_point() +
-        xlab("'Actual' uptake (GCMC simulations)") +
-        ylab("Predicted uptake (LASSO model)") +
+        xlab("'Actual' uptake (GCMC, g/L)") +
+        ylab("Predicted uptake (LASSO, g/L)") +
         expand_limits(x = 0, y = 0) +
         scale_x_continuous(limits = c(0,60)) +
         scale_y_continuous(limits = c(0,60)) +
@@ -998,7 +998,7 @@ p_y_distr <-
   ggplot(aes(g.L, ..density..)) +
   geom_histogram(bins=30) +
   facet_wrap(~db) +
-  xlab("Hydrogen deliverable capacity, 77 K, 100 bar - 2 bar") 
+  xlab("Hydrogen deliverable capacity, 77 K, 100 bar - 2 bar (g/L)") 
 p_y_distr %>% save_si_fig("y_distr.png", base_aspect_ratio=1.6)
 p_y_distr
 
@@ -1141,8 +1141,8 @@ p_err_topology <-
   scale_y_continuous(breaks=c(0, 40)) +
   scale_color_continuous(guide=guide_colorbar(title.position="top")) +
   theme(legend.position=c(0.75, 0.05), legend.direction="horizontal") +
-  xlab("'Actual' uptake (GCMC simulations)") +
-  ylab("Predicted uptake (LASSO regression)")
+  xlab("'Actual' uptake (GCMC, g/L)") +
+  ylab("Predicted uptake (LASSO, g/L)")
 p_err_topology %>% save_si_fig("err_by_topology.png", base_aspect_ratio = 1.5)
 
 ```
@@ -1193,7 +1193,7 @@ trained_model_regu$MLR$plots$parity_testing <-
 
 trained_model_regu %>% 
   #set_li("Ridge", NULL) %>%  # We only need to plot LASSO and MLR here
-  map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=45, y=20, label=y, size=6)}) %>% 
+  map2(., names(.), function(x,y) {x$plots$parity_testing + annotate("text", x=45, y=20, label=y, size=6) + xlab("'Actual' capacity (GCMC, g/L)")}) %>% 
   {do.call(  # For future reference, purrr:invoke is probably what I was looking for as a wrapper
     plot_grid,
     c(., list(  # https://stackoverflow.com/questions/25962605/how-to-add-more-arguments-of-a-function-in-do-call-in-r
