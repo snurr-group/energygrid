@@ -80,6 +80,30 @@ plot_avg_with_distr <- function(all_grids, binspec, print_violin = FALSE, ...) {
   result
 }
 
+plot_cat_betas <- function(betas, binspec) {
+  # Successor to overlay_cat_betas (below) which only plots the points/symbols, not underlying histogram bars
+  # This will simplify plots and explanations in the text
+  # On second thought, maybe it would be clearer to keep the bars and just explain them better.
+  beta_data <- betas %>%
+    inner_join(bin_loc_from_spec(binspec), by="bin")
+  if ("cat" %in% colnames(beta_data)) {
+    beta_data <- beta_data %>% mutate(color = `cat`, shp = `cat`)
+  } else {
+    beta_data <- beta_data %>% mutate(color = I("darkgray"), shp = I(16))  # See `overlay_cat_betas` for info on shape 16
+  }
+  
+  p <- beta_data %>% 
+    ggplot(aes(x = loc, y = beta, col = color, shape = shp)) +
+    geom_point(size = 2) +
+    scale_y_continuous(name = expression(beta)) +
+    theme(axis.title.y = element_text(angle=0, vjust = 0.5)) +
+    geom_hline(yintercept=0) +
+    labs(shape="", color="", x="Energy (kJ/mol)")
+  
+  #p <- p + theme(legend.title = element_blank())
+  p
+}
+
 overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALING, hist_max = 0.5) {
   # Overlay betas from one or more categories, saved in the column `cat`, on top of a histogram plot
   # If `cat` is not defined, use a colorbar based on the magnitude of beta.

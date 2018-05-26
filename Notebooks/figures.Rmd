@@ -187,7 +187,7 @@ base_hist <-
   ad_hoc_h2_grids %>% 
   filter(id == "hMOF-0") %>% 
   plot_hist_bins(default_binspec)
-p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(hmof_partitioned_mod$trained_mod$mod), default_binspec)
+p_beta_orig <- plot_cat_betas(coef_tbl(hmof_partitioned_mod$trained_mod$mod), default_binspec)
 p_beta_orig
 
 # Beta coefficients for different pressures and temperatures
@@ -203,7 +203,8 @@ p_beta_diff_p <-
   map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  overlay_cat_betas(base_hist, ., default_binspec)
+  #overlay_cat_betas(base_hist, ., default_binspec)
+  plot_cat_betas(., default_binspec)
 
 p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
 p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
@@ -218,7 +219,8 @@ p_beta_diff_t <-
     )} %>%
   map(function(x) x$fitted_model[[1]]$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  overlay_cat_betas(base_hist, ., default_binspec)
+  #overlay_cat_betas(base_hist, ., default_binspec)
+  plot_cat_betas(., default_binspec)
 # Generate the plots
 plot_grid(
   p_beta_orig,
