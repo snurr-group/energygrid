@@ -182,12 +182,9 @@ mixed_partitioned_mod <- run_model_on_partitions(mixed_h2_hist_sets, mixed_h2_y_
 #trained_mod <- hmof_partitioned_mod$trained_mod  # Overwrite this with the mixed model immediately below
 #trained_mod <- mixed_partitioned_mod$trained_mod  # Note: removing the definition of `trained_mod` so that the plots are more explicit about which model is being selected
 
-
-base_hist <-
-  ad_hoc_h2_grids %>% 
-  filter(id == "hMOF-0") %>% 
-  plot_hist_bins(default_binspec)
-p_beta_orig <- plot_cat_betas(coef_tbl(hmof_partitioned_mod$trained_mod$mod), default_binspec)
+base_grid <- filter(ad_hoc_h2_grids, id == "hMOF-0")
+base_hist <- base_grid %>% plot_hist_bins(default_binspec)
+p_beta_orig <- base_hist %>% overlay_cat_betas(coef_tbl(hmof_partitioned_mod$trained_mod$mod), default_binspec)
 p_beta_orig
 
 # Beta coefficients for different pressures and temperatures
@@ -203,8 +200,8 @@ p_beta_diff_p <-
   map(function(x) run_model_on_partitions(hmof_hist_sets, x, default_binspec)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  #overlay_cat_betas(base_hist, ., default_binspec)
-  plot_cat_betas(., default_binspec)
+  overlay_cat_betas(base_hist, ., default_binspec)
+  #plot_cat_betas(., default_binspec)
 
 p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
 p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
@@ -220,7 +217,8 @@ p_beta_diff_t <-
   map(function(x) x$fitted_model[[1]]$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
   #overlay_cat_betas(base_hist, ., default_binspec)
-  plot_cat_betas(., default_binspec)
+  plot_cat_betas(., default_binspec) %>% 
+  overlay_hist_bins(base_grid, default_binspec)
 # Generate the plots
 plot_grid(
   p_beta_orig,
@@ -287,19 +285,19 @@ p_tob_mod$plots %$%
       arrange(LCD) %>% 
       {ggplot(., aes(y_act, y_pred, color=LCD)) +
         geom_point() +
-        xlab("'Actual' uptake (GCMC, g/L)") +
-        ylab("Predicted uptake (LASSO, g/L)") +
+        xlab("'Actual' capacity (GCMC, g/L)") +
+        ylab("Predicted capacity (LASSO, g/L)") +
         expand_limits(x = 0, y = 0) +
         scale_x_continuous(limits = c(0,60)) +
         scale_y_continuous(limits = c(0,60)) +
         coord_fixed() +
         parity_line +
-        theme(legend.position=c(0, 0.45)) +
+        theme(legend.position=c(0.82, 0.47)) +
         scale_color_gradient(low="gray", high="purple4")
         } %>% 
       annotate_plot(paste0("Testing data\n", nrow(p_tob_from_hmof$pred_df), " ToBaCCo MOFs\n(hMOF model)"), "top.left", "#0070C0") %>% 
       annotate_plot(paste0(
-        "R\u00B2 = ", format(p_tob_from_hmof$testing_fit["Rsquared"], digits=2), "\n",
+        #"R\u00B2 = ", format(p_tob_from_hmof$testing_fit["Rsquared"], digits=2), "\n",
         "MAE = ", format(p_tob_from_hmof$testing_fit["MAE"], digits=2), " ", "g/L", "\n",
         "RMSE = ", format(p_tob_from_hmof$testing_fit["RMSE"], digits=2), " ", "g/L"
         ), "bottom.right"),

@@ -7,6 +7,7 @@ source("R/regression_and_features.R")
 
 BETA_H2_SCALING <- 1000.0
 BETA_CH4_SCALING <- 10 * BETA_H2_SCALING
+BETA_LEGEND_MARGIN <- 0.75  # pt.
 
 # e.g. plot_hist_bins(filter(hist_vals, id==55), default_binspec)
 plot_hist_bins <- function(one_grid, binspec, y_title = NULL, extend_top=TRUE) {
@@ -49,6 +50,64 @@ plot_hist_bins <- function(one_grid, binspec, y_title = NULL, extend_top=TRUE) {
   result
 }
 # plot_hist_bins(filter(hist_sets$training, id==1), default_binspec) + coord_cartesian(ylim=c(-0.6, 0.6))
+
+overlay_hist_bins <- function(cat_plot, one_grid, binspec, extend_top=TRUE, bar_breaks = c(0, 0.5)) {
+  # Code closely copied from `plot_hist_bins`` (not DRY code!)
+  # Serves the opposite role of `overlay_cat_bins` for the objective of putting the beta's on the primary y axis
+  # and histogram on the secondary axis, because that's what we actually care about.
+  # Also consider using a different color for the secondary y axis for clarity.
+  # This function automatically scales the histograms to fit the total height of the plot (based on beta)
+  # Note: this order won't work in practice: the histograms need to be plotted first so that the
+  # points are drawn on top.  That would probably require scaling the beta values first, and fake labeling
+  # the axes??
+  #
+  # This function should probably be ignored
+  # A better solution would probably be adding a `scaling` term to `plot_hist_bins` and `overlay_cat_betas`,
+  # then write a function that calculates the scaling and runs it on both of these functions (transforming
+  # everything in terms of the secondary y axis)
+  
+  result_data <- 
+    one_grid %>% 
+    stepped_hist_spec(binspec) %>% 
+    mutate(height = metric) %>%
+    filter(!near(height, 0)) %>%  # Remove columns where height == 0, floating point
+    inner_join(color_from_binloc(bin_loc_from_spec(binspec)), by="bin") %>% 
+    mutate(bar_width=1)
+  if (extend_top) {
+    result_data <- 
+      result_data %>% 
+      mutate(bar_width = ifelse((is.infinite(upper) & upper > 0), 1.5, bar_width)) %>% 
+      # mutate(height = ifelse((is.infinite(upper) & upper > 0), 0.1, height)) %>%  # useful for debugging widths in this section
+      mutate(loc = ifelse((is.infinite(upper) & upper > 0), loc+0.5/2.0, loc))
+  }
+  
+  #auto_scaling <- 0.9 * max(cat_plot$data$beta) / max(result_data$height)
+  auto_scaling <- 0.9 * max(cat_plot$data$beta) / bar_breaks[length(bar_breaks)]
+  result_data <- result_data %>% mutate(height = height * auto_scaling)
+  
+  cat_plot +
+    geom_col(data=result_data, aes(fill = I(color), width=bar_width, y=height)) +  # need I() so ggplot doesn't think the rgb strings are a factor
+    guides(fill = FALSE) +
+    labs(x = "Energy (kJ/mol)") +
+    theme(aspect.ratio = 0.6
+    ) +
+    scale_x_continuous(minor_breaks = NULL) +
+    scale_y_continuous(
+      name = expression(beta),
+      sec.axis = sec_axis(
+        ~ . / auto_scaling,
+        name = "Volume fraction",
+        #breaks = c(-1*hist_max*scaling, 0, hist_max*scaling)
+        breaks = bar_breaks
+        )
+      ) +
+    theme(axis.text.y.right = element_text(color="#8A226A"), axis.title.y.right = element_text(color="#8A226A")) +
+    theme(
+      legend.box.background = element_rect(color = "black"),
+      legend.margin = margin(BETA_LEGEND_MARGIN, unit(5, "pt"), BETA_LEGEND_MARGIN, 0, "pt"),
+      legend.title = element_blank()
+      )
+}
 
 overlay_violin_distr <- function(hist_plot, all_grids, binspec, color="gray", ...) {
   # Overlay a violin plot of the bin distributions on top of the bins.
@@ -93,8 +152,8 @@ plot_cat_betas <- function(betas, binspec) {
   }
   
   p <- beta_data %>% 
-    ggplot(aes(x = loc, y = beta, col = color, shape = shp)) +
-    geom_point(size = 2) +
+    ggplot(aes(x = loc)) +
+    geom_point(aes(shape = shp, col = color, y = beta), size = 2) +
     scale_y_continuous(name = expression(beta)) +
     theme(axis.title.y = element_text(angle=0, vjust = 0.5)) +
     geom_hline(yintercept=0) +
@@ -140,6 +199,7 @@ overlay_cat_betas <- function(hist_plot, betas, binspec, scaling = BETA_H2_SCALI
       ) +
     coord_cartesian(ylim = c(-1.1*hist_max, 1.1*hist_max)) +
     scale_y_continuous(
+      name = "Volume fraction",
       breaks = c(0, hist_max),
       sec.axis = sec_axis(
         ~.*scaling,
