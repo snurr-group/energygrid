@@ -59,7 +59,7 @@ save_si_fig <- function(p, filename, parent_dir = default_fig_dir, bheight = 3.3
 # hmof_partitioned_mod$plots %$% plot_grid(parity_training, make_draft(parity_testing), ncol=1, labels=default_subfig_labels, label_size=12) %>% save_ben_fig("test.png", nrow = 2)
 
 # LaTeX export
-save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_dir=default_fig_dir) {
+save_fig_table <- function(df, filename, col_header=FALSE, parent_dir=default_fig_dir) {
   # Writes a table to a Latex file which can be read with \input
   # https://www.r-bloggers.com/exporting-r-tables-in-latex/
   append_data <- FALSE
@@ -70,7 +70,6 @@ save_fig_table <- function(df, filename, digits=2, col_header = FALSE, parent_di
   }
   df %>% 
     as.data.frame() %>%  # tibbles add a strange header to the file
-    format(digits = digits) %>%  # Digits is only a suggestion
     write.table(
       file.path(parent_dir, filename),
       quote = FALSE,
@@ -89,6 +88,13 @@ save_fig_table_with_colnames <- function(df, filename, ...) {
     col_header=paste0(paste(colnames(df), collapse = " & "), "\\\\\n\\hline\n"),
     ...
     )
+}
+
+format_column_digits <- function(df, cols_vec, ndigit = 2) {
+  # Formats specified cols (arg is a character vector of names) with the correct number of digits
+  # Call this function as part of a pipeline to format a table before trying to save it.
+  # Set ndigit to zero to print a column of doubles as an integer
+  mutate_at(df, cols_vec, function(x) format(x, digits=ndigit, nsmall=ndigit))
 }
 ```
 
@@ -216,9 +222,9 @@ p_beta_diff_t <-
     )} %>%
   map(function(x) x$fitted_model[[1]]$mod) %>% 
   map_dfr(coef_tbl, .id="cat") %>% 
-  #overlay_cat_betas(base_hist, ., default_binspec)
-  plot_cat_betas(., default_binspec) %>% 
-  overlay_hist_bins(base_grid, default_binspec)
+  overlay_cat_betas(base_hist, ., default_binspec)
+  #plot_cat_betas(., default_binspec) %>% 
+  #overlay_hist_bins(base_grid, default_binspec)
 # Generate the plots
 plot_grid(
   p_beta_orig,
@@ -298,8 +304,8 @@ p_tob_mod$plots %$%
       annotate_plot(paste0("Testing data\n", nrow(p_tob_from_hmof$pred_df), " ToBaCCo MOFs\n(hMOF model)"), "top.left", "#0070C0") %>% 
       annotate_plot(paste0(
         #"R\u00B2 = ", format(p_tob_from_hmof$testing_fit["Rsquared"], digits=2), "\n",
-        "MAE = ", format(p_tob_from_hmof$testing_fit["MAE"], digits=2), " ", "g/L", "\n",
-        "RMSE = ", format(p_tob_from_hmof$testing_fit["RMSE"], digits=2), " ", "g/L"
+        "MAE = ", format(p_tob_from_hmof$testing_fit["MAE"], digits=2, nsmall=1), " ", "g/L", "\n",
+        "RMSE = ", format(p_tob_from_hmof$testing_fit["RMSE"], digits=2, nsmall=1), " ", "g/L"
         ), "bottom.right"),
     tob_from_mixed$plots$parity_testing,
     p_ccdc_parity,
@@ -319,8 +325,8 @@ hyper_tuned_labels <-
   filter(upper==Inf) %>% 
   gather(labeltype, labelval, c("q2", "MAE")) %>% 
   mutate(binwidth = binwidth + 0.10) %>% # shift the labels slightly
-  mutate(labelval = format(labelval, digits=3)) %>% 
-  mutate(labelval = ifelse(near(binwidth, 2.5+0.10), paste(labeltype, "=", labelval), labelval)) %>% 
+  mutate(labelval = format(labelval, digits=2, nsmall=2)) %>%  # nsmall specifies the number of digits after the decimal point
+  mutate(labelval = ifelse(near(binwidth, 2.5+0.10), paste(ifelse(labeltype=="q2", "Q\u00B2", labeltype), "=", labelval), labelval)) %>% 
   mutate(lower = ifelse((labeltype=="q2"), -6, lower))
 p_robust <- 
   hyper_tuned_hist %>% 
@@ -347,7 +353,7 @@ p_robust <-
     x = "Width of histogram bins (kJ/mol)"
   ) +
   #ylim(c(-12.5, 2.5))
-  geom_text(data=hyper_tuned_labels, aes(x=binwidth, y=lower, label=labelval), color="purple", size=3, hjust=1)  # add training data/fit to the plot
+  geom_text(data=hyper_tuned_labels, aes(x=binwidth, y=lower, label=labelval), color="black", size=3, hjust=1)  # add training data/fit to the plot
 save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
 p_robust
 
@@ -842,11 +848,12 @@ screening_3d %>%
   mutate(Refcode = str_sub(id, 0, -10)) %>% 
   mutate(Visualization = paste0("\\includegraphics[height=3cm]{TopCCDC/", Refcode, "}")) %>% 
   select(Refcode, Visualization, y_act, y_pred) %>% # also consider VF, LCD, PLD, ASA
+  format_column_digits(c("y_act", "y_pred"), ndigit=1) %>% 
   rename(
     `Predicted uptake (g/L) (will automatically add VF, LCD, PLD, and ASA once calculated)` = y_pred,
     `GCMC uptake (g/L)` = y_act
     ) %>% 
-  save_fig_table_with_colnames("ccdc_screening.tex", digits=3)
+  save_fig_table_with_colnames("ccdc_screening.tex")
 
 ```
 
@@ -1214,7 +1221,8 @@ trained_model_regu %>%
   arrange(lower) %>% 
   left_join(n_hmof_bin_samples, select(bin, nsample), by="bin") %>% 
   select(Bin, Ridge, LASSO, MLR, nsample) %>% 
-  rename(`Number of nonzero samples` = nsample) %>% 
+  rename(`Number of nonzero samples` = nsample) %>%
+  format_column_digits(c("Ridge", "LASSO", "MLR"), 0) %>% 
   save_fig_table_with_colnames("regu_coef.tex")
 
 trained_model_regu %>%  # What are the lambda/alpha for the models?
@@ -1228,6 +1236,7 @@ p_beta_diff_p$layers[[2]]$data %>%
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `2 bar`, `100 bar`) %>% 
+  format_column_digits(c("2 bar", "100 bar"), 0) %>% 
   save_fig_table_with_colnames("coef_p.tex")
 
 p_beta_diff_t$layers[[2]]$data %>% 
@@ -1235,6 +1244,7 @@ p_beta_diff_t$layers[[2]]$data %>%
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `77 K`, `160 K`) %>% 
+  format_column_digits(c("77 K", "160 K"), 0) %>% 
   save_fig_table_with_colnames("coef_t.tex")
 
 p_beta_ch4$layers[[2]]$data %>% 
@@ -1242,6 +1252,7 @@ p_beta_ch4$layers[[2]]$data %>%
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `5.8 bar`, `65 bar`) %>% 
+  format_column_digits(c("5.8 bar", "65 bar"), 0) %>% 
   save_fig_table_with_colnames("coef_ch4_sep.tex")
 
 # see regu_coef.tex above
@@ -1266,6 +1277,7 @@ p_ch4_vol %>%
   left_join(n_ch4_bin_samples, select(bin, nsample), by="bin") %>% 
   select(Bin, beta, nsample) %>% 
   rename(`Number of nonzero samples` = nsample) %>% 
+  format_column_digits(c("beta"), 0) %>% 
   save_fig_table_with_colnames("coef_ch4.tex")
 
 ```
@@ -1387,9 +1399,9 @@ p_coef_compare$layers[[2]]$data %>%
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, hMOF, ToBaCCo) %>% 
+  format_column_digits(c("hMOF", "ToBaCCo"), 0) %>% 
   save_fig_table("coef_hmof_vs_tobacco.tex")
 
-# TODO MORE
 
 ```
 
@@ -1472,6 +1484,8 @@ less_trained_stats <-
 print(less_trained_stats)
 # Based on this analysis, as few as 100 samples is enough (Q2 of ~0.96, but 50 samples drops this down to 0.7 and clear outliers, when you use the default_binspec)
 less_trained_stats %>% 
+  format_column_digits(c("prmse", "pmae"), 1) %>% 
+  format_column_digits(c("spearman", "kendall"), 2) %>% 
   rename(
     `Number of MOFs` = nfit,
     `RMSE` = prmse,
@@ -1479,7 +1493,7 @@ less_trained_stats %>%
     `$r_{spearman}$` = spearman,
     `$r_{kendall}$` = kendall
     ) %>% 
-  save_fig_table_with_colnames("small_n_stats.tex", digits=4)
+  save_fig_table_with_colnames("small_n_stats.tex")
 
 
 # Note, print returns its argument invisibly, so in a pipe it works like Bash's `tee`

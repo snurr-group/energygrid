@@ -128,19 +128,19 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     if (!is.null(label_q2)) {
       training_stats <- paste0(
         training_stats, "\n",
-        "Q\u00B2 = ", format(label_q2, digits=2)
+        "Q\u00B2 = ", format(label_q2, digits=2, nsmall=2)
         )
     }
     if (do_label_r2) {
       training_stats <- paste0(
         training_stats, "\n",
-        "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2)
+        "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2, nsmall=2)
         )
     }
     training_stats <- paste0(
       training_stats, "\n",
-      "MAE = ", format(postresample_results["MAE"], digits=2), " ", plot_units, "\n",
-      "RMSE = ", format(postresample_results["RMSE"], digits=2), " ", plot_units
+      "MAE = ", format(postresample_results["MAE"], digits=2, nsmall=1), " ", plot_units, "\n",
+      "RMSE = ", format(postresample_results["RMSE"], digits=2, nsmall=1), " ", plot_units
        )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
     p %>% annotate_plot(training_stats, "bottom.right")
   }
@@ -187,8 +187,8 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     annotate_plot(
       as_plotmath(paste0(
         "atop(",  # plotmath can't handle \n, so use a fraction per their recommendation
-        "r[s] == ", format(results$test_spearman["y_pred", "y_act"], digits=2),
-        ",tau == ", format(results$test_kendall["y_pred", "y_act"], digits=2),
+        "r[s] == ", format(results$test_spearman["y_pred", "y_act"], digits=2, nsmall=2),
+        ",tau == ", format(results$test_kendall["y_pred", "y_act"], digits=2, nsmall=2),
         ")"
         )),
       "bottom.right"
