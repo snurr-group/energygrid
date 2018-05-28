@@ -132,7 +132,7 @@ plot_avg_with_distr <- function(all_grids, binspec, print_violin = FALSE, ...) {
     summarize(counts = mean(counts)) %>% 
     ungroup %>% 
     mutate(id = "avg_grid")  # field is later used internally
-  result <- mean_grid %>% plot_hist_bins(binspec, "Fraction of unit cell")
+  result <- mean_grid %>% plot_hist_bins(binspec, "Fraction of unit cell", extend_top=FALSE)
   if (print_violin) {
     result <- result %>% overlay_violin_distr(all_grids, binspec, ...)
   }

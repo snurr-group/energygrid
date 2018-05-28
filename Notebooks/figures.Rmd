@@ -159,10 +159,10 @@ plot_grid(
   p_sub_energies,
   p_sub_isotherm,
   ncol=1,
-  labels=default_subfig_labels, label_size=12
+  labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>%
   save_ben_fig("binding_cases.png", nrow = 2, base_aspect_ratio = 2.0)
-
+# Might also consider the [patchwork library](https://github.com/thomasp85/patchwork) for future ggplot work
 
 
 # Resources for schematic figure in pptx
@@ -342,7 +342,7 @@ p_robust <-
   geom_linerange(size=2) +
   coord_flip() +
   scale_color_gradientn(
-    colors = c("red", "darkgray", "blue"),
+    colors = c("red", "lightgray", "blue"),
     limits = c(-plot_robustness_beta_max, plot_robustness_beta_max),
     breaks = c(-plot_robustness_beta_max, 0, plot_robustness_beta_max),
     labels = c(paste("<",-plot_robustness_beta_max), "0", paste(">",plot_robustness_beta_max)),
@@ -353,7 +353,9 @@ p_robust <-
     x = "Width of histogram bins (kJ/mol)"
   ) +
   #ylim(c(-12.5, 2.5))
-  geom_text(data=hyper_tuned_labels, aes(x=binwidth, y=lower, label=labelval), color="black", size=3, hjust=1)  # add training data/fit to the plot
+  geom_text(data=hyper_tuned_labels, aes(x=binwidth, y=lower, label=labelval), color="black", size=3, hjust=1) +
+  # add training data/fit to the plot
+  theme(legend.key.width = unit(2.5, "mm"))
 save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
 p_robust
 
@@ -936,9 +938,9 @@ plot_grid(
   ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
   p_mfu_isotherm,
   ncol=1,
-  labels=default_subfig_labels, label_size=12
+  labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>%
-  save_ben_fig("mfu_fig.png", nrow = 2, base_aspect_ratio = 2.0)  # 1.5 might work better here, if we crop the mfu_viz figure
+  save_ben_fig("mfu_fig.png", nrow = 2, base_aspect_ratio = 1.75)
 
 ```
 
@@ -1014,10 +1016,10 @@ p_x_distr_hmof
 p_x_distr_tob <- plot_avg_with_distr(grids_h2, default_binspec, print_violin=TRUE)
 p_x_distr_tob
 plot_grid(
-  p_x_distr_hmof + coord_cartesian(xlim = c(-15, 2)),
-  p_x_distr_tob + coord_cartesian(xlim = c(-15, 2)),
+  p_x_distr_hmof + coord_cartesian(xlim = c(-15, 2)) + annotate("text", 0.5, 0.01, hjust=0.5, vjust=0, label="E>0"),
+  p_x_distr_tob + coord_cartesian(xlim = c(-15, 2)) + annotate("text", 0.5, 0.01, hjust=0.5, vjust=0, label="E>0"),
   ncol=1,
-  labels=default_subfig_labels, label_size=12
+  labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>%
   save_si_fig("x_distr.png", nrow = 2, base_aspect_ratio=1.6)
 
