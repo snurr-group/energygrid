@@ -1631,6 +1631,9 @@ p_fine_diff_hist <-
   xlab("Difference in predictions using grid spacings of 1.0 - 0.5 Angstroms")
 print(p_fine_diff_hist)
 
+# Substituting these two values in doesn't systematically predict better or worse
+fine_diff_df %>% mutate(err10 = coarse10-y_act, err05=fine05-y_act) %>% ggplot(aes(err10, err05)) + geom_point() + parity_line
+
 ```
 
 ```{r grid_conv_models}
