@@ -551,14 +551,19 @@ ccdc_predicted %>% arrange(desc(y_pred)) %>% View
 
 ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/top_ccdc.txt", col_names=FALSE)  # A reasonable number of the top candidates.  For the paper, 50 g/L might be a better threshold, since it's only 200 structures and a nice round number.
 
+# Get a list of the top 1000 CCDC MOFs
 ccdc_top1000 <- ccdc_predicted %>% arrange(desc(y_pred)) %>% top_n(1000, y_pred)
+# Actually, let's overwrite this list with a static version, finalized 2018-05-28
+ccdc_top1000_dynamic_id <- ccdc_top1000$id
+ccdc_top1000_static_id <- read_tsv("BigData/Output/top_ccdc_20180528_for_manuscript.txt", col_types="c", col_names="id")$id
+ccdc_top1000 <- filter(ccdc_predicted, id %in% ccdc_top1000_static_id) %>% arrange(desc(y_pred))
+expect_equal(nrow(ccdc_top1000), 1000)
 
 
 # Get the difference of the two lists to submit to mateo for additional screening
 old_screening <- read_tsv("BigData/Output/top_ccdc_20180122.txt", skip=0, col_names="id", col_types="c")$id
 old2_screening <- read_tsv("BigData/Output/new_ccdc_20180131.txt", skip=0, col_names="id", col_types="c")$id  # only ~250
 ccdc_top1000 %>% filter(!(id %in% old_screening) & !(id %in% old2_screening)) %>% arrange(id) %>% select(id) %>% write_tsv("BigData/Output/new_ccdc.txt", col_names=FALSE)  # only 11 in the top 750 in round three, none of which are in the top 600.  Get around to this if there's any remaining in the top 500 in the final model.
-
 
 
 parse_vol_data <- function(filename) {
@@ -572,7 +577,7 @@ parse_vol_data <- function(filename) {
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77)
 }
 screening_gcmc <- 
-  list(orig="ScreenCSD", extended="ExtraCSD2", fill3="ExtraCSD3", quest_mixed="../../quest/FillCCDC77K") %>% 
+  list(orig="ScreenCSD", extended="ExtraCSD2", fill3="ExtraCSD3", quest_mixed="../../quest/FillCCDC77K", quest_final="../../quest/FillCCDC77K/Round2-20180528") %>% 
   map_chr(~paste0("BigData/Mateo/EnergyGrid/", .x, "/volume.tsv")) %>% 
   #list("BigData/Mateo/EnergyGrid/ScreenCSD/volume.tsv") %>% #, "ExtraCSD2") %>% 
   map_dfr(parse_vol_data, .id = "src") %>% 
