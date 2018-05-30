@@ -990,10 +990,25 @@ ad_hoc_h2_grids %>%
 
 ```{r si_distr}
 # Geometric property distributions for the databases
+
+# Let's read in the CoRE MOF database, but hide it by default in the next block
+core_data <- 
+  read_xlsx(
+    "BigData/core_mof_1_si_c4ce02418d1.xlsx",
+    sheet = "Table_S1",
+    range = "B10:J5118",
+    col_names = c("refcode", "metal", "density", "PLD", "LCD", "VSA (m2/cm3)", "GSA (m2/g)", "vf", "pore volume (cm3/g)")
+    )
+
 p_geom_distr <- 
   hmof_textural_data %>% 
   select(LCD, PLD, vf, density, gsa, vsa) %>% 
-  bind_rows(hMOF = ., ToBaCCo = select(tob_textural, LCD, PLD, vf, density, gsa, vsa), .id = "db") %>% 
+  bind_rows(
+    hMOF = .,
+    ToBaCCo = select(tob_textural, LCD, PLD, vf, density, gsa, vsa),
+    #CoRE = select(core_data, LCD, PLD, vf, density, gsa="GSA (m2/g)", vsa="VSA (m2/cm3)"),
+    .id = "db"
+    ) %>% 
   rename(  # plotmath is very messy...
     `atop('Gravimetric surface', 'area'~(m^2/g))` = gsa,
     #`H2 deliverable\ncapacity (g/L)` = h2.deliv.77,
