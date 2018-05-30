@@ -25,7 +25,7 @@ library(glmnet)
 ### From load.data code block
 
 h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
-tobacco_data <- read_xlsx(
+orig_tobacco_data <- read_xlsx(
   "BigData/CrystGrowthDesign_SI.xlsx",
   sheet = "data",
   skip = 3, na = "inf",
@@ -49,18 +49,18 @@ tobacco_data <- read_xlsx(
 )
 tobacco_codes <- read_table2("BigData/mofs_map.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
 
-tobacco_data <- tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
+orig_tobacco_data <- orig_tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
 
-tobacco_data <- tobacco_data %>% 
+orig_tobacco_data <- orig_tobacco_data %>% 
   mutate("n1.name" = str_c("sym", n1.sym, ifelse(n1.character=="organic", "on", "mc"), n1.ID, sep="_")) %>% 
   mutate("n2.name" = str_c("sym", n2.sym, ifelse(n2.character=="organic", "on", "mc"), n2.ID, sep="_"))
 
 # Translate between Scotty's ID and the traditional ToBaCCo filename
 scotty_codes <- read_tsv("BigData/tobacco-20171114/key.tsv", col_names = c("filename", "id"), col_types="cc")
 scotty_codes <- scotty_codes %>% mutate(python.id = str_sub(filename, 1, -5))  # trim .cif suffix
-tobacco_data <- tobacco_data %>% inner_join(scotty_codes, by="python.id")
+orig_tobacco_data <- orig_tobacco_data %>% inner_join(scotty_codes, by="python.id")
 
-# Add in Scotty's LJ-only GCMC
+# Add in Scotty's LJ-only GCMC (no longer just Yamil's results, so let's drop the `orig` designation)
 tobacco_data <-
   read_tsv(
     "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_5bar_160k.tsv",
@@ -70,7 +70,7 @@ tobacco_data <-
   select(-tob.num) %>% 
   mutate(`lj.h2.g.L.5.160` = `lj.h2.v.v.5.160` * 2.0 / 22.4) %>% 
   mutate(`lj.h2.err.g.L.5.160` = `lj.h2.err.v.v.5.160` * 2.0 / 22.4) %>% 
-  left_join(tobacco_data, ., by="id")
+  left_join(orig_tobacco_data, ., by="id")
 tobacco_data <-
   read_tsv(
     "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_100bar_77k.tsv",
