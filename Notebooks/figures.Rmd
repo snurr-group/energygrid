@@ -1823,6 +1823,30 @@ ccdc_h2_grids %>%
 ccdc_h2_grids %>% filter(id %in% (ccdc_dimensionality %>% filter(f3d>0) %>% .$id)) %>% plot_avg_with_distr(., default_binspec, print_violin = TRUE) + coord_cartesian(ylim=c(0, 0.05))
 ```
 
+```{r export_data_for_other_models, eval=FALSE, include=FALSE}
+export_training_data <- function(partitioned_mod, filename) {
+  partitioned_mod$trained_mod %$% bind_cols(y=y, orig_x) %>% write_csv(filename)
+}
+export_training_data(hmof_partitioned_mod, "Figs/ExportedData/hmof_training.csv")
+export_training_data(p_tob_mod, "Figs/ExportedData/tobacco_training.csv")
+export_training_data(mixed_partitioned_mod, "Figs/ExportedData/mixed_training.csv")
+
+# Now get the testing data, using a combination of pred_grid/eval_test_grid.
+export_testing_data <- function(test_grid, df_with_y_act, filename, binspec, align_bins="strict") {
+  grid_desc <- test_grid %>%
+    stepped_hist_spec(binspec, align_bins = align_bins) %>% 
+    spread(key=bin, value=metric)
+  results <- df_with_y_act %>% 
+    select(id, y_act) %>% 
+    inner_join(grid_desc, by="id") %>% 
+    select(-id)
+  results %>% write_csv(filename)
+}
+export_testing_data(hmof_hist_sets$testing, rename(hmof_y_to_join, y_act=g.L), "Figs/ExportedData/hmof_test.csv", default_binspec)
+export_testing_data(tob_hist_sets$testing, rename(tob_y_to_join, y_act=g.L), "Figs/ExportedData/tobacco_test.csv", default_binspec)
+
+```
+
 
 ## TODO notes from meetings
 ### General
