@@ -14,6 +14,7 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 # Has to be run in a separate block as above
 source("Notebooks/setup_data.R")
 library(plotly)
+library(jsonlite)  # for exporting info on the training data used
 ```
 
 ```{r setup_figs}
@@ -953,6 +954,9 @@ p_mfu_isotherm <-
     legend.title = element_blank()
     )
 
+p_mfu_isotherm$data %>% arrange(source, T, `P bar`) %>%
+  write_excel_csv("BigData/Output/plotted_mfu_data_export.csv")
+
 plot_grid(
   ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
   p_mfu_isotherm,
@@ -1844,6 +1848,47 @@ export_testing_data <- function(test_grid, df_with_y_act, filename, binspec, ali
 }
 export_testing_data(hmof_hist_sets$testing, rename(hmof_y_to_join, y_act=g.L), "Figs/ExportedData/hmof_test.csv", default_binspec)
 export_testing_data(tob_hist_sets$testing, rename(tob_y_to_join, y_act=g.L), "Figs/ExportedData/tobacco_test.csv", default_binspec)
+
+```
+
+
+```{r export_training_ids}
+# Has the list of top MOFs changed since running the analysis on 2018-06-09?  Mention it if so
+expect_equal(ccdc_top1000_dynamic_id %>% .[!(. %in% ccdc_top1000_static_id)] %>% length, 0)
+# If it does change, comment out the line above (differences in random seed, environment, etc?)
+# Otherwise, let's keep a list of which MOFs were used in the training data
+ids_for_training_and_testing <- 
+  list(
+    "ToBaCCo H2" = tob_hist_sets,
+    "hMOF H2" = hmof_hist_sets,
+    "hMOF CH4" = p_ch4_sets,
+    "ToBaCCo CH4" = tob_ch4_sets,
+    "Mixed H2" = mixed_h2_hist_sets,
+    "hMOF 0.5AA" = hmof_fine_hist_sets,
+    "hMOF separate conditions" = p_2bar_sets
+  ) %>% 
+  map(~ list(
+    training = unique(.x$training$id),
+    testing = unique(.x$testing$id)
+  ))
+ids_for_training_and_testing %>% toJSON %>% cat(file="BigData/Output/ids_for_training_and_testing.json")
+write_rds(ids_for_training_and_testing, "BigData/Output/ids_for_training_and_testing.Rds")
+# Let's also write the important training sets to separate files for the SI
+# Note the hMOF IDs are just the numberic part of Wilmer's filenames
+ids_for_training_and_testing$`hMOF H2`$training %>% 
+  cat(file="BigData/Output/ids_hmof_h2.txt", sep="\n")
+ids_for_training_and_testing$`ToBaCCo H2`$training %>% 
+  {filter(scotty_codes, id %in% .)} %>% 
+  .$filename %>% 
+  cat(file="BigData/Output/ids_tob_h2.txt", sep="\n")
+ids_for_training_and_testing$`Mixed H2`$training %>% 
+  {c(.[1:500], filter(scotty_codes, id %in% .[501:1000])$filename)} %>% 
+  cat(file="BigData/Output/ids_mixed_h2.txt", sep="\n")
+ccdc_gcmc$id %>%
+  str_sub(0, -10) %>%  # remove the "_stripped" label
+  cat(file="BigData/Output/ids_ccdc_validation.txt", sep="\n")
+# we can convert these to a form for the paper using dos2unix and
+# tr '\n' ',' < ids_tob_h2.txt | sed -e 's/,$//' | sed -e 's/,/, /g' | sed -e 's/_/-/g' > tob_for_paper.txt
 
 ```
 
