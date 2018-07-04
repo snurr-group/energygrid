@@ -213,8 +213,20 @@ p_beta_diff_p <-
   overlay_cat_betas(base_hist, ., default_binspec) %>% 
   replot_hist_and_beta(undo_scaling = BETA_H2_SCALING)
 
-p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
+p_2bar_grids <- hmof_h2_grid_full %>% filter(id %in% p_2bar_data$id)
+p_2bar_grids$id %>% unique %>% write_rds("BigData/Output/p_2bar_grids_id.Rds")
+
+# Filter out these 2bar data again to be 1250 at most
+simplified_2bar_training_ids <- archived_training_ids$`hMOF separate conditions`$training
+simplified_2bar_testing_ids <- archived_training_ids$`hMOF separate conditions`$testing
+simplified_2bar_testing_ids <- sample(simplified_2bar_testing_ids, 2250-length(simplified_2bar_training_ids))
+p_2bar_grids <- p_2bar_grids %>% filter(id %in% c(simplified_2bar_training_ids, simplified_2bar_testing_ids))
+
+
+hmof_hist_sets <- partition_data_subsets(hmof_h2_grid, hmof_y_to_join, DATA_SPLIT, archived_training_ids$`hMOF H2`$training)
+
 p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT, archived_training_ids$`hMOF separate conditions`$training)
+
 p_160k_grids <- read_rds("BigData/Robj/hmof_160k.Rds") %>% 
   mutate(id = as.integer(str_sub(id, 6)))  # remove the "hMOF-" header
 
@@ -496,7 +508,7 @@ zeo_model <-
   #select(id, y_act, LCD, PLD, vf, density, gsa, vsa) %>% 
   select(id, y_act, vf, density, gsa, vsa) %>% 
   fit_textural_model()
-expect_equal(nrow(zeo_model$orig_x), 1000)
+expect_equal(nrow(zeo_model$orig_x), 1000)  # no longer true now that we've changed the hmof grids to be based on 2bar notated data
 hmof_t_test_data <- 
   hmof_textural_data %>% 
   filter(id %in% hmof_hist_sets$testing$id) %>% 
@@ -1669,6 +1681,13 @@ hmof_fine_h2_grid <-
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
   mutate(id = as.integer(str_id)) %>% 
   select(-str_id)
+
+# also filter this one out
+simplified_fine_training_ids <- archived_training_ids$`hMOF 0.5AA`$training
+simplified_fine_testing_ids <- archived_training_ids$`hMOF 0.5AA`$testing
+simplified_fine_testing_ids <- sample(simplified_fine_testing_ids, 2250-length(simplified_fine_training_ids))
+hmof_fine_h2_grid <- hmof_fine_h2_grid %>% filter(id %in% c(simplified_fine_training_ids, simplified_fine_testing_ids))
+
 hmof_fine_hist_sets <- partition_data_subsets(hmof_fine_h2_grid, hmof_y_to_join, DATA_SPLIT, archived_training_ids$`hMOF 0.5AA`$training)
 hmof_fine_partitioned_mod <- run_model_on_partitions(hmof_fine_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
 print(hmof_fine_partitioned_mod)
@@ -1892,15 +1911,4 @@ ccdc_gcmc$id %>%
 
 ```
 
-
-## TODO notes from meetings
-### General
-* Clear remaining notes in the manuscript
-
-### More simulations/grids (older notes)
-* Check that the CCDC MOF simulations are complete (original 77 K might only be 497/500?)
-  * Also see if we need to run new simulations for 5 bar, 160 K conditions
-* Run calculations of the top CCDC candidates and confirm results. (get from mateo:ScreenCSD, ExtraCSD2, and ExtraCSD3)
-  * Update main text in the paper
-* See if there's any CCDC 100 bar or 5 bar data remaining to calculate to check out these top MOFs.
 

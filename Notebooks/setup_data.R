@@ -215,6 +215,20 @@ crashed_grid_ids <-
   .$id
 grids_h2 <- grids_h2 %>% filter(!(id %in% crashed_grid_ids))
 
+# Trim away a few more simulations to give us an even 5000: 1000 for training + 4000 for testing
+# Make sure that this set contains all of the training data we need for the ToBaCCo and mixed training
+simplified_grid_ids <-
+  c(archived_training_ids$`ToBaCCo H2`$training, archived_training_ids$`Mixed H2`$training[501:1000]) %>% 
+  unique
+before_simplified_grid_ids <- grids_h2$id %>% unique
+before_simplified_grid_ids_testing <- before_simplified_grid_ids[!(before_simplified_grid_ids %in% simplified_grid_ids)]
+simplified_grid_ids <- 
+  c(
+    simplified_grid_ids,  # required for training any of the sets
+    sample(before_simplified_grid_ids_testing, 5000-length(simplified_grid_ids))  # we want 4000 testing
+  )
+grids_h2 <- grids_h2 %>% filter(id %in% simplified_grid_ids)
+
 tob_hist_sets <- partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT, archived_training_ids$`ToBaCCo H2`$training)
 
 ### From model_proof_of_concept code block (partial: removed test fits, but kept importing R functions)
@@ -258,8 +272,18 @@ hmof_h2_grid <- hmof_h2_grid %>%
 hmof_y_to_join <- gcmc_data %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))
+
+# Need to filter against a set of 1250 hMOFs
+# Although the results will be slightly different than before, let's use a consistent set for the 2bar/100bar separate
+# models, CH4, and combined DC.
+hmof_h2_grid_full <- hmof_h2_grid  # save the original grids for the mixed model, which has ~20 MOFs without CH4 data
+# For the hmof_h2_grid, let's instead base it on p_2bar_grids (figures.Rmd), which is imported here
+simplified_hmof_complete_ids <- read_rds("BigData/Output/p_2bar_grids_id_20180704.Rds")
+simplified_hmof_training_ids <- archived_training_ids$`hMOF H2`$training
+simplified_hmof_testing_ids <- archived_training_ids$`hMOF H2`$testing
+simplified_hmof_testing_ids <- sample(simplified_hmof_testing_ids, 2250-length(simplified_hmof_training_ids))
+hmof_h2_grid <- hmof_h2_grid_full %>% filter(id %in% c(simplified_hmof_training_ids, simplified_hmof_testing_ids))
 hmof_hist_sets <- partition_data_subsets(hmof_h2_grid, hmof_y_to_join, DATA_SPLIT, archived_training_ids$`hMOF H2`$training)
-# Note: since we're starting with 2500 hMOFs, 40% for training is still 1000, so that works out great.
 
 
 ### From hmof_betas code block (partial: mostly wanted a color.R import)
@@ -284,6 +308,15 @@ p_ch4_grids <- raw_hmof_grids_ch4 %>%
   filter(id %in% p_2bar_data$id)
 
 ch4_binspec <- c(from=-26, to=0.0, step=2.0, width=2.0)
+# Yet again need to make this a nicer, round number.  Let's do 1250
+simplified_grid_training <- archived_training_ids$`hMOF CH4`$training
+simplified_grid_orig_testing <- p_ch4_grids$id %>% unique
+simplified_grid_testing <- simplified_grid_orig_testing[!(simplified_grid_orig_testing %in% simplified_grid_training)]
+simplified_grid_ids_ch4 <- c(
+  simplified_grid_training,
+  sample(simplified_grid_testing, 2250-length(simplified_grid_training))
+)
+p_ch4_grids <- p_ch4_grids %>% filter(id %in% simplified_grid_ids_ch4)
 
 p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT, archived_training_ids$`hMOF CH4`$training)
 
@@ -331,7 +364,7 @@ p_160k_5bar_data <-
 # Can't do this merely by sampling 1000 from the combined database, because then the proportion will be different
 mixed_h2_hist_sets <- list(
   hmof = partition_data_subsets(
-    mutate(hmof_h2_grid, id=paste0("h", id)),
+    mutate(hmof_h2_grid_full, id=paste0("h", id)),
     mutate(hmof_y_to_join, id=paste0("h", id)),
     DATA_SPLIT/2,
     archived_training_ids$`Mixed H2`$training[1:500]
