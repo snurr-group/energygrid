@@ -10,7 +10,7 @@ BETA_CH4_SCALING <- 10 * BETA_H2_SCALING
 BETA_LEGEND_MARGIN <- 0.75  # pt.
 
 # e.g. plot_hist_bins(filter(hist_vals, id==55), default_binspec)
-plot_hist_bins <- function(one_grid, binspec, y_title = NULL, extend_top=TRUE) {
+plot_hist_bins <- function(one_grid, binspec, y_title = NULL, extend_top=FALSE) {
   # Returns an energy histogram plot, possibly as a base layer to beta coefficients
   # If y_title is NULL, skip plotting the primary y axis.
   # If extend_top is TRUE, make the top bin wider to denote its width

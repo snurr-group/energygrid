@@ -364,6 +364,7 @@ p_robust <-
     labels = c(paste("<",-plot_robustness_beta_max), "0", paste(">",plot_robustness_beta_max)),
     name=expression(beta[LASSO])
     ) +
+  scale_x_continuous(breaks=(0:5)/2.0, limits=c(0, NA)) +
   labs(
     y = "Energy (kJ/mol)",
     x = "Width of histogram bins (kJ/mol)"
@@ -705,8 +706,8 @@ for (arun_code in top_25_for_arun) {
   ccdc_h2_grids %>%
     filter(id==paste0(arun_code, "_stripped")) %>%
     {plot_hist_bins(., default_binspec) +
-      scale_y_continuous("Density of sites") +
-      annotate("text", 0.5, 0.01, hjust=0.5, vjust=0, label="E>0")
+      scale_y_continuous("Density of sites")# +
+      #annotate("text", 0.5, 0.01, hjust=0.5, vjust=0, label="E>0")
       } %>% 
     save_si_fig(paste0("TopCandidates/", arun_code, ".png"))
 }
