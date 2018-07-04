@@ -131,15 +131,18 @@ p_sub_isotherm <-
   mutate(g.L = A*bar / (1 + B * bar)) %>% 
   ggplot(aes(bar, g.L, color = id, shape = id)) +
   geom_line() +
-  geom_point(data = p_concept_isotherms) +
+  #geom_point(data = p_concept_isotherms) +
   xlab("Pressure (bar)") + ylab("Uptake (g/L)") +
   geom_vline(xintercept = c(2, 100), linetype="dotted") +
   scale_color_manual(values = c(2, 4), breaks = c("hMOF-1898", "hMOF-5072244"), guide = FALSE) +
   scale_shape_discrete(guide=FALSE) +
-  annotate("segment", x = 95, xend = 95, y = 4.1, yend = 51.1, color = 2, arrow = double_arrow) +
-  annotate("segment", x = 85, xend = 85, y = 27.4, yend = 47.4, color = 4, arrow = double_arrow) +
-  annotate("text", 92, 4.1, label = "47 g/L\nBetter deliverable capacity", color = 2, hjust = 1, vjust = 0) +
-  annotate("text", 82, 27.4, label = "20 g/L\nSteep isotherm", color = 4, hjust = 1, vjust = 0)
+  scale_x_log10(breaks=c(2, 100), limits=c(5e-2, 135)) +
+  annotate("segment", x = 120, xend = 120, y = 4.9, yend = 51.9, color = 2, arrow = double_arrow) +
+  annotate("segment", x = 1.5, xend = 1.5, y = 31.2, yend = 47.3, color = 4, arrow = double_arrow) +
+  annotate("text", 92, 6, label = "47 g/L\nMore delivery", color = 2, hjust = 1, vjust = 0) +
+  annotate("text", 1.2, 31.2, label = "16 g/L\nSteep isotherm", color = 4, hjust = 1, vjust = 0) +
+  annotate("segment", x = 2, xend = 100, y = 4.9, yend = 4.9, color = 2, linetype = "dotted") +
+  annotate("segment", x = 2, xend = 100, y = 47.3, yend = 47.3, color = 4, linetype = "dotted")
 
 # Import ad-hoc grids
 ad_hoc_h2_grids <- read_rds("BigData/Robj/adhoc_h2.Rds")
