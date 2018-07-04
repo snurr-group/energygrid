@@ -392,12 +392,14 @@ ch4_base_hist <-
   ad_hoc_ch4_grids %>% 
   filter(id == "hMOF-0") %>% 
   plot_hist_bins(ch4_binspec)
-p_beta_ch4 <- 
+p_beta_ch4_raw_models <- 
   list(`5.8 bar` = "ch4.cm3.cm3.5_8.298", `65 bar` = "ch4.cm3.cm3.65.298") %>% 
   map(mutate_col_to_gL, df=p_2bar_data) %>%
   map(function(x) run_model_on_partitions(p_ch4_sets, x, ch4_binspec)) %>% 
   map(function(x) x$trained_mod$mod) %>% 
-  map_dfr(coef_tbl, .id="cat") %>% 
+  map_dfr(coef_tbl, .id="cat")
+p_beta_ch4 <- 
+  p_beta_ch4_raw_model %>% 
   overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = BETA_CH4_SCALING) %>% 
   replot_hist_and_beta(undo_scaling = BETA_CH4_SCALING)
 p_beta_comb_ch4 <- 
@@ -1304,12 +1306,18 @@ p_beta_diff_t$layers[[2]]$data %>%
   format_column_digits(c("77 K", "160 K"), 0) %>% 
   save_fig_table_with_colnames("coef_t.tex")
 
-p_beta_ch4$layers[[2]]$data %>% 
+#p_beta_ch4$layers[[2]]$data %>% 
+p_beta_ch4_raw_models %>% left_join(bin_loc_from_spec(ch4_binspec), by="bin") %>% 
   #mutate(beta = beta * BETA_CH4_SCALING) %>%  # See "coef_p.tex"
   select(lower, upper, cat, beta) %>% 
   spread(cat, beta) %>% 
   select(lower, upper, `5.8 bar`, `65 bar`) %>% 
   format_column_digits(c("5.8 bar", "65 bar"), 0) %>% 
+    # from below
+    mutate(Bin=paste(lower, "to", upper, "kJ/mol")) %>% 
+    mutate(Bin=ifelse(is.na(lower), "(Intercept)", Bin)) %>% 
+    arrange(lower) %>% 
+    select(Bin, `5.8 bar`, `65 bar`) %>% 
   save_fig_table_with_colnames("coef_ch4_sep.tex")
 
 # see regu_coef.tex above
