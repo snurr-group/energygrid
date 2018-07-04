@@ -214,7 +214,7 @@ p_beta_diff_p <-
   replot_hist_and_beta(undo_scaling = BETA_H2_SCALING)
 
 p_2bar_grids <- hmof_h2_grid %>% filter(id %in% p_2bar_data$id)
-p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT)
+p_2bar_sets <- partition_data_subsets(p_2bar_grids, p_2bar_data, DATA_SPLIT, archived_training_ids$`hMOF separate conditions`$training)
 p_160k_grids <- read_rds("BigData/Robj/hmof_160k.Rds") %>% 
   mutate(id = as.integer(str_sub(id, 6)))  # remove the "hMOF-" header
 
@@ -1669,7 +1669,7 @@ hmof_fine_h2_grid <-
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
   mutate(id = as.integer(str_id)) %>% 
   select(-str_id)
-hmof_fine_hist_sets <- partition_data_subsets(hmof_fine_h2_grid, hmof_y_to_join, DATA_SPLIT)
+hmof_fine_hist_sets <- partition_data_subsets(hmof_fine_h2_grid, hmof_y_to_join, DATA_SPLIT, archived_training_ids$`hMOF 0.5AA`$training)
 hmof_fine_partitioned_mod <- run_model_on_partitions(hmof_fine_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
 print(hmof_fine_partitioned_mod)
 

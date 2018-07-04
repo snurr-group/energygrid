@@ -137,11 +137,12 @@ bin_loc_from_spec <- function(binspec, bin_above=TRUE, bin_below=TRUE, align_bin
 
 ### DATA PROCESSING ###
 
-partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split) {
+partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split, override_training_ids=NULL) {
   # Splits the raw histogram data into hyperparameter tuning, training, and test subsets.
   # That ensures the results are actually performed on independent sets of data (so the results
   # don't merely state that the model can fit itself)
   # As a side benefit, this speeds up the model processing since each section contains fewer rows.
+  # The function now also allows the user to manually specify the list of MOFs for training for consistency between runs
   set.seed(20171017)
   
   # Get a list of unique ID's for splitting
@@ -178,6 +179,12 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split)
   training_rows <- sample(length(remaining_ids), n_split[2])
   training_ids <- remaining_ids[training_rows]
   training_data <- filtered_hist %>% filter(id %in% training_ids)
+  # Allow the user to override the training set
+  if (!is.null(override_training_ids)) {
+    training_ids <- override_training_ids
+    training_data <- filtered_hist %>% filter(id %in% training_ids)
+    training_rows <- which(remaining_ids %in% training_ids)
+  }
   # For testing
   testing_ids <- remaining_ids[-training_rows]
   testing_data <- filtered_hist %>% filter(id %in% testing_ids)

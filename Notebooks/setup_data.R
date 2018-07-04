@@ -22,6 +22,10 @@ library(glmnet)
 #theme_set(theme_bw(base_size=16) + theme(aspect.ratio=1))  # Default ggplot2 params, now overridden with cowplot
 
 
+# Load a consistent set of MOFs for training data, so that the models remain consistent over time
+archived_training_ids <- read_rds("BigData/Output/ids_for_training_and_testing_20180703.Rds")
+
+
 ### From load.data code block
 
 h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
@@ -211,7 +215,7 @@ crashed_grid_ids <-
   .$id
 grids_h2 <- grids_h2 %>% filter(!(id %in% crashed_grid_ids))
 
-tob_hist_sets <- partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT)
+tob_hist_sets <- partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT, archived_training_ids$`ToBaCCo H2`$training)
 
 ### From model_proof_of_concept code block (partial: removed test fits, but kept importing R functions)
 
@@ -254,7 +258,7 @@ hmof_h2_grid <- hmof_h2_grid %>%
 hmof_y_to_join <- gcmc_data %>% 
   select(id, g.L) %>% 
   filter(!(is.na(g.L) | g.L < 0))
-hmof_hist_sets <- partition_data_subsets(hmof_h2_grid, hmof_y_to_join, DATA_SPLIT)
+hmof_hist_sets <- partition_data_subsets(hmof_h2_grid, hmof_y_to_join, DATA_SPLIT, archived_training_ids$`hMOF H2`$training)
 # Note: since we're starting with 2500 hMOFs, 40% for training is still 1000, so that works out great.
 
 
@@ -281,7 +285,7 @@ p_ch4_grids <- raw_hmof_grids_ch4 %>%
 
 ch4_binspec <- c(from=-26, to=0.0, step=2.0, width=2.0)
 
-p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT)
+p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT, archived_training_ids$`hMOF CH4`$training)
 
 
 ### From ch4_tobacco code block (partial, again for loading data)
@@ -289,7 +293,7 @@ p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT)
 # Repeat the CH4 hMOF analysis for ToBaCCo.  Does it behave like H2 deliverable capacity?
 # First, attempt training/testing only on ToBaCCo data
 grids_ch4_tobacco <- read_rds("BigData/Robj/tobacco_ch4.Rds")
-tob_ch4_sets <- partition_data_subsets(grids_ch4_tobacco, tobacco_data, DATA_SPLIT)
+tob_ch4_sets <- partition_data_subsets(grids_ch4_tobacco, tobacco_data, DATA_SPLIT, archived_training_ids$`ToBaCCo CH4`)
 
 
 ### From ccdc_applicability code block (partial for CCDC data)
@@ -329,9 +333,11 @@ mixed_h2_hist_sets <- list(
   hmof = partition_data_subsets(
     mutate(hmof_h2_grid, id=paste0("h", id)),
     mutate(hmof_y_to_join, id=paste0("h", id)),
-    DATA_SPLIT/2
+    DATA_SPLIT/2,
+    archived_training_ids$`Mixed H2`$training[1:500]
     ),
-  tob = partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT/2)
+  tob = partition_data_subsets(grids_h2, tob_y_to_join, DATA_SPLIT/2,
+                               archived_training_ids$`Mixed H2`$training[501:1000])
   ) %>% 
   transpose %>% 
   map(~bind_rows(.x))
