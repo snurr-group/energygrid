@@ -399,7 +399,7 @@ p_beta_ch4_raw_models <-
   map(function(x) x$trained_mod$mod) %>% 
   map_dfr(coef_tbl, .id="cat")
 p_beta_ch4 <- 
-  p_beta_ch4_raw_model %>% 
+  p_beta_ch4_raw_models %>% 
   overlay_cat_betas(ch4_base_hist, ., ch4_binspec, scaling = BETA_CH4_SCALING) %>% 
   replot_hist_and_beta(undo_scaling = BETA_CH4_SCALING)
 p_beta_comb_ch4 <- 
@@ -411,23 +411,22 @@ p_beta_comb_ch4 <-
 p_ch4_vol$plots %$%
   plot_grid(
     parity_testing %>% rescale_ch4_parity() + theme(axis.title.y = element_text(hjust=1.5)),  # Need to shift it down
-    #parity_testing %>% rescale_ch4_parity() + ylab("Predicted capacity\n(LASSO, cm\u00B3/cm\u00B3)"),  # shrinks it weird, so let's just shift it
-    p_beta_ch4 + theme(legend.position=c(0.25, 0.9), legend.direction="horizontal"),
+    #p_beta_ch4 + theme(legend.position=c(0.25, 0.9), legend.direction="horizontal"),
     p_beta_comb_ch4 + theme(legend.position=c(0, 0.2), legend.direction="horizontal"),
-    ncol = 1, nrow = 3,
-    #rel_heights = c(1.0, 1.1/2.0),
-    rel_heights=c(1.0/1.1, 1.0/2.0, 1.0/2.0),
+    ncol = 1, nrow = 2,
+    #rel_heights=c(1.0/1.1, 1.0/2.0, 1.0/2.0),
+    rel_heights=c(1.0/1.1, 1.0/2.0),
     align = "v",
     labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
     ) %>% 
-  #save_ben_fig("ch4_plots.png", nrow = 3, ncol = 1, base_aspect_ratio=1.1)
   save_plot(
     file.path(default_fig_dir, "ch4_plots.png"),
     .,
     base_width = 8.3 / 2.54,
     #base_height = 8.3 / 2.54 / c(1.1, 2.0, 2.0),
     base_height = 8.3 / 2.54 / 1.1,
-    nrow = 1.0/1.1 + 1,  # Need to set the total height, not the actual number of rows here
+    #nrow = 1.0/1.1 + 1,  # Need to set the total height, not the actual number of rows here
+    nrow = 1.0/1.1 + 0.5,  # Need to set the total height, not the actual number of rows here
     dpi = default_dpi,
   )
 
