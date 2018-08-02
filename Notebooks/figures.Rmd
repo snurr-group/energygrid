@@ -710,7 +710,8 @@ for (arun_code in top_25_for_arun) {
   ccdc_h2_grids %>%
     filter(id==paste0(arun_code, "_stripped")) %>%
     {plot_hist_bins(., default_binspec) +
-      scale_y_continuous("Density of sites")# +
+      scale_y_continuous("Density of sites", limits=c(0, 0.5)) +
+      scale_x_continuous(limits=c(-8, 1.5)) # +
       #annotate("text", 0.5, 0.01, hjust=0.5, vjust=0, label="E>0")
       } %>% 
     save_si_fig(paste0("TopCandidates/", arun_code, ".png"))
@@ -1675,7 +1676,7 @@ p_fine_diff_hist <-
   fine_diff_df %>%
   ggplot(aes(coarse10 - fine05)) +
   geom_histogram() + 
-  xlab("Difference in predictions using grid spacings of 1.0 - 0.5 Angstroms")
+  xlab("Difference in predictions with a finer input grid")
 print(p_fine_diff_hist)
 
 # Substituting these two values in doesn't systematically predict better or worse
