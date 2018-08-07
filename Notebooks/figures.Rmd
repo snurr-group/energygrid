@@ -1185,8 +1185,8 @@ plot_grid(
 
 # Ranking of hMOF and ToBaCCo
 plot_grid(
-  hmof_partitioned_mod$plots$test_ranking,
-  p_tob_from_hmof$plots$test_ranking,
+  hmof_from_mixed$plots$test_ranking,
+  tob_from_mixed$plots$test_ranking,
   ncol=2,
   labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>% 
