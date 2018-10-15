@@ -23,8 +23,8 @@ library(cowplot)
 # See [intro documentation](https://cran.r-project.org/web/packages/cowplot/vignettes/introduction.html) and [vignette](https://cran.r-project.org/web/packages/cowplot/vignettes/plot_grid.html)
 # Per [RSC guidelines](http://www.rsc.org/journals-books-databases/journal-authors-reviewers/submit-your-article/#figures-graphics-images),
 # figures should be single column (8.3cm) or double column (17.1cm) and no longer than 23.3cm.
-# For final submission, they like 600 dpi TIFF files.  Before then, let's use smaller figs.
-default_dpi <- 300
+# For final submission, they like 600 dpi TIFF files.  Before then, let's use smaller figs of 300 dpi.
+default_dpi <- 600
 theme_set(theme_cowplot(font_size = 10))
 default_fig_dir <- "Figs"
 default_subfig_labels <- paste0("(", letters, ")")
@@ -1715,6 +1715,92 @@ plot_grid(
 # This model shows that the fit isn't too much better when you use a finer grid spacing of 0.5 AA instead of 1.0,
 # probably for the same reason that it's insensitive to bin width spacing: if it works with only four terms,
 # why should the precision be important?  Model is robust and based on overall pore properties.
+```
+
+
+```{r fine_hist_diff}
+# Make a quantitative comparison between the 0.5~\AA and 1.0~\AA grid histograms, per reviewer 2 comments
+r2_fine_grids <- hmof_fine_hist_sets$training
+r2_coarse_grids <- hmof_h2_grid %>% filter(id %in% r2_fine_grids$id)
+
+# Before we can compare the two counts, we need to transform the large matrix into histogram space.
+# To get the requisite functions, we can step through `run_model_on_partitions` to see it eventually calls
+# `eval_test_grid(align_bins="strict")` and `pred_grid`.  Within that function, the relevant lines of code are:
+#  grid_desc <- test_grid %>%
+#    stepped_hist_spec(binspec, align_bins = align_bins) %>% 
+#    spread(key=bin, value=metric)
+
+r2_fine_bins <- stepped_hist_spec(r2_fine_grids, default_binspec, align_bins="strict")
+r2_coarse_bins <- stepped_hist_spec(r2_coarse_grids, default_binspec, align_bins="strict")
+
+r2_bin_diff <- 
+  rename(r2_fine_bins, fine="metric") %>% 
+  inner_join(rename(r2_coarse_bins, coarse="metric"), by=c("bin", "id")) %>% 
+  mutate(diff = coarse - fine, pdiff = diff / fine * 100) %>% 
+  left_join(coef_tbl(hmof_partitioned_mod$trained_mod$mod), by="bin") %>% 
+  mutate(dcdiff = diff * beta) %>% 
+  left_join(bin_loc_from_spec(default_binspec), by="bin")
+
+# Use absolute difference instead of percent for two reasons:
+# 1. Contribution to deliverable capacity is directly based on the height of the bin
+# 2. Percent is highly sensitive to poorly populated bins
+r2_plot_bin_diff <- 
+  r2_bin_diff %>% 
+  ###ggplot(aes(group=bin, y=diff)) +
+  #mutate(mylabel = factor(lower)) %>% 
+  #ggplot(aes(x=mylabel, y=diff)) +
+  # Adding in the bin locations:
+  ggplot(aes(group=bin, x=loc, y=diff)) +
+  #ggplot(aes(bin, diff)) +
+  geom_boxplot() +
+  #ylab("Difference in unit cell proportion (coarse - fine)") +
+  ylab("Change in energy histogram bin") +
+  xlab("Energy (kJ/mol)") +
+  scale_y_continuous(breaks = 0.02*(-2:2))
+print(r2_plot_bin_diff)
+#save_si_fig(r2_plot_bin_diff, "r2_bin_diff.png")
+
+# Merging in the coefficients of the mixed model to make a boxplot by difference in the predicted
+# deliverable capacity.  If it's a small effect individually, then it really shouldn't matter.
+r2_plot_dc_diff <- 
+  r2_bin_diff %>% 
+  ggplot(aes(group=bin, x=loc, y=dcdiff)) +
+  geom_boxplot() +
+  #ylab("Difference in predicted deliverable capacity due to bin") +
+  ylab("Change in pred. deliverable capacity (g/L)") +
+  xlab("Energy (kJ/mol)")
+#save_si_fig(r2_plot_dc_diff, "r2_dc_diff.png")
+r2_id_high_dc_diff <- 
+  r2_bin_diff %>% 
+  mutate(adiff = abs(dcdiff)) %>% 
+  group_by(id) %>% 
+  summarize(max_dcdiff = max(dcdiff)) %>% 
+  filter(max_dcdiff > 0.5) %>% 
+  .$id
+
+
+plot_grid(
+  r2_plot_bin_diff,
+  r2_plot_dc_diff,
+  ncol = 2, nrow = 1,
+  labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
+  ) %>% 
+  save_si_fig("r2_plot_diff.png", ncol = 2, nrow = 1)
+
+
+# In this next figure, I was trying to see if an increase in one bin was offset by 
+r2_bin_diff %>% 
+  filter(id %in% r2_id_high_dc_diff) %>% 
+  left_join(gcmc_data, by="id") %>% 
+  ggplot(aes(bin, dcdiff, group=id, color=lcd)) + geom_line() +
+  scale_color_viridis()
+
+
+# hmof_partitioned_mod$trained_mod
+# But what about an enhancement in model accuracy? (Ilja's question about the directionality of the model predictions)
+# The answer is again we're most interested in a rapid model that can directionally lead us to the right MOF subset, not quantitatively predicting the deliverable capacity
+
+
 ```
 
 
