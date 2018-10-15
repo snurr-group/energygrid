@@ -166,7 +166,7 @@ plot_grid(
   align = "v",
   labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>%
-  save_ben_fig("binding_cases.png", nrow = 2, base_aspect_ratio = 2.0)
+  save_ben_fig("fig2.png", nrow = 2, base_aspect_ratio = 2.0)
 # Might also consider the [patchwork library](https://github.com/thomasp85/patchwork) for future ggplot work
 
 
@@ -252,7 +252,7 @@ plot_grid(
   align = "v",
   labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>%
-  save_ben_fig("betas.png", nrow = 3, base_aspect_ratio = 2)
+  save_ben_fig("fig3.png", nrow = 3, base_aspect_ratio = 2)
 
 
 # Model fit for hMOF ridge regression model
@@ -264,7 +264,7 @@ hmof_partitioned_mod$plots %$%
     ncol = 1,
     labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
     ) %>% 
-  save_ben_fig("parity.png", nrow = 2)
+  save_ben_fig("fig4.png", nrow = 2)
 
 # Print stats for other databases, including fitting the ToBaCCo data to itself
 # tob_y_to_join and tob_hist_sets are defined in setup_data.R
@@ -331,7 +331,7 @@ p_tob_mod$plots %$%
     #labels=default_subfig_labels, label_size=12
     labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
     ) %>% 
-  save_ben_fig("general_parity.png", nrow = 2, ncol = 2)
+  save_ben_fig("fig5.png", nrow = 2, ncol = 2)
 
 
 
@@ -376,7 +376,7 @@ p_robust <-
   geom_text(data=hyper_tuned_labels, aes(x=binwidth, y=lower, label=labelval), color="black", size=3, hjust=1) +
   # add training data/fit to the plot
   theme(legend.key.width = unit(2.5, "mm"))
-save_ben_fig(p_robust, "beta_robustness.png", base_aspect_ratio=1.3)
+save_ben_fig(p_robust, "fig7.png", base_aspect_ratio=1.3)
 p_robust
 
 
@@ -420,7 +420,7 @@ p_ch4_vol$plots %$%
     labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
     ) %>% 
   save_plot(
-    file.path(default_fig_dir, "ch4_plots.png"),
+    file.path(default_fig_dir, "fig6.png"),
     .,
     base_width = 8.3 / 2.54,
     #base_height = 8.3 / 2.54 / c(1.1, 2.0, 2.0),
@@ -981,7 +981,7 @@ plot_grid(
   ncol=1,
   labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>%
-  save_ben_fig("mfu_fig.png", nrow = 2, base_aspect_ratio = 1.75)
+  save_ben_fig("fig8.png", nrow = 2, base_aspect_ratio = 1.75)
 
 ```
 
