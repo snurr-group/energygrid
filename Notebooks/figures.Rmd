@@ -1676,7 +1676,7 @@ p_fine_diff_hist <-
   fine_diff_df %>%
   ggplot(aes(coarse10 - fine05)) +
   geom_histogram() + 
-  xlab("Difference in predictions with a finer input grid")
+  xlab("Difference in predictions from coarse input grid (g/L)")
 print(p_fine_diff_hist)
 
 # Substituting these two values in doesn't systematically predict better or worse
@@ -1704,13 +1704,20 @@ hmof_fine_hist_sets <- partition_data_subsets(hmof_fine_h2_grid, hmof_y_to_join,
 hmof_fine_partitioned_mod <- run_model_on_partitions(hmof_fine_hist_sets, hmof_y_to_join, default_binspec, db_name = "hMOFs")
 print(hmof_fine_partitioned_mod)
 
+p_fine_parity <- 
+  fine_diff_df %$%
+  parity_plot(fine05, coarse10) +
+  xlab("Prediction from 0.5 Angstrom grid (g/L)") +
+  ylab("Prediction from 1.0 Angstrom grid (g/L)")
+
 plot_grid(
-  hmof_fine_partitioned_mod$plots$parity_testing,
+  p_fine_parity,
   p_fine_diff_hist,
-  ncol = 2,
+  hmof_fine_partitioned_mod$plots$parity_testing,
+  ncol = 3,
   labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
   ) %>% 
-  save_si_fig("coarse_grid_points.png", ncol = 2)
+  save_si_fig("coarse_grid_points.png", ncol = 3)
 
 # This model shows that the fit isn't too much better when you use a finer grid spacing of 0.5 AA instead of 1.0,
 # probably for the same reason that it's insensitive to bin width spacing: if it works with only four terms,
