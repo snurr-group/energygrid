@@ -200,6 +200,16 @@ p_beta_orig <- base_hist %>%
   replot_hist_and_beta(undo_scaling = BETA_H2_SCALING)
 p_beta_orig
 
+# Save MOF-5 base_hist and betas for AIChE 2018 presentation
+# Adapted theming from replot_hist_and_beta
+aiche18_hist <-
+  base_hist +
+  scale_y_continuous(breaks=NULL, limits=c(0, 0.5), sec.axis = sec_axis(~., name="Volume fraction", breaks=c(0, 0.5))) +
+  theme(axis.text.y.right = element_text(color="#8A226A"), axis.title.y.right = element_text(color="#8A226A"))
+aiche18_hist
+aiche18_hist %>% save_ben_fig("aiche18_hist.png", base_aspect_ratio = 2)
+p_beta_orig %>% save_ben_fig("aiche18_beta.png", base_aspect_ratio = 2)
+
 # Beta coefficients for different pressures and temperatures
 # For help on NSE in dplyr, see vignette("programming")
 library(rlang)  # see also https://github.com/tidyverse/rlang/issues/116
