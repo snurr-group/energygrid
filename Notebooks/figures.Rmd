@@ -276,6 +276,15 @@ hmof_partitioned_mod$plots %$%
     ) %>% 
   save_ben_fig("fig4.png", nrow = 2)
 
+hmof_partitioned_mod$plots %$%
+  plot_grid(
+    parity_training,
+    parity_testing,
+    ncol = 2
+    #labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
+    ) %>% 
+  save_ben_fig("poster_row_fig4.png", ncol = 2)
+
 # Print stats for other databases, including fitting the ToBaCCo data to itself
 # tob_y_to_join and tob_hist_sets are defined in setup_data.R
 p_tob_mod <- run_model_on_partitions(tob_hist_sets, tob_y_to_join, default_binspec, db_name = "ToBaCCo MOFs")
@@ -984,6 +993,25 @@ p_mfu_isotherm <-
 
 p_mfu_isotherm$data %>% arrange(source, T, `P bar`) %>%
   write_excel_csv("BigData/Output/plotted_mfu_data_export.csv")
+
+save_ben_fig(p_mfu_isotherm, "sq_poster_fig8.png", base_aspect_ratio=1.75)
+#plot_grid(
+#  ggdraw() + draw_image("Figs/mfu_viz_rotated.png", scale=0.9),
+#  p_mfu_isotherm,
+#  ncol=2,
+#  rel_widths = c(0.4, 1)
+#  #labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
+#  ) %>%
+#  save_ben_fig("lr_poster_fig8.png", ncol = 2, base_aspect_ratio = 1)
+plot_grid(
+  ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
+  p_mfu_isotherm,
+  ncol=2,
+  rel_widths = c(0.5, 1)
+  #labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
+  ) %>%
+  save_ben_fig("lr_poster_fig8.png", ncol = 2, base_aspect_ratio = 1)
+
 
 plot_grid(
   ggdraw() + draw_image("Figs/mfu_viz.png", scale=0.9),
