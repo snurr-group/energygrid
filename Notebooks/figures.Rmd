@@ -275,6 +275,8 @@ hmof_partitioned_mod$plots %$%
     labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
     ) %>% 
   save_ben_fig("fig4.png", nrow = 2)
+{hmof_partitioned_mod$plots$parity_training + xlab("GCMC capacity (g/L)") + ylab("Fitted capacity (g/L)")}%>% save_ben_fig("aiche18_training.png")
+{hmof_partitioned_mod$plots$parity_testing  + xlab("GCMC capacity (g/L)") + ylab("Predicted capacity (g/L)")}%>% save_ben_fig("aiche18_testing.png")
 
 hmof_partitioned_mod$plots %$%
   plot_grid(
@@ -351,6 +353,14 @@ p_tob_mod$plots %$%
     labels=default_subfig_labels, label_size=12, hjust=0, vjust=1
     ) %>% 
   save_ben_fig("fig5.png", nrow = 2, ncol = 2)
+
+#{p_ccdc_parity  + xlab("GCMC capacity (g/L)") + ylab("Predicted capacity (g/L)")}%>% save_ben_fig("aiche18_csd.png")
+ccdc_h2_grids %>% 
+  filter(id %in% ccdc_gcmc$id) %>% 
+  # removing the db_name label
+  eval_test_grid(mixed_partitioned_mod$trained_mod, ., default_binspec, mutate(ccdc_gcmc, y_act=g.L), db_name = "") %>% 
+  {.$plots$parity_testing + xlab("GCMC capacity (g/L)") + ylab("Predicted capacity (g/L)")} %>% 
+  save_ben_fig("aiche18_csd.png")
 
 
 
@@ -448,6 +458,8 @@ p_ch4_vol$plots %$%
     nrow = 1.0/1.1 + 0.5,  # Need to set the total height, not the actual number of rows here
     dpi = default_dpi,
   )
+
+{p_ch4_vol$plots$parity_testing %>% rescale_ch4_parity() + theme(axis.title.y = element_text(hjust=0.5)) + xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)")}%>% save_ben_fig("aiche18_ch4.png")
 
 ```
 
