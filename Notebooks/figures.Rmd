@@ -1519,6 +1519,19 @@ p_coef_compare$layers[[2]]$data %>%
   format_column_digits(c("hMOF", "ToBaCCo"), 0) %>% 
   save_fig_table("coef_hmof_vs_tobacco.tex")
 
+# Repeat, including the Mixed coefficients
+# Modify the p_coef_compare assignment earlier in this block so we can also export the intercepts
+list(
+    `hMOF` = hmof_partitioned_mod$trained_mod$mod,
+    `ToBaCCo` = p_tob_mod$trained_mod$mod,
+    `Mixed` = mixed_partitioned_mod$trained_mod$mod
+    ) %>% 
+  map_dfr(coef_tbl, .id="cat") %>%
+  spread(cat, beta) %>% 
+  left_join(bin_loc_from_spec(default_binspec), by="bin") %>% 
+  arrange(loc) %>% 
+  select(bin, lower, upper, hMOF, ToBaCCo, Mixed) %>% 
+  write_tsv("Figs/coef_mixed_export.tsv")
 
 ```
 
@@ -2022,6 +2035,9 @@ export_testing_data <- function(test_grid, df_with_y_act, filename, binspec, ali
 }
 export_testing_data(hmof_hist_sets$testing, rename(hmof_y_to_join, y_act=g.L), "Figs/ExportedData/hmof_test.csv", default_binspec)
 export_testing_data(tob_hist_sets$testing, rename(tob_y_to_join, y_act=g.L), "Figs/ExportedData/tobacco_test.csv", default_binspec)
+# From definition of p_ccdc_random -> p_ccdc_parity -> fig5.png
+export_testing_data(ccdc_h2_grids %>% filter(id %in% ccdc_gcmc$id), rename(ccdc_gcmc, y_act=g.L), "Figs/ExportedData/ccdc_validation.csv", default_binspec)
+
 
 ```
 
