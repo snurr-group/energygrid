@@ -2,6 +2,7 @@ import math
 import numpy as np
 import CifFile
 import re
+import warnings
 
 
 def permutations(combo_array):
@@ -52,7 +53,9 @@ def clean_uc(array_with_uncertainty):
 class CifBox:
 	# Simulation box parameters
 	def __init__(self, cifdata, crystal_radius=0):
-		if cifdata['_symmetry_space_group_name_H-M'] not in ["P1", "P 1"]:
+		if '_symmetry_space_group_name_H-M' not in cifdata.keys():
+			warnings.warn("No space group found.  Assuming P1.")
+		elif cifdata['_symmetry_space_group_name_H-M'] not in ["P1", "P 1"]:
 			raise TypeError("CIF parsing is currently only supported for P1 unit cells")
 		# By default, use standard periodic boundary conditions on a generic triclinic cell
 		# If crystal_radius is defined (and larger than one Angstrom), use ghost atoms
