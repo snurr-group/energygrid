@@ -1,0 +1,16 @@
+library(dplyr)
+library(readr)
+library(tidyr)
+library(openxlsx)
+#gcmc_data <- read_table2("new_propane.txt")
+#gcmc_data <- read_table("new_propane.txt")
+gcmc_data <- read_table("propane_60bar.txt")
+#gcmc_data <- read_table("tobacco_propane_5k.txt")
+#gcmc_data <- read_table("propane_9000_cycle.txt")
+#gcmc_data <- read_table("propane_1000pa.txt")
+gcmc_data <- separate(gcmc_data, col = `ID  Temp   Pres`, into = c("ID Temp", "Pres"), sep = "  ")
+gcmc_data <- separate(gcmc_data, col = `ID Temp`, into = c("ID",  "Temp"), sep = " ")
+
+
+gcmc_data <- na.omit(gcmc_data)
+#write.xlsx(gcmc_data, "propane_1000pa.xlsx")
