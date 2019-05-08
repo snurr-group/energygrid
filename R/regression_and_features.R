@@ -143,7 +143,7 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
   # don't merely state that the model can fit itself)
   # As a side benefit, this speeds up the model processing since each section contains fewer rows.
   # The function now also allows the user to manually specify the list of MOFs for training for consistency between runs
-  set.seed(20171017)
+
   
   # Get a list of unique ID's for splitting
   filtered_hist <- unprocessed_x_with_id %>% 
@@ -167,6 +167,7 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
   }
   
   # For hyperparameter tuning
+  # maybe we can delete since it is not used, maybe it will break (050819)
   hyperparam_rows <- sample(num_ids, n_split[1])
   hyperparam_ids <- filtered_ids[hyperparam_rows]
   hyperparam_data <- filtered_hist %>% filter(id %in% hyperparam_ids)
