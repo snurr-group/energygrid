@@ -24,8 +24,8 @@ bounds_from_params <- function(step, width, from, to, align_bins="strict") {
   lower_downward <- upper_downward - width
   
   if (align_bins == "strict") {
-    stopifnot(lower_bounds == lower_downward)
-    stopifnot(upper_bounds == upper_downward)
+	stopifnot(isTRUE(all.equal(lower_bounds, lower_downward)))
+    stopifnot(isTRUE(all.equal(upper_bounds, upper_downward)))
   } else if (align_bins == "downward") {  # direction of "to" to "from"
     lower_bounds <- lower_downward
     upper_bounds <- upper_downward
