@@ -148,7 +148,7 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
   # Get a list of unique ID's for splitting
   filtered_hist <- unprocessed_x_with_id %>% 
     filter(id %in% y_with_id$id)
-  filtered_ids <- filtered_hist$id %>% unique
+  filtered_ids <- filtered_hist$id %>% unique # remove duplicated ids
   num_ids <- length(filtered_ids)
   
   n_split <- integer(3)
