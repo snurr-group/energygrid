@@ -47,7 +47,7 @@ stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TR
 
   #.id grabs the bin number, which should be sufficient as an identifier.
   # This approach will also likely be easier for "spread"-ing back into columns for plsr
-  result_hist <- map2_dfr(lower_bounds, upper_bounds, metric_from_hists, hist_df=df, warn=FALSE, .id="bin")
+  result_hist <- map2_dfr(lower_bounds, upper_bounds, metric_from_hists, hist_df=df, warn=FALSE, .id="bin") # return df created by binding rows
   
   if (bin_above) {
     # If specified, add a bin above containing the remainder.
@@ -178,15 +178,15 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
     remaining_ids <- filtered_ids  # -numeric(0) returns numeric(0) or something similar
   }
   training_rows <- sample(length(remaining_ids), n_split[2])
-  training_ids <- remaining_ids[training_rows]
+  training_ids <- remaining_ids[training_rows] # these remaining_ids correspond to the grids id, not gcmc id! Comment by reader
   training_data <- filtered_hist %>% filter(id %in% training_ids)
   # Allow the user to override the training set
   if (!is.null(override_training_ids)) {
     training_ids <- override_training_ids
     training_data <- filtered_hist %>% filter(id %in% training_ids)
-    training_rows <- which(remaining_ids %in% training_ids)
+    training_rows <- which(remaining_ids %in% training_ids) # return the location of training_ids in remaining_ids
   }
-  # For testing
+  #For testing
   testing_ids <- remaining_ids[-training_rows]
   testing_data <- filtered_hist %>% filter(id %in% testing_ids)
   #y_to_join is already set in the calling function
@@ -198,16 +198,13 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
     )
 }
 
-standardize_from_props <- function(x, remove_cols, meanz, stdz) {
-  # Apply standardization procedures
-  x <- x[,!(names(x) %in% remove_cols)]
-  # Thanks to this gem on the mailing list: https://stat.ethz.ch/pipermail/r-help/2006-May/104690.html
-  x <- (x - meanz[rep(1,times=nrow(x)),]) / (stdz[rep(1,times=nrow(x)),])
-  x
-}
 
 standardize <- function(glm_mod, x) {
-  standardize_from_props(x, glm_mod$removed_cols, glm_mod$meanz, glm_mod$stdz)
+  # Apply standardization procedures
+  x <- x[,!(names(x) %in% glm_mod$removed_cols)]
+  # Thanks to this gem on the mailing list: https://stat.ethz.ch/pipermail/r-help/2006-May/104690.html
+  x <- (x - glm_mod$meanz[rep(1,times=nrow(x)),]) / (glm_mod$stdz[rep(1,times=nrow(x)),])
+  x
 }
 
 standardization_from_x <- function(x, zscore = TRUE) {
@@ -269,7 +266,7 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = DEFAULT_ALPHA, fit_intercept
   removed_cols <- x_standardization$removed_cols
   meanz <- x_standardization$meanz
   stdz <- x_standardization$stdz
-  x <- standardize_from_props(x, removed_cols, meanz, stdz)
+  x <- standardize(x_standardization, x)
   
   # If lambda is not defined, let's calculate the largest (most regularized) value within one SE of the min. cross-validated error
   cvfit <- NULL
@@ -320,7 +317,7 @@ run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), l
     left_join(y_with_id, by="id") %>%
     rename(y = g.L) %>% 
     .$y
-  x_id <- x %>% select(id)
+  x_id <- x %>% select(id) # keeps the variable you mentioned
   x <- x %>% select(-id)
   
   q2 <- calc_q2(x, y, alpha=alpha)
