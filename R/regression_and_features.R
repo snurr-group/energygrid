@@ -301,8 +301,6 @@ fit_glmnet <- function(x, y, lambda = NULL, alpha = DEFAULT_ALPHA, fit_intercept
 pred_glmnet <- function(glm_mod, x_tbl) {
   # Standardize data in x_tbl and apply the glmnet ridge regression model
   # glm_mod must be the form as returned by fit_glmnet, including the mod and x/y/stdz data
-  #x <- x_tbl[,!(names(x_tbl) %in% glm_mod$removed_cols)]
-  #x <- (x - glm_mod$meanz[rep(1,times=nrow(x)),]) / (glm_mod$stdz[rep(1,times=nrow(x)),])
   x <- standardize(glm_mod, x_tbl)
   predict(glm_mod$mod, as.matrix(x)) %>% as.numeric
 }
