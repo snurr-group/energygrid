@@ -307,7 +307,7 @@ pred_glmnet <- function(glm_mod, x_tbl) {
   predict(glm_mod$mod, as.matrix(x)) %>% as.numeric
 }
 
-run_bin_model <- function(e_data, y_with_id, step, width, bin_lims=c(-8, 0.5), lambda=NULL, alpha=DEFAULT_ALPHA, align_bins="strict", ...) {
+run_bin_model <- function(e_data, y_with_id, step, width, bin_lims, lambda=NULL, alpha=DEFAULT_ALPHA, align_bins="strict", ...) {
   # Runs the ridge regression model, transforming e_data into a stepped histogram with appropriate y columns.
   # Also runs cross-validation and returns the model for later consideration
   x <- e_data %>% 
