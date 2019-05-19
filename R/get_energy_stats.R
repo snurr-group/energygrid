@@ -15,16 +15,6 @@ QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the 
 
 SIMPLE_ENERGY_FILE <- "sm_Energy_Values.txt"  # previously Energy_Values.txt
 
-R_GAS <- 8.314  # J/mol.K
-
-
-k_to_kj_mol <- function(energy)  {
-  #kb <- 1.38064853e-23  # J/K from Wikipedia
-  #na <- 6.022e23
-  #energy * kb * na / 1000
-  energy * R_GAS / 1000
-}
-
 energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   # Run a stats_fcn on all files nestled within data_dir, according to the cif_dir spec
   # Returns a data.frame, where each CIF's stats has num_rows by df_prototype entries
