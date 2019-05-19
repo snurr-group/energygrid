@@ -5,7 +5,7 @@ library(R.utils)
 library(manipulate)
 
 # deprecated cutoff parameters
-TEMPERATURE = 77  # K
+TEMPERATURE = 298  # K
 E_CUTOFF <- 15 * TEMPERATURE  # K
 
 BIN_WIDTH = 5
