@@ -11,7 +11,7 @@ E_CUTOFF <- 15 * TEMPERATURE  # K
 BIN_WIDTH = 5
 ENERGY_RANGE = c(-1000, 20)
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
-QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
+QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
 
 SIMPLE_ENERGY_FILE <- "sm_Energy_Values.txt"  # previously Energy_Values.txt
 
