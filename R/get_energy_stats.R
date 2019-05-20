@@ -13,18 +13,17 @@ ENERGY_RANGE = c(-1000, 20)
 ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
 QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
 
-SIMPLE_ENERGY_FILE <- "sm_Energy_Values.txt"  # previously Energy_Values.txt
 
 energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
-  # Run a stats_fcn on all files nestled within data_dir, according to the cif_dir spec
-  # Returns a data.frame, where each CIF's stats has num_rows by df_prototype entries
-  dirs <- list.files(data_dir)
+  # Run a stats_fcn on all raspa grid files
+  # Returns a data.frame, where each grid's stats has num_rows by df_prototype entries
+  files <- list.files(data_dir)
   if (QUICK_TEST) {
-    dirs <- dirs[1:100]  # Debugging trick to only run the first 100 folders
+    files <- files[1:100]  # Debugging trick to only run the first 100 folders
   }
-  num_cifs <- length(dirs)
-  if (all(str_detect(dirs, "\\.grid$"))) {
-    dirs <- str_sub(dirs, 0, -6)
+  num_cifs <- length(files)
+  if (all(str_detect(files, "\\.grid$"))) {
+    files <- str_sub(files, 0, -6)
   }
   
   # Preallocate a df using an R.utils function: http://r.789695.n4.nabble.com/idiom-for-constructing-data-frame-td4705353.html
@@ -34,14 +33,9 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   write(paste0("Compiling statistics from the energy files in ", data_dir, "..."), "")
   pb <- txtProgressBar(min = 1, max = num_cifs, style = 3)  # Add a progress bar, courtesy of https://www.r-bloggers.com/r-monitoring-the-function-progress-with-a-progress-bar/
   current_row = 1
-  for (cif_dir in dirs) {
-    if (nested_dirs) {
-      energy_file <- file.path(data_dir, cif_dir, SIMPLE_ENERGY_FILE)
-    } else {
-      energy_file <- file.path(data_dir, paste0(cif_dir, ".grid"))
-    }
+  for (raspa_grid in files) {
+      energy_file <- file.path(data_dir, paste0(raspa_grid, ".grid"))
     
-    # print(energy_file)
     # File I/O (next line) is the bottleneck.  read_table is faster than read_tsv
     energy <- read_table(energy_file, col_names = "V1", col_types = "d")$V1  # faster than read_tsv for similar purposes
     end_row <- current_row + num_rows - 1
@@ -52,10 +46,10 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   close(pb)
   
   # Assign a numeric ID column to hMOFs, character otherwise
-  if (all(str_detect(dirs, "^h[^M]"))) {  # prevent false detection of hMOF-number
-    ids <- as.integer(str_sub(dirs, 2, -1))  # strip off leading "h" for hMOF designation
+  if (all(str_detect(files, "^h[^M]"))) {  # regular expressions(RegEx), prevent false detection of hMOF-number
+    ids <- as.integer(str_sub(files, 2, -1))  # strip off leading "h" for hMOF designation
   } else {
-    ids <- as.character(dirs)
+    ids <- as.character(files)
   }
   ids <- rep(ids, each=num_rows)
   all_stats$id <- ids
