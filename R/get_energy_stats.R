@@ -23,9 +23,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
     dirs <- dirs[1:100]  # Debugging trick to only run the first 100 folders
   }
   num_cifs <- length(dirs)
-  nested_dirs <- TRUE
   if (all(str_detect(dirs, "\\.grid$"))) {
-    nested_dirs <- FALSE
     dirs <- str_sub(dirs, 0, -6)
   }
   
@@ -64,7 +62,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   all_stats
 }
 
-
+# converting distribution to a descriptor 
 energy_summary <- function(data_dir, upper_cutoff = E_CUTOFF) {
   # Computes the six-number summary for the pretabulated energies, using a max cutoff
   energy_summary_fcn <- function(energy) {
@@ -90,6 +88,7 @@ energy_metric <- function(data_dir, lower_bound = -200, upper_bound = 0) {
   energy_stats(data_dir, energy_metric_fcn, output_prototype)
 }
 
+# converting hists to metric stuff
 metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn = TRUE) {
   # Compute the "LJ metric" based on given cutoffs
   # Set a bound to NA for open intervals (e.g., energy > -200, but no upper bound)
@@ -113,7 +112,7 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
   lj_metric
 }
 
-
+# row based format of energy hist, we can convert tidy to row though
 row_energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)) {
   # Retrieve the histograms from the energy directories
   # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
@@ -168,15 +167,6 @@ tidy_energy_hists <- function(data_dir, bin_width = BIN_WIDTH, min_max = ENERGY_
 }
 
 
-bin_labels <- function(bin_width = TEMPERATURE, min_max = c(-15, 15)) {
-  # Get the lower boundaries of the histogram "breaks"
-  # Uses the same parameters as energy_hists
-  lower_bins <- seq(from = bin_width * min_max[1],
-                    to   = bin_width * (min_max[2]),
-                    by   = bin_width
-                    )
-}
-
 run_energy_stat <- function(dirs, stat_fcn, ...) {
   # Runs the stat function over multiple directories to reduce copy-paste
   all_stats <- stat_fcn(dirs[1])
@@ -188,24 +178,7 @@ run_energy_stat <- function(dirs, stat_fcn, ...) {
   all_stats
 }
 
-run_interactive_lj_plot <- function() {
-  # Requires that gcmc_data is already loaded into the workspace
-  # As shown by the [Rstudio documentation](https://support.rstudio.com/hc/en-us/articles/200551906-Interactive-Plotting-with-Manipulate)
-  # manipulate is an easy package to use in this IDE.
-  # Could probably be more efficient (fast), but honestly it's impressive it works as well as it does
-  print("Click on the gear to play with the upper and lower bounds!")
-  print(paste0("Currently, +", (ENERGY_RANGE[2]+1)*BIN_WIDTH, " is a special entry corresponding to >", ENERGY_RANGE[2]*BIN_WIDTH, "K"))
-  manipulate(
-    hist_vals %>% 
-      metric_from_hists(lower=lower_bound, upper=upper_bound) %>%
-      left_join(gcmc_data, by="id") %>%
-      ggplot(aes(metric, g.L)) + geom_point(),
-    upper_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-10, step=BIN_WIDTH),
-    lower_bound = slider(ENERGY_RANGE[1], ENERGY_RANGE[2], initial=-200, step=BIN_WIDTH)
-    )
-  # hist_vals %>% filter(counts > 0) %>% select(lower) %>% min
-  # will return -830 as the lowest occupied energy bin
-}
+
 
 calculate_hists <- function() {
   #hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
@@ -221,6 +194,7 @@ floord <- function(x, digits=0) {
   rounded / multiplier
 }
 
+# generate roc curve related stuff. related to metric plot
 cutoff_required <- function(histogram, bounds = c(-200, -10), capacity = 47) {
   # What is the LJ metric cutoff (and number of flagged GCMC simulations) required
   # to obtain all structures with volumetric capacity >= the specified value (48 g/L)
@@ -244,6 +218,7 @@ cutoff_required <- function(histogram, bounds = c(-200, -10), capacity = 47) {
              row.names=NULL)
 }
 
+# heat map, sensitivity to lower or upper bound
 grid_search <- function(f, lower_range, upper_range, by, lower.lt.upper = TRUE) {
   # Grid search to optimize the cutoff parameters
   # Optimizes a function f that takes 2 parameters, lower and upper.
@@ -263,7 +238,7 @@ grid_search <- function(f, lower_range, upper_range, by, lower.lt.upper = TRUE) 
   close(pb)
   results
 }
-
+# using closure to return a function (cutoff_required)
 cutoff_req_grid_f_generator <- function(histogram, capacity) {
   # Adapting cutoff_required to a closure in the form that my grid search requires
   function(lower, upper) cutoff_required(histogram, c(lower, upper), capacity)
