@@ -4,17 +4,10 @@ library(stringr)
 library(R.utils)
 library(manipulate)
 
-# deprecated cutoff parameters
-TEMPERATURE = 298  # K
-E_CUTOFF <- 15 * TEMPERATURE  # K
-
-BIN_WIDTH = 5
-ENERGY_RANGE = c(-1000, 20)
-ANALYSIS_DIRS <- c("BigData/10k-hMOFs/part1/CIF_FILES", "BigData/10k-hMOFs/part2/CIF_FILES")
 QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
 
 
-energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
+energy_stats <- function(data_dir, stats_fcn, num_rows) {
   # Run a stats_fcn on all raspa grid files
   # Returns a data.frame, where each grid's stats has num_rows by df_prototype entries
   files <- list.files(data_dir)
@@ -28,6 +21,8 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   
   # Preallocate a df using an R.utils function: http://r.789695.n4.nabble.com/idiom-for-constructing-data-frame-td4705353.html
   # Names for the dataframe will automatically be copied from the prototype
+  df_prototype <- rep("integer", 3)  # Lower bound, upper bound, count
+  names(df_prototype) <- c("lower", "upper", "counts")
   all_stats <- dataFrame(df_prototype, nrow = num_cifs*num_rows)
   
   write(paste0("Compiling statistics from the energy files in ", data_dir, "..."), "")
@@ -56,79 +51,7 @@ energy_stats <- function(data_dir, stats_fcn, df_prototype, num_rows = 1) {
   all_stats
 }
 
-# converting distribution to a descriptor 
-energy_summary <- function(data_dir, upper_cutoff = E_CUTOFF) {
-  # Computes the six-number summary for the pretabulated energies, using a max cutoff
-  energy_summary_fcn <- function(energy) {
-    filtered_energy <- energy[energy < upper_cutoff]
-    energy_row <- summary(filtered_energy)
-  }
-  output_prototype <- rep("numeric", 6)
-  names(output_prototype) <- c("Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max.")
-  
-  energy_stats(data_dir, energy_summary_fcn, output_prototype)
-}
-
-energy_metric <- function(data_dir, lower_bound = -200, upper_bound = 0) {
-  # Computes the "LJ metric" based on upper and lower cutoffs
-  # DEMO function.  Ideally, this should be rapidly done via integrating the histograms
-  energy_metric_fcn <- function(energy) {
-    filtered_energy <- energy[energy > lower_bound & energy < upper_bound]
-    energy_row <- length(filtered_energy) / length(energy)
-  }
-  output_prototype <- c("numeric")
-  names(output_prototype) <- c("LJ.metric")
-  
-  energy_stats(data_dir, energy_metric_fcn, output_prototype)
-}
-
-# converting hists to metric stuff
-metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn = TRUE) {
-  # Compute the "LJ metric" based on given cutoffs
-  # Set a bound to NA for open intervals (e.g., energy > -200, but no upper bound)
-  # TODO: NA code
-  if (warn & !(lower_bound %in% hist_df$lower & upper_bound %in% hist_df$upper)) {
-    warning("Metric bounds do not exactly line up with a histogram bin")
-  }
-  
-  # be safer with float comparisons, and avoid double counting
-  good_counts <- hist_df %>%
-    filter(near(lower, lower_bound) | lower > lower_bound) %>%
-    filter(near(upper, upper_bound) | upper < upper_bound) %>%
-    group_by(id) %>% summarize(good = sum(counts))
-  
-  total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))
-  
-  lj_metric <- total_counts %>%
-    inner_join(good_counts, by="id") %>% 
-    mutate(metric = good / total) %>% 
-    select(id, metric)
-  lj_metric
-}
-
-# row based format of energy hist, we can convert tidy to row though
-row_energy_hists <- function(data_dir, bin_width = TEMPERATURE, min_max = c(-15, 15)) {
-  # Retrieve the histograms from the energy directories
-  # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
-  bins <- seq(from = bin_width * min_max[1],
-              to   = bin_width * (min_max[2] + 1),
-              by   = bin_width
-              )
-  hists_fcn <- function(energy) {
-    # First cap the maximum energy so that the last bin (energy > max) includes the high end
-    energy[energy > bin_width * (min_max[2]) + 1] <- bin_width * (min_max[2] + 0.5)
-    energy_row <- hist(energy, breaks = bins, plot = FALSE)$counts
-  }
-  output_prototype <- rep("integer", length(bins) - 1)
-  # TODO: think about how to include the bin information in the data.frame (in the names, perhaps?)
-  # It's encouraging that the file reading and IO appears like the most compute-heavy part of this work
-  
-  energy_stats(data_dir, hists_fcn, output_prototype)
-  # Also redone in a tidy format, which will facilitate energy scans
-}
-
-
-tidy_energy_hists <- function(data_dir, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH) {
+tidy_energy_hists <- function(data_dir, bin_width, min_max) {
   # Retrieve the histograms from the energy directories
   # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
   # Returns a tidy data.frame, where the histogram bins are explicitly specified as a column
@@ -151,90 +74,7 @@ tidy_energy_hists <- function(data_dir, bin_width = BIN_WIDTH, min_max = ENERGY_
           counts = raw_hist$counts
           )
   }
-  output_prototype <- rep("integer", 3)  # Lower bound, upper bound, count
-  names(output_prototype) <- c("lower", "upper", "counts")
-  # Could also simplify this with only the lower bound to save 1/3 memory requirements
-  # Even so, 100k structures will comfortably fit in 600MB of RAM
   
-  energy_stats(data_dir, hists_fcn, output_prototype, length(bins)-1)
+  energy_stats(data_dir, hists_fcn, length(bins)-1)
   # Need to come back to the summarization command as well
 }
-
-
-run_energy_stat <- function(dirs, stat_fcn, ...) {
-  # Runs the stat function over multiple directories to reduce copy-paste
-  all_stats <- stat_fcn(dirs[1])
-  if (length(dirs) > 1) {
-    for (x in dirs[2:length(dirs)]) {
-      all_stats <- rbind(all_stats, stat_fcn(x, ...))
-    }
-  }
-  all_stats
-}
-
-
-
-calculate_hists <- function() {
-  #hist_summary <- run_energy_stat(ANALYSIS_DIRS, energy_summary)
-  #hist_metric <- run_energy_stat(ANALYSIS_DIRS, energy_metric)
-  hist_vals <- run_energy_stat(ANALYSIS_DIRS, tidy_energy_hists)
-  hist_metric <- metric_from_hists(hist_vals)
-}
-
-floord <- function(x, digits=0) {
-  # Takes the floor to an arbitrary number of digits
-  multiplier <- 10^digits
-  rounded <- floor(x*multiplier)
-  rounded / multiplier
-}
-
-# generate roc curve related stuff. related to metric plot
-cutoff_required <- function(histogram, bounds = c(-200, -10), capacity = 47) {
-  # What is the LJ metric cutoff (and number of flagged GCMC simulations) required
-  # to obtain all structures with volumetric capacity >= the specified value (48 g/L)
-  metric_data <-
-    histogram %>%
-    metric_from_hists(lower=bounds[1], upper=bounds[2]) %>% 
-    left_join(gcmc_data, by="id")
-  min_cutoff <-
-    metric_data %>% 
-    filter(g.L >= capacity) %>% 
-    summarize(min(metric)) %>% 
-    unlist %>% 
-    floord(2)
-  required_sims <- 
-    metric_data %>% 
-    filter(metric >= min_cutoff) %>% 
-    nrow
-  total_sims <- metric_data %>% nrow
-  data.frame(capacity = capacity, lower = bounds[1], upper= bounds[2],
-             cutoff=min_cutoff, required=required_sims, total=total_sims,
-             row.names=NULL)
-}
-
-# heat map, sensitivity to lower or upper bound
-grid_search <- function(f, lower_range, upper_range, by, lower.lt.upper = TRUE) {
-  # Grid search to optimize the cutoff parameters
-  # Optimizes a function f that takes 2 parameters, lower and upper.
-  # These are generated by iterating among the given ranges by "by".
-  lowers <- seq(lower_range[1], lower_range[2], by)
-  uppers <- seq(upper_range[1], upper_range[2], by)
-  results <- data.frame()
-  pb <- txtProgressBar(min = lower_range[1], max = lower_range[2], style = 3)
-  for (lower in lowers) {
-    setTxtProgressBar(pb, lower)
-    for (upper in uppers) {
-      if (!lower.lt.upper || lower < upper) {
-        results <- rbind(results, f(lower, upper))
-      }
-    }
-  }
-  close(pb)
-  results
-}
-# using closure to return a function (cutoff_required)
-cutoff_req_grid_f_generator <- function(histogram, capacity) {
-  # Adapting cutoff_required to a closure in the form that my grid search requires
-  function(lower, upper) cutoff_required(histogram, c(lower, upper), capacity)
-}
-
