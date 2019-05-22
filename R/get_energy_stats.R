@@ -78,3 +78,27 @@ tidy_energy_hists <- function(data_dir, bin_width, min_max) {
   energy_stats(data_dir, hists_fcn, length(bins)-1)
   # Need to come back to the summarization command as well
 }
+
+# converting hists to metric stuff
+metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn = TRUE) {
+  # Compute the "LJ metric" based on given cutoffs
+  # Set a bound to NA for open intervals (e.g., energy > -200, but no upper bound)
+  # TODO: NA code
+  if (warn & !(lower_bound %in% hist_df$lower & upper_bound %in% hist_df$upper)) {
+    warning("Metric bounds do not exactly line up with a histogram bin")
+  }
+  
+  # be safer with float comparisons, and avoid double counting
+  good_counts <- hist_df %>%
+    filter(near(lower, lower_bound) | lower > lower_bound) %>%
+    filter(near(upper, upper_bound) | upper < upper_bound) %>%
+    group_by(id) %>% summarize(good = sum(counts))
+  
+  total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))
+  
+  lj_metric <- total_counts %>%
+    inner_join(good_counts, by="id") %>% 
+    mutate(metric = good / total) %>% 
+    select(id, metric)
+  lj_metric
+}
