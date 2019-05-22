@@ -36,10 +36,10 @@ p_ch4_vol$plots$parity_testing%>% rescale_ch4_parity() + theme(axis.title.y = el
 # 
 
 # save data to csv files for later testing other models
-export_training_data(p_ch4_vol, "tobacco_c3_1bar_train.csv")
-export_testing_data(p_ch4_sets$testing, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), "tobacco_c3_1bar_test.csv", ch4_binspec)
+export_data(p_ch4_sets$training, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), "tobacco_c3_1bar_train2.csv", ch4_binspec)
+export_data(p_ch4_sets$testing, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), "tobacco_c3_1bar_test.csv", ch4_binspec)
 
-train_data <- read_csv("tobacco_c3_1bar_train.csv")
+train_data <- read_csv("tobacco_c3_1bar_train2.csv")
 test_data <- read_csv("tobacco_c3_1bar_test.csv")
 
 model <- randomForest(x = train_data %>% select(-y), y = train_data$y, ntree = 500)
@@ -47,9 +47,9 @@ model <- randomForest(x = train_data %>% select(-y), y = train_data$y, ntree = 5
 gg <- qplot(x = model$predicted, y = model$y) + geom_abline(slope = 1, intercept = 0)
 
 # plot error automatically if model is a randomforest
-plot(model)
+#plot(model)
 # making predictions/ testing your fit, tell what variables are important
-varImpPlot(model)
+#varImpPlot(model)
 
 tested <- predict(model, test_data)
 
