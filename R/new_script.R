@@ -3,6 +3,7 @@ source("R/regression_and_features.R")
 source("R/get_energy_stats.R")
 source("R/plot_diagnostics.R")
 library(plotly)
+library(randomForest)
 #source("R/load_data.R")
 #source("R/read_tobacco_propane.R")
 #source("R/read_tobacco_butane.R")
@@ -10,7 +11,7 @@ source("R/read_tobacco_new_propane.R")
 #source("R/read_tobacco_ethane.R")
 #source("R/read_tobacco_methane.R")
 source("R/tobacco_data_for_zhao.R")
-
+source("R/save_train_test_data.R")
 # in command prompt: Rscript --vanilla R\save_h2_hists.R whatever.rds Energies\ use_ch4
 
  ch4_binspec <- c(from=-26, to=0, step=0.5, width=0.5)
@@ -31,9 +32,30 @@ p_ch4_vol <- gcmc_data %>%
   #run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="cm\u00B3/cm\u00B3", db_name = "tobacco")
   run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="cm\u00B3/cm\u00B3", db_name = "tobacco")
 
-p_ch4_vol$plots$parity_training%>% rescale_ch4_parity() + theme(axis.title.y = element_text(hjust=0.5)) + xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)")
+p_ch4_vol$plots$parity_testing%>% rescale_ch4_parity() + theme(axis.title.y = element_text(hjust=0.5)) + xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)")
 # 
 
+# save data to csv files for later testing other models
+export_training_data(p_ch4_vol, "tobacco_c3_1bar_train.csv")
+export_testing_data(p_ch4_sets$testing, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), "tobacco_c3_1bar_test.csv", ch4_binspec)
+
+train_data <- read_csv("tobacco_c3_1bar_train.csv")
+test_data <- read_csv("tobacco_c3_1bar_test.csv")
+
+model <- randomForest(x = train_data %>% select(-y), y = train_data$y, ntree = 500)
+
+gg <- qplot(x = model$predicted, y = model$y) + geom_abline(slope = 1, intercept = 0)
+
+# plot error automatically if model is a randomforest
+plot(model)
+# making predictions/ testing your fit, tell what variables are important
+varImpPlot(model)
+
+tested <- predict(model, test_data)
+
+gg_test <- qplot(x = test_data$y_act, y = tested) + geom_abline(slope = 1, intercept = 0)
+
+tested$rmse <- postResample(pred = tested, obs = test_data$y_act)
 # # #read the names with topology
 # topologies <- read.table("fullnames.txt") # first column is ID, second column is topology
 # x <- vector(mode="character", length = dim(p_ch4_vol$pred_df)[1])
