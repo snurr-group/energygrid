@@ -23,3 +23,8 @@ whatever.rds
 propane_60bar.txt
 R/Dependency_graph.R
 Energies/
+*.rds
+*.jpg
+*.jpeg
+*.csv
+/propane_1bar_60K_Cycle.txt
