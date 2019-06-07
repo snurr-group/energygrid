@@ -198,37 +198,6 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   predictions  # return the partitioned_glmnet object
 }
 
-print.partitioned_glmnet <- function(x) {
-  # Pretty-print results from run_model_on_partitions, in case we just want to view instead of saving
-  #attach(x)
-  cat(paste("Analysis for alpha =", x$alpha, x$model_name, "\n\n"))
-  
-  cat(paste("Q2 for the trained model is", x$trained_model$q2), fill=TRUE)
-  cat(paste("Lambda for the trained model is", x$trained_mod$lambda), fill=TRUE)
-  cat("Fit of the training data\n")
-  print(x$training_fit)
-  
-  cat("\nModel coefficients\n")
-  coef(x$trained_mod$mod) %>% print
-  
-  cat("\nAccuracy of the test data\n")
-  print(x$testing_fit)
-  
-  print(x$plots$parity_training)
-  print(x$plots$parity_testing)
-  print(x$plots$parity_full)
-  print(x$plots$resid_normality)
-  
-  cat(paste("Spearman correlation for ranking of the test data is", x$test_spearman["y_pred", "y_act"]), fill=TRUE)
-  cat(paste("Kendall tau is", x$test_kendall["y_pred", "y_act"]), fill=TRUE)
-  cat("\n(On the ranking plot, a higher number indicates higher capacity)\n")
-  print(x$plots$test_ranking)
-  
-  cat("\n")
-  
-  #detach("x")
-}
-
 annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, ...) {
   # Annotates a plot, including margins
   # A great resource is this cheatsheet: http://zevross.com/blog/2014/08/04/beautiful-plotting-in-r-a-ggplot2-cheatsheet-3/
