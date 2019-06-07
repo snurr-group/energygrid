@@ -5,8 +5,6 @@ library(dplyr)
 library(grid)  # textGrob, since geom_text/annotate won't let you adjust an x=Inf, etc.
 library(stringr)
 
-default_binspec <- c(from=-10, to=0.0, step=1.0, width=1.0)  # the original set of parameters
-
 parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
 parity_plot <- function(act, pred, color=1, alpha=0.50) {
@@ -21,27 +19,6 @@ parity_plot <- function(act, pred, color=1, alpha=0.50) {
     parity_line
 }
 
-
-plot_bin_z_vs_y <- function(zs, y, betas) {
-  # Plots the 2D distribution of z-score and y within each histogram bin, colored by model beta coef
-  mod_betas <- betas %>% mutate(rbeta = round(beta, 2))
-  
-  bind_cols(z=zs, y=y) %>% 
-    gather(key="bin", value="qty", -y) %>% 
-    left_join(mod_betas, by="bin") %>%
-    ggplot(aes(qty, y, col=rbeta)) +
-    geom_point() +
-    facet_wrap(~bin, scales="free_x") +
-    xlab("z-score in bin") +
-    theme(
-      text = element_text(size=8),
-      aspect.ratio = 0.75
-    ) +
-    scale_color_gradientn(colors = c("red", "darkgray", "blue"),
-                          #guide=guide_colorbar(title=expression(beta)))
-                          guide=guide_colorbar(title="beta"))
-}
-# Example: # plot_bin_z_vs_y(p_test_mod$x, p_test_mod$y, coef_tbl(p_test_mod$mod))
 
 pred_grid <- function(glmnet_mod, test_grid, binspec, align_bins = "strict") {
   # Runs predictions on grids by using binspec to calculate the energy histogram
