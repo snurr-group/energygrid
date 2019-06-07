@@ -25,7 +25,7 @@ pred_grid <- function(glmnet_mod, test_grid, binspec, align_bins = "strict") {
   # and pred_glmnet(glmnet_mod, x) for z-scoring and evaluation.
   # TODO: consider incorporating binspec as part of glmnet_mod
   grid_desc <- test_grid %>%
-    stepped_hist_spec(binspec, align_bins = align_bins) %>% 
+    stepped_hist(binspec, align_bins = align_bins) %>% 
     spread(key=bin, value=metric)
   
   grid_ids <- grid_desc$id
@@ -179,17 +179,17 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   # Returns a large object with several plots
   
   # Training a model, given our histogram parameters
+  print("Partitioning data")
   trained_model <- run_bin_model(
     partitioned_hists$training, y_with_id,
-    binspec["step"], binspec["width"],
-    binspec[c("from", "to")],
+    binspec,
     alpha=alpha,
     lambda=lambda,
     align_bins = align_bins,
     ...
     )
   trained_mod <- trained_model$fitted_model[[1]]
-  
+  print("training model complete")
   # Performance on the test data, which hasn't yet been used for anything
   predictions <- y_with_id %>% 
     mutate(y_act = g.L) %>%

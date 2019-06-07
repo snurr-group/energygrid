@@ -12,7 +12,7 @@ library(magrittr)
 # can combine with other data like heat of adsorption
 export_data <- function(test_grid, df_with_y_act, filename, binspec, align_bins="strict") {
   grid_desc <- test_grid %>%
-    stepped_hist_spec(binspec, align_bins = align_bins) %>% 
+    stepped_hist(binspec, align_bins = align_bins) %>% 
     spread(key=bin, value=metric)
   results <- df_with_y_act %>% 
 #    select(id, y_act) %>%
