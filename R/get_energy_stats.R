@@ -7,7 +7,25 @@ library(manipulate)
 QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
 
 
-energy_stats <- function(data_dir, stats_fcn, num_rows) {
+energy_stats <- function(data_dir, bin_width, min_max) {
+  bins <- seq(from = bin_width * min_max[1],
+              to   = bin_width * (min_max[2] + 1),
+              by   = bin_width
+  )
+  stats_fcn <- function(energy) {
+    # First cap the maximum energy so that the last bin (energy > max) includes the high end
+    energy[energy >= (bin_width * (min_max[2]) + 1)] <- bin_width * (min_max[2] + 0.5)
+    # Do the same for the low end.  If we care about the strongly attractive region, check
+    # that both of the lower two bins are unoccupied.  Otherwise they're lumped in with the smallest.
+    energy[energy <= (bin_width * min_max[1])] <- bin_width * (min_max[1] + 0.5)
+    # Now that preprocessing is done, run the histogram binning
+    raw_hist <- hist(energy, breaks = bins, plot = FALSE)
+    cbind(lower = raw_hist$breaks[1:(length(raw_hist$breaks)-1)],
+          upper = raw_hist$breaks[2:length(raw_hist$breaks)],
+          counts = raw_hist$counts
+    )
+  }
+  num_rows <- length(bins)-1
   # Run a stats_fcn on all raspa grid files
   # Returns a data.frame, where each grid's stats has num_rows by df_prototype entries
   files <- list.files(data_dir)
@@ -49,34 +67,6 @@ energy_stats <- function(data_dir, stats_fcn, num_rows) {
   ids <- rep(ids, each=num_rows)
   all_stats$id <- ids
   all_stats
-}
-
-tidy_energy_hists <- function(data_dir, bin_width, min_max) {
-  # Retrieve the histograms from the energy directories
-  # min_max: multiplier for minimum and maximum bins, e.g. +/- 15kT
-  # Returns a tidy data.frame, where the histogram bins are explicitly specified as a column
-  # (instead of embedding the energies in the column titles)
-  
-  bins <- seq(from = bin_width * min_max[1],
-              to   = bin_width * (min_max[2] + 1),
-              by   = bin_width
-  )
-  hists_fcn <- function(energy) {
-    # First cap the maximum energy so that the last bin (energy > max) includes the high end
-    energy[energy >= (bin_width * (min_max[2]) + 1)] <- bin_width * (min_max[2] + 0.5)
-    # Do the same for the low end.  If we care about the strongly attractive region, check
-    # that both of the lower two bins are unoccupied.  Otherwise they're lumped in with the smallest.
-    energy[energy <= (bin_width * min_max[1])] <- bin_width * (min_max[1] + 0.5)
-    # Now that preprocessing is done, run the histogram binning
-    raw_hist <- hist(energy, breaks = bins, plot = FALSE)
-    cbind(lower = raw_hist$breaks[1:(length(raw_hist$breaks)-1)],
-          upper = raw_hist$breaks[2:length(raw_hist$breaks)],
-          counts = raw_hist$counts
-          )
-  }
-  
-  energy_stats(data_dir, hists_fcn, length(bins)-1)
-  # Need to come back to the summarization command as well
 }
 
 # converting hists to metric stuff
