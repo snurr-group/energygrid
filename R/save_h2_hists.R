@@ -49,7 +49,7 @@ ENERGY_RANGE <- hist_range / R_GAS_KJ
 if (!(length(ANALYSIS_DIRS) == 1)){
   stop("Need just one directory!", call.=FALSE)
   }
-  hist_vals <- tidy_energy_hists(ANALYSIS_DIRS, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH)
+  hist_vals <- energy_stats(ANALYSIS_DIRS, bin_width = BIN_WIDTH, min_max = ENERGY_RANGE / BIN_WIDTH)
 
 # Also convert our hist_vals to more convenient units of kJ/mol
 hist_vals <- mutate(hist_vals, lower=lower*R_GAS_KJ, upper=upper*R_GAS_KJ)
