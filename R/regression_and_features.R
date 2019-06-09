@@ -230,11 +230,6 @@ standardization_from_x <- function(x, zscore = TRUE) {
     )
 }
 
-shuffle <- function(vec) {
-  # Shuffles the values around in a vector
-  sample(vec, size=length(vec))
-}
-
 ### MODEL FITTING ###
 # First, some potentially useful documentation links:
 # * [caret's implementation](https://topepo.github.io/caret/available-models.html) of ridge regression is the [elasticnet package](https://cran.r-project.org/web/packages/elasticnet/elasticnet.pdf)
