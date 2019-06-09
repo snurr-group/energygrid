@@ -40,7 +40,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   # Runs pred_grid and calculates statistics/plots on model predictivity.
   # Requires a base grid and data.frame including a (renamed) y_act column.
   # TODO: what do do about color?  Custom color for the dataframe?  Maybe just a manual parity plot.
-  
+  print("Plotting and applying model to test data")
   alpha_glm <- glmnet_mod$alpha
   trained_mod <- glmnet_mod
   
