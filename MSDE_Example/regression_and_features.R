@@ -12,15 +12,11 @@ library(testthat)
 
 DEFAULT_ALPHA <- 1  # 0 for ridge regression, 1 for LASSO, otherwise elastic net.
 
-bounds_from_params <- function(binspec, align_bins="strict") {
+bounds_from_params <- function(step, width, from, to, align_bins="strict") {
   # Consolidates calculations of bins from stepped_hist() and bin_loc_from_spec()
   # align_bins designates how to handle cases when from, to-width, and step do not align
   # "strict" means they must align exactly, going either way giving the same results.
   # This will still work in cases like bounds_from_params(2, 6, -40, 0).
-  step <- binspec["step"]
-  width <- binspec["width"]
-  from <- binspec["from"]
-  to <- binspec["to"]
   lower_bounds <- seq(from, to - width, step)
   upper_bounds <- lower_bounds + width
   
@@ -40,14 +36,14 @@ bounds_from_params <- function(binspec, align_bins="strict") {
   list(lower=lower_bounds, upper=upper_bounds)
 }
 
-stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins="strict", check_sums=TRUE) {
+stepped_hist <- function(df, step, width, from, to, bin_above=TRUE, bin_below=TRUE, align_bins="strict", check_sums=TRUE) {
   # Calculates a stepped histogram, where bins contain the overlap from the parent distribution
   # Usage: stepped_hist(only_one, 0.5, 0.5, -8, 0) %>% View
   # bin_above designates a bin to infinity above the "to" argument.
   # check_sums enables a verification test that the bins for each MOF sum to one, within a given tolerance
-  bounds <- bounds_from_params(binspec, align_bins)
-  lower_bounds <- bounds$lower
-  upper_bounds <- bounds$upper
+  
+  lower_bounds <- bounds_from_params(step, width, from, to, align_bins)$lower
+  upper_bounds <- bounds_from_params(step, width, from, to, align_bins)$upper
 
   #.id grabs the bin number, which should be sufficient as an identifier.
   # This approach will also likely be easier for "spread"-ing back into columns for plsr
@@ -59,7 +55,7 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
     if (align_bins == "upward") {  # Before calculating above/below, figure out which cutoffs we need
       to_above <- upper_bounds[length(upper_bounds)]
     } else {
-      to_above <- binspec["to"]
+      to_above <- to
     }
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, to_above, Inf, warn=FALSE), bin="Inf"))
@@ -68,7 +64,7 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
     if (align_bins == "downward") {
       from_below <- lower_bounds[1]
     } else {
-      from_below <- binspec["from"]
+      from_below <- from
     }
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, -Inf, from_below, warn=FALSE), bin="-Inf"))
@@ -99,13 +95,14 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
 
 stepped_hist_spec <- function(df, binspec, ...) {
   # Runs stepped_hist given a binspec instead of manually specifying the arguments
-  stepped_hist(df, binspec, ...)
+  stepped_hist(df, binspec["step"], binspec["width"], binspec["from"], binspec["to"], ...)
 }
 
 bin_loc_from_spec <- function(binspec, bin_above=TRUE, bin_below=TRUE, align_bins="strict") {
   # Retrieves the locations of bins specified from stepped_hists
   both_bounds <- bounds_from_params(
-    binspec,
+    binspec["step"], binspec["width"],
+    binspec["from"], binspec["to"],
     align_bins
     )
   lower_bounds <- both_bounds$lower
@@ -154,19 +151,33 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
   filtered_ids <- filtered_hist$id %>% unique # remove duplicated ids
   num_ids <- length(filtered_ids)
   
-  n_split <- integer(2)
+  n_split <- integer(3)
   
   # Parse data_split into proportions for hyperparameter tuning, testing, and training
   if (length(data_split) == 1) {
     # A single number: the number of samples used for training.  Everything else is tested
-    n_split <- c(data_split, num_ids - data_split)
+    n_split <- c(0, data_split, num_ids - data_split)
+  } else if (length(data_split) == 3) {
+    # A vector of proportions for the three subsets
+    n_split[1] <- num_ids*data_split[1]
+    n_split[2] <- num_ids*data_split[2]
+    n_split[3] <- NA  # not actually used
   } else {
     stop(paste("Improper data_split arg.  Must be a single number (training MOFs) or the fractional split.  Provided", data_split))
   }
   
+  # For hyperparameter tuning
+  # maybe we can delete since it is not used, maybe it will break (050819)
+  hyperparam_rows <- sample(num_ids, n_split[1])
+  hyperparam_ids <- filtered_ids[hyperparam_rows]
+  hyperparam_data <- filtered_hist %>% filter(id %in% hyperparam_ids)
   # For training
-  remaining_ids <- filtered_ids
-  training_rows <- sample(length(remaining_ids), n_split[1])
+  if (length(hyperparam_rows) > 0) {
+    remaining_ids <- filtered_ids[-hyperparam_rows]
+  } else {
+    remaining_ids <- filtered_ids  # -numeric(0) returns numeric(0) or something similar
+  }
+  training_rows <- sample(length(remaining_ids), n_split[2])
   training_ids <- remaining_ids[training_rows] # these remaining_ids correspond to the grids id, not gcmc id! Comment by reader
   training_data <- filtered_hist %>% filter(id %in% training_ids)
   # Allow the user to override the training set
@@ -181,6 +192,7 @@ partition_data_subsets <- function(unprocessed_x_with_id, y_with_id, data_split,
   #y_to_join is already set in the calling function
   
   list(
+    hyperparam = hyperparam_data,
     training = training_data,
     testing = testing_data
     )
@@ -293,11 +305,11 @@ pred_glmnet <- function(glm_mod, x_tbl) {
   predict(glm_mod$mod, as.matrix(x)) %>% as.numeric
 }
 
-run_bin_model <- function(e_data, y_with_id, binspec, lambda=NULL, alpha=DEFAULT_ALPHA, align_bins="strict", ...) {
+run_bin_model <- function(e_data, y_with_id, step, width, bin_lims, lambda=NULL, alpha=DEFAULT_ALPHA, align_bins="strict", ...) {
   # Runs the ridge regression model, transforming e_data into a stepped histogram with appropriate y columns.
   # Also runs cross-validation and returns the model for later consideration
   x <- e_data %>% 
-    stepped_hist(binspec, align_bins=align_bins) %>% 
+    stepped_hist(step, width, from=bin_lims[1], to=bin_lims[2], align_bins=align_bins) %>% 
     spread(key=bin, value=metric)
   y <- x %>% 
     left_join(y_with_id, by="id") %>%
@@ -313,12 +325,21 @@ run_bin_model <- function(e_data, y_with_id, binspec, lambda=NULL, alpha=DEFAULT
     id_list = list(x_id),
     q2=q2,
     lambda = fitted_mod$lambda, 
-    step = binspec["step"],
-    width = binspec["width"],
-    bin_lo = binspec["from"],
-    bin_hi = binspec["to"]
+    step = step,
+    width = width,
+    bin_lo = bin_lims[1],
+    bin_hi = bin_lims[2]
   )
 }
+
+run_bin_model_spec <- function(e_data, y_with_id, binspec, ...) {
+  run_bin_model(
+    e_data, y_with_id,
+    binspec["step"], binspec["width"], binspec[c("from", "to")],
+    ...
+    )
+}
+
 ### MODEL ASSESSMENT ###
 
 # First, some generally helpful plots:
