@@ -21,6 +21,7 @@ bounds_from_params <- function(binspec, align_bins="strict") {
   width <- binspec["width"]
   from <- binspec["from"]
   to <- binspec["to"]
+  print("calculating Bounds of every bin")
   lower_bounds <- seq(from, to - width, step)
   upper_bounds <- lower_bounds + width
   
@@ -37,6 +38,7 @@ bounds_from_params <- function(binspec, align_bins="strict") {
     stop(paste("Unrecognized align_bins flag:", align_bins))
   }
   
+  print(lower_bounds)
   list(lower=lower_bounds, upper=upper_bounds)
 }
 
@@ -45,35 +47,39 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
   # Usage: stepped_hist(only_one, 0.5, 0.5, -8, 0) %>% View
   # bin_above designates a bin to infinity above the "to" argument.
   # check_sums enables a verification test that the bins for each MOF sum to one, within a given tolerance
-  bounds <- bounds_from_params(binspec, align_bins)
-  lower_bounds <- bounds$lower
-  upper_bounds <- bounds$upper
-
+  print("calculating stepped histograms")
+  lower_bounds <- binspec$bounds$lower
+  upper_bounds <- binspec$bounds$upper
+  
   #.id grabs the bin number, which should be sufficient as an identifier.
   # This approach will also likely be easier for "spread"-ing back into columns for plsr
   result_hist <- map2_dfr(lower_bounds, upper_bounds, metric_from_hists, hist_df=df, warn=FALSE, .id="bin") # return df created by binding rows
-  
+  print("Here is result hist")
   if (bin_above) {
     # If specified, add a bin above containing the remainder.
     # For whatever reason, the "bin" column from purrr is of type "character"
     if (align_bins == "upward") {  # Before calculating above/below, figure out which cutoffs we need
       to_above <- upper_bounds[length(upper_bounds)]
     } else {
-      to_above <- binspec["to"]
+      to_above <- binspec$to
+      print("to_above is: ")
+      print(to_above)
     }
+    print("aha")
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, to_above, Inf, warn=FALSE), bin="Inf"))
   }
+  print("emmm")
   if (bin_below) {
     if (align_bins == "downward") {
       from_below <- lower_bounds[1]
     } else {
-      from_below <- binspec["from"]
+      from_below <- binspec$from
     }
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, -Inf, from_below, warn=FALSE), bin="-Inf"))
   }
-  
+  print("checked bin_above and below")
   if (check_sums & bin_above & bin_below) {
     # can test that this fails by temporarily disabling bin_above here and as default args.  Then it won't sum to one.
     non_unity_hists <- result_hist %>% 
@@ -104,12 +110,8 @@ stepped_hist_spec <- function(df, binspec, ...) {
 
 bin_loc_from_spec <- function(binspec, bin_above=TRUE, bin_below=TRUE, align_bins="strict") {
   # Retrieves the locations of bins specified from stepped_hists
-  both_bounds <- bounds_from_params(
-    binspec,
-    align_bins
-    )
-  lower_bounds <- both_bounds$lower
-  upper_bounds <- both_bounds$upper
+  lower_bounds <- binspec$bounds$lower
+  upper_bounds <- binspec$bounds$upper
   
   bins <- tibble(
     lower = lower_bounds,
@@ -291,16 +293,19 @@ pred_glmnet <- function(glm_mod, x_tbl) {
 run_bin_model <- function(e_data, y_with_id, binspec, lambda=NULL, alpha=DEFAULT_ALPHA, align_bins="strict", ...) {
   # Runs the ridge regression model, transforming e_data into a stepped histogram with appropriate y columns.
   # Also runs cross-validation and returns the model for later consideration
+  print("Here x is the dataframe for histogram")
   x <- e_data %>% 
     stepped_hist(binspec, align_bins=align_bins) %>% 
     spread(key=bin, value=metric)
+  print("x is done")
+  print(x)
+  print("y is the corresponding uptake data")
   y <- x %>% 
     left_join(y_with_id, by="id") %>%
     rename(y = g.L) %>% 
     .$y
   x_id <- x %>% select(id) # keeps the variable you mentioned
   x <- x %>% select(-id)
-  
   q2 <- calc_q2(x, y, alpha=alpha)
   fitted_mod <- fit_glmnet(x, y, lambda=lambda, alpha=alpha, ...)
   tibble(
@@ -308,10 +313,10 @@ run_bin_model <- function(e_data, y_with_id, binspec, lambda=NULL, alpha=DEFAULT
     id_list = list(x_id),
     q2=q2,
     lambda = fitted_mod$lambda, 
-    step = binspec["step"],
-    width = binspec["width"],
-    bin_lo = binspec["from"],
-    bin_hi = binspec["to"]
+    lower = binspec$bounds$lower,
+    upper = binspec$bounds$upper,
+    bin_lo = binspec$from,
+    bin_hi = binspec$to
   )
 }
 ### MODEL ASSESSMENT ###

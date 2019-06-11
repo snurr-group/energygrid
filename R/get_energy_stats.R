@@ -30,7 +30,7 @@ energy_stats <- function(data_dir, bin_width, min_max) {
   # Returns a data.frame, where each grid's stats has num_rows by df_prototype entries
   files <- list.files(data_dir)
   if (QUICK_TEST) {
-    files <- files[1:100]  # Debugging trick to only run the first 100 folders
+    files <- files[1:500]  # Debugging trick to only run the first 100 folders
   }
   num_cifs <- length(files)
   if (all(str_detect(files, "\\.grid$"))) {
@@ -74,6 +74,7 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
   # Compute the "LJ metric" based on given cutoffs
   # Set a bound to NA for open intervals (e.g., energy > -200, but no upper bound)
   # TODO: NA code
+  
   if (warn & !(lower_bound %in% hist_df$lower & upper_bound %in% hist_df$upper)) {
     warning("Metric bounds do not exactly line up with a histogram bin")
   }
@@ -83,9 +84,9 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
     filter(near(lower, lower_bound) | lower > lower_bound) %>%
     filter(near(upper, upper_bound) | upper < upper_bound) %>%
     group_by(id) %>% summarize(good = sum(counts))
-  
+  print("Yes we got here")
   total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))
-  
+
   lj_metric <- total_counts %>%
     inner_join(good_counts, by="id") %>% 
     mutate(metric = good / total) %>% 
