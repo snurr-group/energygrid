@@ -32,7 +32,7 @@ source("R/refined_bins_calc.R")
  #binbounds <- bounds_from_params(ch4_binspec)
  gcmc_data <- mutate(gcmc_data, id=ID)
  new_grid <- hmof_h2_grid[hmof_h2_grid[, "id"] %in% gcmc_data$id,] # select out the grids with id same as gcmc_data id
- binbounds <- automatic_bins(new_grid,100) # for non-uniform bins
+ binbounds <- automatic_bins(new_grid,1000000) # for non-uniform bins
  ch4_binspec <- list("from" = -40, to = 40, bounds = binbounds)
 
  DATA_SPLIT <- 1000 # Number of data points used in training data, from setup_data.R
