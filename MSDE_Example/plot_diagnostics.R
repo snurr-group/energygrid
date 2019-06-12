@@ -5,6 +5,8 @@ library(dplyr)
 library(grid)  # textGrob, since geom_text/annotate won't let you adjust an x=Inf, etc.
 library(stringr)
 
+default_binspec <- c(from=-10, to=0.0, step=1.0, width=1.0)  # the original set of parameters
+
 parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
 parity_plot <- function(act, pred, color=1, alpha=0.50) {
@@ -20,12 +22,33 @@ parity_plot <- function(act, pred, color=1, alpha=0.50) {
 }
 
 
+plot_bin_z_vs_y <- function(zs, y, betas) {
+  # Plots the 2D distribution of z-score and y within each histogram bin, colored by model beta coef
+  mod_betas <- betas %>% mutate(rbeta = round(beta, 2))
+  
+  bind_cols(z=zs, y=y) %>% 
+    gather(key="bin", value="qty", -y) %>% 
+    left_join(mod_betas, by="bin") %>%
+    ggplot(aes(qty, y, col=rbeta)) +
+    geom_point() +
+    facet_wrap(~bin, scales="free_x") +
+    xlab("z-score in bin") +
+    theme(
+      text = element_text(size=8),
+      aspect.ratio = 0.75
+    ) +
+    scale_color_gradientn(colors = c("red", "darkgray", "blue"),
+                          #guide=guide_colorbar(title=expression(beta)))
+                          guide=guide_colorbar(title="beta"))
+}
+# Example: # plot_bin_z_vs_y(p_test_mod$x, p_test_mod$y, coef_tbl(p_test_mod$mod))
+
 pred_grid <- function(glmnet_mod, test_grid, binspec, align_bins = "strict") {
   # Runs predictions on grids by using binspec to calculate the energy histogram
   # and pred_glmnet(glmnet_mod, x) for z-scoring and evaluation.
   # TODO: consider incorporating binspec as part of glmnet_mod
   grid_desc <- test_grid %>%
-    stepped_hist(binspec, align_bins = align_bins) %>% 
+    stepped_hist_spec(binspec, align_bins = align_bins) %>% 
     spread(key=bin, value=metric)
   
   grid_ids <- grid_desc$id
@@ -40,7 +63,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   # Runs pred_grid and calculates statistics/plots on model predictivity.
   # Requires a base grid and data.frame including a (renamed) y_act column.
   # TODO: what do do about color?  Custom color for the dataframe?  Maybe just a manual parity plot.
-  print("Plotting and applying model to test data")
+  
   alpha_glm <- glmnet_mod$alpha
   trained_mod <- glmnet_mod
   
@@ -179,23 +202,54 @@ run_model_on_partitions <- function(partitioned_hists, y_with_id, binspec, alpha
   # Returns a large object with several plots
   
   # Training a model, given our histogram parameters
-  print("Partitioning data")
   trained_model <- run_bin_model(
     partitioned_hists$training, y_with_id,
-    binspec,
+    binspec["step"], binspec["width"],
+    binspec[c("from", "to")],
     alpha=alpha,
     lambda=lambda,
     align_bins = align_bins,
     ...
     )
   trained_mod <- trained_model$fitted_model[[1]]
-  print("training model complete")
+  
   # Performance on the test data, which hasn't yet been used for anything
   predictions <- y_with_id %>% 
     mutate(y_act = g.L) %>%
     eval_test_grid(trained_mod, partitioned_hists$testing, binspec, ., db_name, plot_units, trained_model$q2, align_bins=align_bins)
   predictions$trained_model <- trained_model
   predictions  # return the partitioned_glmnet object
+}
+
+print.partitioned_glmnet <- function(x) {
+  # Pretty-print results from run_model_on_partitions, in case we just want to view instead of saving
+  #attach(x)
+  cat(paste("Analysis for alpha =", x$alpha, x$model_name, "\n\n"))
+  
+  cat(paste("Q2 for the trained model is", x$trained_model$q2), fill=TRUE)
+  cat(paste("Lambda for the trained model is", x$trained_mod$lambda), fill=TRUE)
+  cat("Fit of the training data\n")
+  print(x$training_fit)
+  
+  cat("\nModel coefficients\n")
+  coef(x$trained_mod$mod) %>% print
+  
+  cat("\nAccuracy of the test data\n")
+  print(x$testing_fit)
+  
+  print(x$plots$parity_training)
+  print(x$plots$parity_testing)
+  print(x$plots$parity_full)
+  print(x$plots$resid_normality)
+  
+  cat(paste("Spearman correlation for ranking of the test data is", x$test_spearman["y_pred", "y_act"]), fill=TRUE)
+  cat(paste("Kendall tau is", x$test_kendall["y_pred", "y_act"]), fill=TRUE)
+  cat("\n(On the ranking plot, a higher number indicates higher capacity)\n")
+  print(x$plots$test_ranking)
+  
+  cat("\n")
+  
+  #detach("x")
 }
 
 annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, ...) {

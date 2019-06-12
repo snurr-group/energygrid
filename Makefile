@@ -11,9 +11,6 @@ all:
 backup:
 	rsync -av --exclude=".*" --exclude="BigData/" --delete . ../../Box\ Sync/Projects/GitBackups/EnergyGrid
 
-BigData/init_h2_hist_vals.Rds:
-	$(RUN_R) R/save_h2_hists.R $@ BigData/10k-hMOFs/part1/CIF_FILES BigData/10k-hMOFs/part2/CIF_FILES
-
 BigData/Robj/ccdc_hist_vals.Rds:
 	$(RUN_R) R/save_h2_hists.R $@ BigData/Mateo/EnergyGrid/csd_h2
 
