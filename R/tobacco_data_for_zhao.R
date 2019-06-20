@@ -8,7 +8,7 @@ library(stringr)
 ### From setup_data.R
 h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
 orig_tobacco_data <- read_xlsx(
-  "BigData/CrystGrowthDesign_SI.xlsx",
+  "Data/CrystGrowthDesign_SI.xlsx",
   sheet = "data",
   skip = 3, na = "inf",
   col_names = c(
@@ -29,7 +29,7 @@ orig_tobacco_data <- read_xlsx(
     "cbb.ID"
   )
 )
-tobacco_codes <- read_table2("BigData/mofs_map.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
+tobacco_codes <- read_table2("Data/mofs_map.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
 
 orig_tobacco_data <- orig_tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
 

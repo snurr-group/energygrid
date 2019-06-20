@@ -23,14 +23,14 @@ library(glmnet)
 
 
 # Load a consistent set of MOFs for training data, so that the models remain consistent over time
-archived_training_ids <- read_rds("BigData/Output/ids_for_training_and_testing_20180703.Rds")
+archived_training_ids <- read_rds("Data/Output/ids_for_training_and_testing_20180703.Rds")
 
 
 ### From load.data code block
 
 h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
 orig_tobacco_data <- read_xlsx(
-  "BigData/CrystGrowthDesign_SI.xlsx",
+  "Data/CrystGrowthDesign_SI.xlsx",
   sheet = "data",
   skip = 3, na = "inf",
   col_names = c(
@@ -51,7 +51,7 @@ orig_tobacco_data <- read_xlsx(
     "cbb.ID"
   )
 )
-tobacco_codes <- read_table2("BigData/mofs_map.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
+tobacco_codes <- read_table2("Data/mofs_map.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
 
 orig_tobacco_data <- orig_tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
 
@@ -60,14 +60,14 @@ orig_tobacco_data <- orig_tobacco_data %>%
   mutate("n2.name" = str_c("sym", n2.sym, ifelse(n2.character=="organic", "on", "mc"), n2.ID, sep="_"))
 
 # Translate between Scotty's ID and the traditional ToBaCCo filename
-scotty_codes <- read_tsv("BigData/tobacco-20171114/key.tsv", col_names = c("filename", "id"), col_types="cc")
+scotty_codes <- read_tsv("Data/tobacco-20171114/key.tsv", col_names = c("filename", "id"), col_types="cc")
 scotty_codes <- scotty_codes %>% mutate(python.id = str_sub(filename, 1, -5))  # trim .cif suffix
 orig_tobacco_data <- orig_tobacco_data %>% inner_join(scotty_codes, by="python.id")
 
 # Add in Scotty's LJ-only GCMC (no longer just Yamil's results, so let's drop the `orig` designation)
 tobacco_data <-
   read_tsv(
-    "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_5bar_160k.tsv",
+    "Data/Emails/tobacco-gcmc-20171214/converted_gcmc_5bar_160k.tsv",
     col_names = c("tob.num", "id", "lj.h2.v.v.5.160", "lj.h2.err.v.v.5.160"),
     col_types = "icnn"
   ) %>% 
@@ -77,7 +77,7 @@ tobacco_data <-
   left_join(orig_tobacco_data, ., by="id")
 tobacco_data <-
   read_tsv(
-    "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_100bar_77k.tsv",
+    "Data/Emails/tobacco-gcmc-20171214/converted_gcmc_100bar_77k.tsv",
     col_names = c("tob.num", "id", "lj.h2.v.v.100.77", "lj.h2.err.v.v.100.77"),
     col_types = "icnn"
   ) %>% 
@@ -89,7 +89,7 @@ tobacco_data <-
 # Now with Feynman-Hibbs
 tobacco_data <-
   read_table2(
-    "BigData/Emails/tobaccoFH-20180103/tobacco-2bar-FH-comb-volume.txt",
+    "Data/Emails/tobaccoFH-20180103/tobacco-2bar-FH-comb-volume.txt",
     col_names = c("tob.num", "id", "fh.h2.v.v.2.77", "fh.h2.err.v.v.2.77"),
     col_types = "icnn"
   ) %>% 
@@ -99,7 +99,7 @@ tobacco_data <-
   left_join(tobacco_data, ., by="id")
 tobacco_data <- 
   read_table2(
-    "BigData/Emails/tobaccoFH-20180103/tobacco-100bar-FH-comb-volume.txt",
+    "Data/Emails/tobaccoFH-20180103/tobacco-100bar-FH-comb-volume.txt",
     col_names = c("tob.num", "id", "fh.h2.v.v.100.77", "fh.h2.err.v.v.100.77"),
     col_types = "icnn"
   ) %>% 
@@ -123,7 +123,7 @@ source("R/regression_and_features.R")  # Get regression utilities
 # Also a few columns at higher P for verification
 
 low_p_h2_data <- read_tsv(
-  "BigData/Emails/tobacco-gcmc-20171214/converted_gcmc_2bar_77k.tsv",
+  "Data/Emails/tobacco-gcmc-20171214/converted_gcmc_2bar_77k.tsv",
   col_names = c("tob.num", "id", "nofh.h2.v.v.2.77", "nofh.h2.err.v.v.2.77"),
   col_types = "icnn"
 )
@@ -140,7 +140,7 @@ tobacco_data <- tobacco_data %>% mutate(redo.h2.deliv.77 = y.h2.g.L.100.77 - nof
 # 77 K / 6 bar from EES paper, Yamil, 2017-11-15
 # Similar format to the CrystGrowthDesign spreadsheet above, but with fewer columns to import
 low_p_h2_data_raw <- read_xlsx(
-  "BigData/Emails/tobacco-yamil-20171115/EES-SI-07-18-2016.xlsx",
+  "Data/Emails/tobacco-yamil-20171115/EES-SI-07-18-2016.xlsx",
   sheet = "data",
   skip = 3, na = "inf",
   col_names = c(
@@ -175,7 +175,7 @@ tobacco_data <- tobacco_data %>% inner_join(low_p_h2_data, by="MOF.ID")
 
 # Let's also grab CH4 data at 6 bar (noting that this file also provides H2 at 6 bar, 243 K)
 raw_ch4_6_bar <- read_xlsx(
-  "BigData/Emails/tobacco-yamil-20171115/6bar.xlsx",
+  "Data/Emails/tobacco-yamil-20171115/6bar.xlsx",
   sheet = "CH4",
   skip = 1, na = "inf",
   col_names = c("MOF.ID", paste0("y.ch4.", c("v.v", "mg.g"), ".6.298"))
@@ -185,7 +185,7 @@ tobacco_data <- tobacco_data %>% inner_join(raw_ch4_6_bar, by="MOF.ID")
 
 ### From load_grids code block
 if (!exists("raw_grids_h2")) {
-  raw_grids_h2 <- read_rds("BigData/Robj/tobacco_h2.Rds")
+  raw_grids_h2 <- read_rds("Data/Robj/tobacco_h2.Rds")
 }
 
 
@@ -238,11 +238,11 @@ source("R/regression_and_features.R")
 source("R/get_energy_stats.R")
 source("R/plot_diagnostics.R")
 
-source("R/load_data.R")
+source("Notebooks/load_data.R")
 # Also load CH4 data for the hMOFs from Scotty.  We don't have this data from Wilmer's work, since they were only concerned with absolute uptake at that point.
 raw_2500_cols <- c("kJ.mol", "cm3.cm3", "g.kg")
 raw_ch4_hmof <- read_tsv(
-  "BigData/2500hmof-data/2500hmofdata.tsv",
+  "Data/2500hmof-data/2500hmofdata.tsv",
   skip = 2,
   na = c("", "#NAME?", "-"),
   col_names = c(
@@ -264,7 +264,7 @@ raw_ch4_hmof <- raw_ch4_hmof %>%
 gcmc_data <- gcmc_data %>% 
   left_join(raw_ch4_hmof, by="id")
 
-hmof_h2_grid <- read_rds("BigData/Robj/hmof_h2.Rds")
+hmof_h2_grid <- read_rds("Data/Robj/hmof_h2.Rds")
 hmof_h2_grid <- hmof_h2_grid %>%
   mutate(str_id = str_sub(id, 6, -1)) %>% # strip the hMOF- prefix
   mutate(id = as.integer(str_id)) %>% 
@@ -278,7 +278,7 @@ hmof_y_to_join <- gcmc_data %>%
 # models, CH4, and combined DC.
 hmof_h2_grid_full <- hmof_h2_grid  # save the original grids for the mixed model, which has ~20 MOFs without CH4 data
 # For the hmof_h2_grid, let's instead base it on p_2bar_grids (figures.Rmd), which is imported here
-simplified_hmof_complete_ids <- read_rds("BigData/Output/p_2bar_grids_id_20180704.Rds")
+simplified_hmof_complete_ids <- read_rds("Data/Output/p_2bar_grids_id_20180704.Rds")
 simplified_hmof_training_ids <- archived_training_ids$`hMOF H2`$training
 simplified_hmof_testing_ids <- archived_training_ids$`hMOF H2`$testing
 simplified_hmof_testing_ids <- sample(simplified_hmof_testing_ids, 2250-length(simplified_hmof_training_ids))
@@ -302,7 +302,7 @@ p_2bar_data <- na.omit(gcmc_data)  # probably overzealous, but it'll remove all 
 ### From hmof_methane code block (mostly wanted the CH4 setup)
 
 # Let's use the data sets from the previous block.  There are some cases where we have methane data but not H2, and vice versa, but let's go with the MOFs in common for simplicitly.
-raw_hmof_grids_ch4 <- read_rds("BigData/Robj/hmof_ch4.Rds") %>% rename(dirname = id)
+raw_hmof_grids_ch4 <- read_rds("Data/Robj/hmof_ch4.Rds") %>% rename(dirname = id)
 p_ch4_grids <- raw_hmof_grids_ch4 %>% 
   mutate(id = as.integer(str_sub(dirname, 6))) %>% 
   filter(id %in% p_2bar_data$id)
@@ -325,17 +325,17 @@ p_ch4_sets <- partition_data_subsets(p_ch4_grids, p_2bar_data, DATA_SPLIT, archi
 
 # Repeat the CH4 hMOF analysis for ToBaCCo.  Does it behave like H2 deliverable capacity?
 # First, attempt training/testing only on ToBaCCo data
-grids_ch4_tobacco <- read_rds("BigData/Robj/tobacco_ch4.Rds")
+grids_ch4_tobacco <- read_rds("Data/Robj/tobacco_ch4.Rds")
 tob_ch4_sets <- partition_data_subsets(grids_ch4_tobacco, tobacco_data, DATA_SPLIT, archived_training_ids$`ToBaCCo CH4`)
 
 
 ### From ccdc_applicability code block (partial for CCDC data)
 
 # Derived from notebook 20171106_immediate_followup.Rmd
-ccdc_h2_grids <- read_rds("BigData/Robj/ccdc_hist_vals.Rds")
+ccdc_h2_grids <- read_rds("Data/Robj/ccdc_hist_vals.Rds")
 ccdc_gcmc <- 
   read_tsv(
-    "BigData/Emails/ccdc-random-20180111/completed_20180518_ccdc_vol.tsv",
+    "Data/Emails/ccdc-random-20180111/completed_20180518_ccdc_vol.tsv",
     skip = 3,
     na = c("", "null", "#NAME?", "#VALUE!", "-"),
     col_names = c("id", paste("fh.h2.g.L", c(2, 5, 5, 100), c(77, 77, 160, 77), sep=".")),
@@ -345,13 +345,13 @@ ccdc_gcmc <-
   # See https://stackoverflow.com/questions/39279724/use-mutate-at-to-change-multiple-column-types
   mutate(g.L = fh.h2.g.L.100.77 - fh.h2.g.L.2.77) %>% 
   na.omit()
-ccdc_h2_160k_grids <- read_rds("BigData/Robj/ccdc_hist_160k.Rds")
+ccdc_h2_160k_grids <- read_rds("Data/Robj/ccdc_hist_160k.Rds")
 
 
 # Import 160 K, 5 bar data for the 2500 hMOFs.  Use it to train (and validate) a model for CCDC screening.
 p_160k_5bar_data <- 
   read_table2(
-    "BigData/Mateo/EnergyGrid/GCMC-160k-2500hMOF/volume-uptake_combined.txt",
+    "Data/Mateo/EnergyGrid/GCMC-160k-2500hMOF/volume-uptake_combined.txt",
     col_names = c("id", "filebasename", "fh.h2.v.v.5.160", "fh.h2.err.v.v.5.160"),
     col_types = "icnn"
   ) %>% 
