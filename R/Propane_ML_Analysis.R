@@ -7,24 +7,13 @@ source("R/get_energy_stats.R")
 source("R/plot_diagnostics.R")
 library(plotly)
 library(randomForest)
-#source("R/read_tobacco_propane.R")
-#source("R/read_tobacco_butane.R")
 source("R/read_tobacco_new_propane.R")
-#source("R/read_tobacco_ethane.R")
-#source("R/read_tobacco_methane.R")
 source("R/tobacco_data_for_zhao.R")
 source("R/save_train_test_data.R")
 source("R/refined_bins_calc.R")
 # in command prompt: Rscript --vanilla R\save_h2_hists.R whatever.rds Energies\ use_ch4
 
  ch4_binspec <- c(from=-26 , to=20, step=0.5, width=0.5)
-# p_ch4_grids <- raw_hmof_grids_ch4 %>% 
-#   mutate(id = as.integer(str_sub(dirname, 6))) %>% 
-#   filter(id %in% p_2bar_data$id)
-# simplified_grid_ids_ch4 <- c(
-#   simplified_grid_training,
-#   sample(simplified_grid_testing, 2250-length(simplified_grid_training))
-# )
  
  hmof_h2_grid <- read_rds("All_data/whatever.Rds")
  
@@ -39,11 +28,9 @@ source("R/refined_bins_calc.R")
 p_ch4_sets <- partition_data_subsets(hmof_h2_grid, gcmc_data, DATA_SPLIT)
 p_ch4_vol <- gcmc_data %>%
   mutate(g.L = Molec_cm3overcm3) %>%
-  #run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="cm\u00B3/cm\u00B3", db_name = "tobacco")
   run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="cm\u00B3/cm\u00B3", db_name = "tobacco")
 
 p_ch4_vol$plots$parity_testing%>% rescale_ch4_parity() + theme(axis.title.y = element_text(hjust=0.5)) + xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)")
-# 
 
 # # save data to csv files for later testing other models
  export_data(p_ch4_sets$training, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), "tobacco_c3_1bar_train_28K.csv", ch4_binspec)
