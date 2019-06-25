@@ -24,7 +24,7 @@ heat_maps <- function(MOF_ID, binbounds) {
   a <- append(a, Inf, length(a))
   energy_breaks <- binbounds$upper
   
-  grad_breaks <- c(0, 7, 350, 11000, Inf)
+  grad_breaks <- c(0, 7, 350, 11000, Inf) # taken from the quantile values of 1.grid
   
   abc <- hist2d_break(x = new_grad$energy, y = new_grad$grad_size, energy_breaks, grad_breaks, show = FALSE)
   # convert matrix to a 1D dataframe with MOFID
