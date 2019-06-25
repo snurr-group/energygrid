@@ -13,16 +13,16 @@ source("R/save_train_test_data.R")
 source("R/refined_bins_calc.R")
 # in command prompt: Rscript --vanilla R\save_h2_hists.R whatever.rds Energies\ use_ch4
 
- ch4_binspec <- c(from=-26 , to=20, step=0.5, width=0.5)
+ #ch4_binspec <- c(from=-26 , to=20, step=0.5, width=0.5)
  
- hmof_h2_grid <- read_rds("All_data/whatever.Rds")
+ hmof_h2_grid <- read_rds("All_data/Grids_Propane_298K_1A_GenericMOFs.Rds")
  
  # here we can have two options, feed uniform or non-uniform bins
  #binbounds <- bounds_from_params(ch4_binspec)
  gcmc_data <- mutate(gcmc_data, id=ID)
  new_grid <- hmof_h2_grid[hmof_h2_grid[, "id"] %in% gcmc_data$id,] # select out the grids with id same as gcmc_data id
  binbounds <- automatic_bins(new_grid,1000000) # for non-uniform bins
- ch4_binspec <- list("from" = -40, to = 40, bounds = binbounds)
+ ch4_binspec <- list("from" = -40, "to" = 40, bounds = binbounds)
 
  DATA_SPLIT <- 1000 # Number of data points used in training data, from setup_data.R
 p_ch4_sets <- partition_data_subsets(hmof_h2_grid, gcmc_data, DATA_SPLIT)
