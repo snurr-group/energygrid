@@ -23,6 +23,7 @@ whatever.rds
 propane_60bar.txt
 R/Dependency_graph.R
 Energies/
+GenericMOF_Energies/
 *.rds
 *.jpg
 *.jpeg
@@ -30,5 +31,8 @@ Energies/
 /propane_1bar_60K_Cycle.txt
 Picture/
 All_Data/
-Gradients/
+GenericMOF_Gradients/
 Kr_energies/
+HeatMaps/
+UFF_Energies/
+Famous_mofs/
