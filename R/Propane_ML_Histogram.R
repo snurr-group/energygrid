@@ -7,7 +7,7 @@ source("R/get_energy_stats.R")
 source("R/plot_diagnostics.R")
 library(plotly)
 library(randomForest)
-source("R/read_tobacco_new_propane.R")
+source("R/read_gcmc_data.R")
 source("R/tobacco_data_for_zhao.R")
 source("R/save_train_test_data.R")
 source("R/refined_bins_calc.R")
@@ -15,8 +15,8 @@ source("R/refined_bins_calc.R")
 
  #ch4_binspec <- c(from=-26 , to=20, step=0.5, width=0.5)
  
- hmof_h2_grid <- read_rds("All_data/Grids_Propane_298K_1A_GenericMOFs.Rds")
- 
+ hmof_h2_grid <- read_rds("All_data/CH3_probe_1A_UFF.rds")
+ gcmc_data <- read_data("All_data/propane_1bar_UFF_2000points.txt")
  # here we can have two options, feed uniform or non-uniform bins
  #binbounds <- bounds_from_params(ch4_binspec)
  gcmc_data <- mutate(gcmc_data, id=ID)
