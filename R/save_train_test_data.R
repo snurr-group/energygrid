@@ -10,16 +10,19 @@ library(magrittr)
 # Now get the testing data, using a combination of pred_grid/eval_test_grid.
 # convert it to a general function, not just for test data
 # can combine with other data like heat of adsorption
-export_data <- function(test_grid, df_with_y_act, filename, binspec, align_bins="strict") {
+export_data <- function(test_grid, df_with_y_act, binspec, align_bins="strict", writecsv = FALSE, filename = "default_data.csv") {
   grid_desc <- test_grid %>%
     stepped_hist(binspec, align_bins = align_bins) %>% 
     spread(key=bin, value=metric)
   results <- df_with_y_act %>% 
-#    select(id, y_act) %>%
-    select(id, y_act, Heat_of_Ads,`Host-Guest`,`Guest-Guest`,Qst_low_loading) %>% 
+    select(id, y_act) %>%
+#    select(id, y_act, Heat_of_Ads,`Host-Guest`,`Guest-Guest`,Qst_low_loading) %>% 
     inner_join(grid_desc, by="id") %>% 
     select(-id)
-  results %>% write_csv(filename)
+  if (writecsv){
+    results %>% write_csv(filename)
+  }
+  results
 }
 # extra function for extracting a separate set of topology data from other training purposes
 # Just toplogies
