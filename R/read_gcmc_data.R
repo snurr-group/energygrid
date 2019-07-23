@@ -2,21 +2,17 @@ library(dplyr)
 library(readr)
 library(tidyr)
 library(openxlsx)
-#gcmc_data <- read_table2("new_propane.txt")
-#gcmc_data <- read_table("new_propane.txt")
-#gcmc_data <- read_table("propane_60bar.txt")
-#gcmc_data <- read_table("propane_1bar_60K_Cycle.txt")
 read_data <- function(filename){ 
 gcmc_data <- read_table(filename)
-#gcmc_data <- read_table("All_data/propane_1000pa_140K.txt")
-#gcmc_data <- read_table("tobacco_propane_5k.txt")
-#gcmc_data <- read_table("propane_9000_cycle.txt")
-#gcmc_data <- read_table("propane_1000pa.txt")
+gcmc_data <- na.omit(gcmc_data)
 gcmc_data <- separate(gcmc_data, col = `ID  Temp   Pres`, into = c("ID Temp", "Pres"), sep = "  ")
 gcmc_data <- separate(gcmc_data, col = `ID Temp`, into = c("ID",  "Temp"), sep = " ")
+mc_0_ids <- read_table("All_data/IDs_with_mc_0.txt")
+#mc_0_ids <- as.character(mc_0_ids)
+# for tobacco mofs, we exclude the dubious mc_0 node, all mofs with that ID will be filtered
 
+gcmc_data <- gcmc_data %>% filter(!ID %in% mc_0_ids$IDs_with_mc_0)
 
-gcmc_data <- na.omit(gcmc_data)
 gcmc_data
 }
 # low_loading <- read_table2("All_data/propane_1000pa_140K.txt")
