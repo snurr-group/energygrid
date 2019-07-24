@@ -1,10 +1,6 @@
 # Gets statistics on calculated energies from the scotty_map.py code
-library(tidyverse)
-library(stringr)
-library(R.utils)
-library(manipulate)
 
-QUICK_TEST <- TRUE  # Set to true to do a "practice run" instead of all of the files
+QUICK_TEST <- FALSE  # Set to true to do a "practice run" instead of all of the files
 
 
 energy_stats <- function(data_dir, bin_width, min_max) {
@@ -84,7 +80,7 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
     filter(near(lower, lower_bound) | lower > lower_bound) %>%
     filter(near(upper, upper_bound) | upper < upper_bound) %>%
     group_by(id) %>% summarize(good = sum(counts))
-  print("Yes we got here")
+  #print("Yes we got here") # for debugging purposes, if you wanna use, just uncomment this line
   total_counts <- hist_df %>% group_by(id) %>% summarize(total = sum(counts))
 
   lj_metric <- total_counts %>%

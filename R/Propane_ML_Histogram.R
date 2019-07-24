@@ -1,14 +1,13 @@
 rm(list=ls())
+# for checking package availability, if not, install it
+source("R/package_verification.R")
 
-library(plotly)
-library(randomForest)
-library(cowplot)
 source("R/plot_hists.R")
 source("R/regression_and_features.R")
 source("R/get_energy_stats.R")
 source("R/plot_diagnostics.R")
 source("R/read_gcmc_data.R")
-source("R/tobacco_data_for_zhao.R")
+source("R/read_tobacco_data.R")
 source("R/save_train_test_data.R")
 source("R/refined_bins_calc.R")
 # in command prompt: Rscript --vanilla R\save_h2_hists.R whatever.rds Energies\ use_ch4

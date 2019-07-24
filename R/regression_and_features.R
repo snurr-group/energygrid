@@ -1,11 +1,5 @@
 # Functions to calculate a (stepped) energy histogram and run ridge regression models
 
-library(dplyr)
-library(purrr)
-library(glmnet)
-library(caret)
-library(testthat)
-
 # TODO: long-term, consider writing a data frame with beta, bin number, bin extremes, etc., for easy transfer of models
 
 ### FEATURE GENERATION ###
@@ -54,7 +48,7 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
   #.id grabs the bin number, which should be sufficient as an identifier.
   # This approach will also likely be easier for "spread"-ing back into columns for plsr
   result_hist <- map2_dfr(lower_bounds, upper_bounds, metric_from_hists, hist_df=df, warn=FALSE, .id="bin") # return df created by binding rows
-  print("Here is result hist")
+  print("Now checking bounds of the result histogram")
   if (bin_above) {
     # If specified, add a bin above containing the remainder.
     # For whatever reason, the "bin" column from purrr is of type "character"
@@ -62,14 +56,14 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
       to_above <- upper_bounds[length(upper_bounds)]
     } else {
       to_above <- binspec$to
-      print("to_above is: ")
+      #print("to_above is: ")
       print(to_above)
     }
-    print("aha")
+    print("Now, bind rows")
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, to_above, Inf, warn=FALSE), bin="Inf"))
   }
-  print("emmm")
+  print("Finished binding rows")
   if (bin_below) {
     if (align_bins == "downward") {
       from_below <- lower_bounds[1]
@@ -79,7 +73,7 @@ stepped_hist <- function(df, binspec, bin_above=TRUE, bin_below=TRUE, align_bins
     result_hist <- result_hist %>% 
       bind_rows(mutate(metric_from_hists(df, -Inf, from_below, warn=FALSE), bin="-Inf"))
   }
-  print("checked bin_above and below")
+  print("Finished checking bin_above and below")
   if (check_sums & bin_above & bin_below) {
     # can test that this fails by temporarily disabling bin_above here and as default args.  Then it won't sum to one.
     non_unity_hists <- result_hist %>% 
@@ -297,8 +291,7 @@ run_bin_model <- function(e_data, y_with_id, binspec, lambda=NULL, alpha=DEFAULT
   x <- e_data %>% 
     stepped_hist(binspec, align_bins=align_bins) %>% 
     spread(key=bin, value=metric)
-  print("x is done")
-  print(x)
+  print("histogram dataframe x is done")
   print("y is the corresponding uptake data")
   y <- x %>% 
     left_join(y_with_id, by="id") %>%

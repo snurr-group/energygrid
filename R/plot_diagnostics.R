@@ -1,10 +1,5 @@
 # Makes diagnostic plots, such as model fit or distributions of bins
 
-library(ggplot2)
-library(dplyr)
-library(grid)  # textGrob, since geom_text/annotate won't let you adjust an x=Inf, etc.
-library(stringr)
-
 parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
 parity_plot <- function(act, pred, color=1, alpha=0.50) {

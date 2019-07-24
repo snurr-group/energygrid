@@ -1,4 +1,3 @@
-library(magrittr)
 # save all the data to a csv file
 # export_training_data <- function(partitioned_mod, filename) {
 #   # %$% exposition pipe operator, magrittr package
@@ -10,15 +9,16 @@ library(magrittr)
 # Now get the testing data, using a combination of pred_grid/eval_test_grid.
 # convert it to a general function, not just for test data
 # can combine with other data like heat of adsorption
-export_data <- function(test_grid, df_with_y_act, binspec, align_bins="strict", writecsv = FALSE, filename = "default_data.csv") {
+export_data <- function(test_grid, df_with_y_act, binspec, with_id = FALSE, align_bins="strict", writecsv = FALSE, filename = "default_data.csv") {
   grid_desc <- test_grid %>%
     stepped_hist(binspec, align_bins = align_bins) %>% 
     spread(key=bin, value=metric)
   results <- df_with_y_act %>% 
     select(id, y_act) %>%
-#    select(id, y_act, Heat_of_Ads,`Host-Guest`,`Guest-Guest`,Qst_low_loading) %>% 
-    inner_join(grid_desc, by="id") %>% 
-    select(-id)
+    inner_join(grid_desc, by="id")
+  if (!with_id){
+    results <- results %>% select(-id)
+  }
   if (writecsv){
     results %>% write_csv(filename)
   }
