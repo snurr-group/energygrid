@@ -88,7 +88,8 @@ correlation_test <- correlation_of_energy_histograms(test_data_with_id)
 all_Rs <- subset(correlation_train, rownames(correlation_train) %in% "12850")
 df_all_Rs <- data.frame(t(all_Rs))
 df_all_Rs$y_actual <- train_data_with_id$y_act
-
+colnames(df_all_Rs)[colnames(df_all_Rs)=="X12850"] <- "R_scores"
+ordered_Rvalues <- df_all_Rs[order(-df_all_Rs$y_actual),]
 colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
 colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
 topo_train_data<- merge(train_data_with_id, structural_data, by ="MOF.ID")
