@@ -89,3 +89,22 @@ metric_from_hists <- function(hist_df, lower_bound = -200, upper_bound = 0, warn
     select(id, metric)
   lj_metric
 }
+
+# convert tibble into a matrix
+# then calculate the correlation coefficient R
+# Note: Value given by Post_resample is R^2 
+# this function needs tibble with mof_id in it
+# then the id column is converted to the row names and then get transposed
+# finally it calls cor() function and returns a R-value-matrix
+correlation_of_energy_histograms <- function(hists_with_id, write_to_csv = FALSE){
+  a <- hists_with_id %>% select(-y_act)
+  ab <- a %>% select(-MOF.ID)
+  abc <- as.matrix(ab)
+  namesss <- t(as.vector(a %>% select(MOF.ID)))
+  rownames(abc) <- namesss
+  correlation <- cor(t(abc))
+  if (write_to_csv == TRUE){
+    write.csv(correlation, file = "Results/correlation_between_histograms.csv")
+  }
+  correlation
+}

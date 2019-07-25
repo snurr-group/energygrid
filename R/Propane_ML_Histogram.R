@@ -49,7 +49,10 @@ save_plot(paste("Results/", paste0(molecule_name, "_test.png"), sep = ""),gg_tes
  train_data <- export_data(p_ch4_sets$training, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), ch4_binspec)
  test_data <- export_data(p_ch4_sets$testing, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), ch4_binspec)
 
-
+# a histogram correlation analysis
+  train_histo_bins <- train_data %>% select(-y_act)
+  test_histo_bins <- test_data %>% select(-y_act)
+  cor(as.matrix(train_histo_bins[1:2,]))
 # Run a random forest model
  rf_model <- randomForest(x = train_data %>% select(-y_act), y = train_data$y_act, ntree = 500)
  # gg <- qplot(x = model$predicted, y = model$y) + geom_abline(slope = 1, intercept = 0)
@@ -78,6 +81,14 @@ structural_data <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
 
 train_data_with_id <- export_data(p_ch4_sets$training, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), ch4_binspec, with_id = TRUE)
 test_data_with_id <- export_data(p_ch4_sets$testing, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), ch4_binspec, with_id = TRUE)
+# calculate the correlation matrix for these data
+correlation_train <- correlation_of_energy_histograms(train_data_with_id, write_to_csv = TRUE)
+correlation_test <- correlation_of_energy_histograms(test_data_with_id)
+# extract a row of interest
+all_Rs <- subset(correlation_train, rownames(correlation_train) %in% "12850")
+df_all_Rs <- data.frame(t(all_Rs))
+df_all_Rs$y_actual <- train_data_with_id$y_act
+
 colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
 colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
 topo_train_data<- merge(train_data_with_id, structural_data, by ="MOF.ID")
