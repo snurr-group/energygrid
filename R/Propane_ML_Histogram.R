@@ -13,7 +13,7 @@ source("R/refined_bins_calc.R")
 # in command prompt: Rscript --vanilla R\save_h2_hists.R whatever.rds Energies\ use_ch4
  # define the input files
  grid_file = "All_data/CH3_probe_1A_UFF.rds"
- gcmc_file = "All_data/ethane_10bar_UFF.txt"
+ gcmc_file = "All_data/Hexane_.1bar_new.txt"
  if (!dir.exists("Results")){
    dir.create("Results")
  }
@@ -26,6 +26,8 @@ source("R/refined_bins_calc.R")
  gcmc_data <- mutate(gcmc_data, id=ID)
  new_grid <- hmof_h2_grid[hmof_h2_grid[, "id"] %in% gcmc_data$id,] # select out the grids with id same as gcmc_data id
  binbounds <- automatic_bins(new_grid) # for non-uniform bins
+ binbounds <- as.data.frame(binbounds)
+ binbounds <- binbounds %>% filter(upper <= 0.0) # bind all repulsive bins
  ch4_binspec <- list("from" = head(binbounds$lower, n = 1), "to" = tail(binbounds$upper, n = 1), bounds = binbounds)
 
  
@@ -52,7 +54,7 @@ save_plot(paste("Results/", paste0(molecule_name, "_test.png"), sep = ""),gg_tes
 # a histogram correlation analysis
   train_histo_bins <- train_data %>% select(-y_act)
   test_histo_bins <- test_data %>% select(-y_act)
-  cor(as.matrix(train_histo_bins[1:2,]))
+  cor(as.matrix(t(train_histo_bins[1:2,])))
 # Run a random forest model
  rf_model <- randomForest(x = train_data %>% select(-y_act), y = train_data$y_act, ntree = 500)
  # gg <- qplot(x = model$predicted, y = model$y) + geom_abline(slope = 1, intercept = 0)
@@ -82,16 +84,37 @@ structural_data <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
 train_data_with_id <- export_data(p_ch4_sets$training, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), ch4_binspec, with_id = TRUE)
 test_data_with_id <- export_data(p_ch4_sets$testing, rename(gcmc_data %>% mutate(g.L = Molec_cm3overcm3), y_act=g.L), ch4_binspec, with_id = TRUE)
 # calculate the correlation matrix for these data
+colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
+colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
 correlation_train <- correlation_of_energy_histograms(train_data_with_id, write_to_csv = TRUE)
 correlation_test <- correlation_of_energy_histograms(test_data_with_id)
 # extract a row of interest
-all_Rs <- subset(correlation_train, rownames(correlation_train) %in% "12850")
+# all_Rs <- subset(correlation_train, rownames(correlation_train) %in% "12616")
+# df_all_Rs <- data.frame(t(all_Rs))
+# df_all_Rs$y_actual <- train_data_with_id$y_act
+# colnames(df_all_Rs)[colnames(df_all_Rs)=="X12616"] <- "R_scores"
+# ordered_Rvalues <- df_all_Rs[order(-df_all_Rs$y_actual),]
+
+# add R-score as a predictor
+all_data_with_R <- rbind(train_data_with_id, test_data_with_id)
+correlation_all <- correlation_of_energy_histograms(all_data_with_R)
+all_Rs <- subset(correlation_all, rownames(correlation_all) %in% "13320")
 df_all_Rs <- data.frame(t(all_Rs))
-df_all_Rs$y_actual <- train_data_with_id$y_act
-colnames(df_all_Rs)[colnames(df_all_Rs)=="X12850"] <- "R_scores"
-ordered_Rvalues <- df_all_Rs[order(-df_all_Rs$y_actual),]
-colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
-colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
+colnames(df_all_Rs)[colnames(df_all_Rs)=="X13320"] <- "R_scores"
+all_data_with_R$Rscore <- df_all_Rs$R_scores
+training_rows <- sample(length(all_data_with_R$MOF.ID), DATA_SPLIT)
+training_data_with_R <- all_data_with_R[training_rows, ]
+testing_data_with_R <- all_data_with_R[-training_rows, ]
+
+rf_model_Rscore <- randomForest(x = training_data_with_R %>% select(-y_act, -MOF.ID), y = training_data_with_R$y_act, ntree = 500)
+tested_Rscore <- predict(rf_model_Rscore, testing_data_with_R)
+rf_tested_Rscore_rmse <- postResample(pred = tested_Rscore, obs = testing_data_with_R$y_act) 
+gg_rf_train_Rscore <- qplot(x = rf_model_Rscore$y, y = rf_model_Rscore$predicted) %>% rescale_ch4_parity() + geom_abline(slope = 1, intercept = 0, linetype = 2) + xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)") + geom_point(color='orange')
+save_plot(paste("Results/", paste0(molecule_name, "_random_forest_train_Rscore.png"), sep = ""),gg_rf_train_Rscore, base_width = 10, base_height = 8, dpi = 600)
+gg_rf_test_Rscore <- qplot(x = testing_data_with_R$y_act, y = tested_Rscore) %>% rescale_ch4_parity() + geom_abline(slope = 1, intercept = 0, linetype = 2)+ xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)") + geom_point(color='lightblue')
+save_plot(paste("Results/", paste0(molecule_name, "_random_forest_test_Rscore.png"), sep = ""),gg_rf_test_Rscore, base_width = 10, base_height = 8, dpi = 600)
+
+# learning using Topology data
 topo_train_data<- merge(train_data_with_id, structural_data, by ="MOF.ID")
 topo_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
 
@@ -100,6 +123,6 @@ rf_model_topo <- randomForest(x = topo_train_data %>% select(-y_act, -MOF.ID), y
 tested_topo <- predict(rf_model_topo, topo_test_data)
 rf_tested_topo_rmse <- postResample(pred = tested_topo, obs = topo_test_data$y_act) 
 gg_rf_train_topo <- qplot(x = rf_model_topo$y, y = rf_model_topo$predicted) %>% rescale_ch4_parity() + geom_abline(slope = 1, intercept = 0, linetype = 2) + xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)") + geom_point(color='orange')
-save_plot(paste("Results/", paste0(molecule_name, "_random_forest_train_topology.png"), sep = ""),gg_rf_train, base_width = 10, base_height = 8, dpi = 600)
+save_plot(paste("Results/", paste0(molecule_name, "_random_forest_train_topology.png"), sep = ""),gg_rf_train_topo, base_width = 10, base_height = 8, dpi = 600)
 gg_rf_test_topo <- qplot(x = topo_test_data$y_act, y = tested_topo) %>% rescale_ch4_parity() + geom_abline(slope = 1, intercept = 0, linetype = 2)+ xlab("GCMC capacity (cm\u00B3/cm\u00B3)") + ylab("Predicted capacity (cm\u00B3/cm\u00B3)") + geom_point(color='lightblue')
-save_plot(paste("Results/", paste0(molecule_name, "_random_forest_test_topology.png"), sep = ""),gg_rf_test, base_width = 10, base_height = 8, dpi = 600)
+save_plot(paste("Results/", paste0(molecule_name, "_random_forest_test_topology.png"), sep = ""),gg_rf_test_topo, base_width = 10, base_height = 8, dpi = 600)
