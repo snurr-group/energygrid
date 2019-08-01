@@ -30,7 +30,9 @@ GenericMOF_Energies/
 *.csv
 /propane_1bar_60K_Cycle.txt
 Picture/
-All_Data/
+All_Data/*.rds
+All_Data/HGGG*
+All_Data/*.csv
 GenericMOF_Gradients/
 Kr_energies/
 HeatMaps/
