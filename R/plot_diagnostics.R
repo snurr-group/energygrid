@@ -94,41 +94,19 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       color=I("#0070C0")
     )
   
-  # Label stats on the training and testing plots
-  label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE) {
-    training_stats <- ""
-    if (!is.null(label_q2)) {
-      training_stats <- paste0(
-        training_stats, "\n",
-        "Q\u00B2 = ", format(label_q2, digits=2, nsmall=2)
-        )
-    }
-    if (do_label_r2) {
-      training_stats <- paste0(
-        training_stats, "\n",
-        "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2, nsmall=2)
-        )
-    }
-    training_stats <- paste0(
-      training_stats, "\n",
-      "MAE = ", format(postresample_results["MAE"], digits=2, nsmall=1), " ", plot_units, "\n",
-      "RMSE = ", format(postresample_results["RMSE"], digits=2, nsmall=1), " ", plot_units
-       )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
-    p %>% annotate_plot(training_stats, "bottom.right")
-  }
 
   results$plots$parity_training <- 
     results$plots$parity_training %>% 
     annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
     #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
-    label_stats(results$training_fit, label_q2=NULL)  # decided against labeling R2 on any of the figures
+    label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units)  # decided against labeling R2 on any of the figures
   
   results$plots$parity_testing <- 
     parity_plot(y_act, y_pred, "#0070C0") %>% 
     # We could use a thousands separator within the figures, but it looks weird and out of place
     #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-    label_stats(results$testing_fit) +
+    label_stats(results$testing_fit, plot_units = plot_units) +
     xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
     ylab(paste0("Predicted capacity (", perf_label,")"))
   
@@ -240,4 +218,88 @@ rescale_ch4_parity <- function(p, lim=250) {
   p +
     scale_x_continuous(limits = c(0,lim)) +
     scale_y_continuous(limits = c(0,lim))
+}
+
+# Label stats on the training and testing plots
+label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, plot_units = "g/L") {
+  training_stats <- ""
+  if (!is.null(label_q2)) {
+    training_stats <- paste0(
+      training_stats, "\n",
+      "Q\u00B2 = ", format(label_q2, digits=2, nsmall=2)
+    )
+  }
+  if (do_label_r2) {
+    training_stats <- paste0(
+      training_stats, "\n",
+      "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2, nsmall=2)
+    )
+  }
+  training_stats <- paste0(
+    training_stats, "\n",
+    "MAE = ", format(postresample_results["MAE"], digits=2, nsmall=1), " ", plot_units, "\n",
+    "RMSE = ", format(postresample_results["RMSE"], digits=2, nsmall=1), " ", plot_units
+  )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
+  p %>% annotate_plot(training_stats, "bottom.right")
+}
+
+# generate rf predictions and plots
+make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_data, lim = 250, axis_label = "capacity (cm\u00B3/cm\u00B3)"){
+  # condition names should go like: molecule_temperature_pressure
+  new_string <- paste0(condition_name, "_")
+  # make prediction
+  tested <- predict(rf_model, test_data)
+  train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
+  test_rmse <- postResample(pred = tested, obs = test_data$y_act)
+  gg_rf_train <- qplot(x = rf_model$y, y = rf_model$predicted) %>% rescale_ch4_parity(., lim = lim) + 
+    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+    xlab(paste0("GCMC ", axis_label)) + 
+    ylab(paste0("Predicted ", axis_label)) + 
+    geom_point(color='orange')
+  gg_rf_train <- gg_rf_train %>% label_stats(., train_rmse, plot_units = "cm\u00B3/cm\u00B3")
+  save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
+            gg_rf_train, base_width = 10, base_height = 8, dpi = 600)
+  
+  gg_rf_test <- qplot(x = test_data$y_act, y = tested) %>% rescale_ch4_parity(., lim = lim) + 
+    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+    xlab(paste0("GCMC ", axis_label)) + 
+    ylab(paste0("Predicted ", axis_label)) + 
+    geom_point(color='lightblue')
+  gg_rf_test <- gg_rf_test %>% label_stats(., test_rmse, plot_units = "cm\u00B3/cm\u00B3")
+  save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_test.png")), sep = ""), 
+            gg_rf_test, base_width = 10, base_height = 8, dpi = 600)
+}
+
+make_topology_histograms <- function(condition_name, topo_data){
+  # set a folder for these histograms
+  new_string <- paste0(condition_name, "_")
+  save_path_2 <- paste0(save_path, "topology_histograms/")
+  if (!dir.exists(save_path_2)){
+    dir.create(save_path_2)
+  }
+  # vf
+  gg_histo_vf <- qplot(topo_data$vf, geom = "histogram") + 
+    xlab("Void Fraction") + ylab("Counts")
+  save_plot(paste(save_path_2, paste0(new_string, "_vf.png"), sep = ""), 
+            gg_histo_vf, base_width = 10, base_height = 8, dpi = 600)
+  # vsa
+  gg_histo_vsa <- qplot(topo_data$vsa, geom = "histogram") + 
+    xlab("Volumetric Surface Area") + ylab("Counts")
+  save_plot(paste(save_path_2, paste0(new_string, "_vsa.png"), sep = ""), 
+            gg_histo_vsa, base_width = 10, base_height = 8, dpi = 600)
+  # gsa
+  gg_histo_gsa <- qplot(topo_data$gsa, geom = "histogram") + 
+    xlab("Gravity Surface Area") + ylab("Counts")
+  save_plot(paste(save_path_2, paste0(new_string, "_gsa.png"), sep = ""), 
+            gg_histo_gsa, base_width = 10, base_height = 8, dpi = 600)
+  # pld
+  gg_histo_pld <- qplot(topo_data$pld, geom = "histogram") + 
+    xlab("Pore Limiting Diameter") + ylab("Counts")
+  save_plot(paste(save_path_2, paste0(new_string, "_pld.png"), sep = ""), 
+            gg_histo_pld, base_width = 10, base_height = 8, dpi = 600)
+  # lcd
+  gg_histo_lcd <- qplot(topo_data$lcd, geom = "histogram") + 
+    xlab("Pore Largest Diameter") + ylab("Counts")
+  save_plot(paste(save_path_2, paste0(new_string, "_lcd.png"), sep = ""), 
+            gg_histo_lcd, base_width = 10, base_height = 8, dpi = 600)
 }
