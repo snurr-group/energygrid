@@ -94,19 +94,41 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
       color=I("#0070C0")
     )
   
-
+  do_label_low_loading <- FALSE
+  low_loading_postresample_train <- NULL
+  low_loading_postresample_test <- NULL
+  low_loading_threshold <- 50
+  LASSO_train_pred <- predict(results$trained_mod$mod, as.matrix(results$trained_mod$x))
+  # result from predict function is a list, convert it to a vector
+  LASSO_train_pred <- as.vector(LASSO_train_pred)
+  low_loading_train <- results$trained_mod$y[results$trained_mod$y <= low_loading_threshold]
+  low_loading_test <- results$pred_df$y_act[results$pred_df$y_act <= low_loading_threshold]
+  # if the population within the threshold is large enough
+  if (length(low_loading_train) > 100){
+    do_label_low_loading <-  TRUE
+    low_loading_postresample_train <- low_loading_stat(pred = LASSO_train_pred, 
+                                                       obs = results$trained_mod$y, 
+                                                       threshold = low_loading_threshold)
+    low_loading_postresample_test <- low_loading_stat(pred = results$pred_df$y_pred, 
+                                                       obs = results$pred_df$y_act, 
+                                                       threshold = low_loading_threshold)
+  }
   results$plots$parity_training <- 
     results$plots$parity_training %>% 
     annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
     #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
-    label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units)  # decided against labeling R2 on any of the figures
+    label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, 
+                low_loading_label = do_label_low_loading, 
+                low_loading_stat = low_loading_postresample_train)  # decided against labeling R2 on any of the figures
   
   results$plots$parity_testing <- 
     parity_plot(y_act, y_pred, "#0070C0") %>% 
     # We could use a thousands separator within the figures, but it looks weird and out of place
     #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-    label_stats(results$testing_fit, plot_units = plot_units) +
+    label_stats(results$testing_fit, plot_units = plot_units, 
+                low_loading_label = do_label_low_loading, 
+                low_loading_stat = low_loading_postresample_test) +
     xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
     ylab(paste0("Predicted capacity (", perf_label,")"))
   
@@ -220,8 +242,17 @@ rescale_ch4_parity <- function(p, lim=250) {
     scale_y_continuous(limits = c(0,lim))
 }
 
+# compute statistics for low_loading region
+low_loading_stat <- function(pred, obs, threshold = 50){
+  # compute statistics based on GCMC loading
+  combined_df <- as.data.frame(row.names = NULL, pred) %>% cbind(obs)
+
+  combined_df <- combined_df %>% filter(obs <= threshold)
+  low_loading_statistics <- postResample(pred = combined_df$pred, obs = combined_df$obs)
+}
+
 # Label stats on the training and testing plots
-label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, plot_units = "g/L") {
+label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, plot_units = "g/L", low_loading_label=FALSE, low_loading_statistics = NULL) {
   training_stats <- ""
   if (!is.null(label_q2)) {
     training_stats <- paste0(
@@ -233,6 +264,13 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
     training_stats <- paste0(
       training_stats, "\n",
       "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2, nsmall=2)
+    )
+  }
+  if (low_loading_label) {
+    training_stats <- paste0(
+      training_stats, "\n",
+      "Low Loading MAE = ", format(low_loading_statistics["MAE"], digits=2, nsmall=1), " ", plot_units, "\n",
+      "Low Loading RMSE = ", format(low_loading_statistics["RMSE"], digits=2, nsmall=1), " ", plot_units
     )
   }
   training_stats <- paste0(
@@ -251,12 +289,33 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
   tested <- predict(rf_model, test_data)
   train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
   test_rmse <- postResample(pred = tested, obs = test_data$y_act)
+  # consider doing low loading stats
+  do_label_low_loading <- FALSE
+  low_loading_postresample_train <- NULL
+  low_loading_postresample_test <- NULL
+  low_loading_threshold <- 50
+  low_loading_train <- rf_model$y[rf_model$y <= low_loading_threshold]
+  low_loading_test <- test_data$y_act[test_data$y_act <= low_loading_threshold]
+  # if the population within the threshold is large enough
+  if (length(low_loading_train) > 100){
+    do_label_low_loading <-  TRUE
+    low_loading_postresample_train <- low_loading_stat(pred = rf_model$predicted, 
+                                                       obs = rf_model$y, 
+                                                       threshold = low_loading_threshold)
+    low_loading_postresample_test <- low_loading_stat(pred = tested, 
+                                                      obs = test_data$y_act, 
+                                                      threshold = low_loading_threshold)
+  }
+  
+  
   gg_rf_train <- qplot(x = rf_model$y, y = rf_model$predicted) %>% rescale_ch4_parity(., lim = lim) + 
     geom_abline(slope = 1, intercept = 0, linetype = 2) + 
     xlab(paste0("GCMC ", axis_label)) + 
     ylab(paste0("Predicted ", axis_label)) + 
     geom_point(color='orange')
-  gg_rf_train <- gg_rf_train %>% label_stats(., train_rmse, plot_units = "cm\u00B3/cm\u00B3")
+  gg_rf_train <- gg_rf_train %>% label_stats(., train_rmse, plot_units = "cm\u00B3/cm\u00B3", 
+                                             low_loading_label = do_label_low_loading, 
+                                             low_loading_stat = low_loading_postresample_train)
   save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
             gg_rf_train, base_width = 10, base_height = 8, dpi = 600)
   
@@ -265,7 +324,9 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
     xlab(paste0("GCMC ", axis_label)) + 
     ylab(paste0("Predicted ", axis_label)) + 
     geom_point(color='lightblue')
-  gg_rf_test <- gg_rf_test %>% label_stats(., test_rmse, plot_units = "cm\u00B3/cm\u00B3")
+  gg_rf_test <- gg_rf_test %>% label_stats(., test_rmse, plot_units = "cm\u00B3/cm\u00B3", 
+                                           low_loading_label = do_label_low_loading, 
+                                           low_loading_stat = low_loading_postresample_test)
   save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_test.png")), sep = ""), 
             gg_rf_test, base_width = 10, base_height = 8, dpi = 600)
 }
