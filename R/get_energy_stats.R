@@ -108,3 +108,33 @@ correlation_of_energy_histograms <- function(hists_with_id, write_to_csv = FALSE
   }
   correlation
 }
+# determine the lower bound for pre-calculated histograms
+determine_lower_bound <- function(path_of_files, QUICK_TEST = FALSE){
+  files <- list.files(path_of_files)
+  if (QUICK_TEST) {
+    files <- files[1:500]  # Debugging trick to only run the first 100 folders
+  }
+  num_cifs <- length(files)
+  if (all(str_detect(files, "\\.grid$"))) {
+    files <- str_sub(files, 0, -6)
+  }
+  write(paste0("Getting lowest energies from the grid files   ",
+               path_of_files, "..."), "")
+  pb <- txtProgressBar(min = 1, max = num_cifs, style = 3)  # Add a progress bar, courtesy of https://www.r-bloggers.com/r-monitoring-the-function-progress-with-a-progress-bar/
+  current_row = 1
+  mini <- 0
+  num_rows <- num_cifs
+  for (raspa_grid in files){
+    energy_file <- file.path(path_of_files, paste0(raspa_grid, ".grid"))
+    # File I/O (next line) is the bottleneck.  read_table is faster than read_tsv
+    energy <- read_table(energy_file, col_names = "V1", col_types = "d")$V1  # faster than read_tsv for similar purposes
+    if (mini > min(energy)){
+      mini <- min(energy)
+    }
+    end_row <- current_row + num_rows - 1
+    current_row = current_row + num_rows
+    setTxtProgressBar(pb, (current_row-1)/num_rows)
+  }
+  close(pb)
+  mini
+}

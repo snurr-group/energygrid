@@ -5,9 +5,15 @@
 # Arguments are the output file followed by a list of input analysis directories.
 # Could also consider a more explicit `optparse` implementation with command-line config of params
 
+# added new feature: auto-tuning the lower-bound (081619)
+
 library(dplyr)
 library(readr)
+source("R/package_verification.R")
 source("R/get_energy_stats.R")
+
+
+
 
 # See arg documentation at https://www.r-bloggers.com/passing-arguments-to-an-r-script-from-command-lines/
 args = commandArgs(trailingOnly=TRUE)
@@ -23,6 +29,8 @@ if (length(args) == 0) {
   }
 }
 
+
+
 R_GAS_KJ <- 8.314 / 1000
 
 if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
@@ -31,15 +39,30 @@ if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
   hist_range <- c(-25, 5)  # Need -25 kJ/mol for tobmof5885
 }
 
-if (args[length(args)] == "use_ch4") {
-  # Last argument is a flag to change the histogram parameters.
-  # This could also be implemented with a double dash flag eventually
-  write("Overriding H2 parameters for the energy histogram with an extended range for CH4", "")
+if (args[length(args)] == "autotune") {
+  # this will give the code permission to determine the lower_bound by itself
+  write("Overriding H2 parameters for the energy histogram", "")
+  write("Determining lower bound by itself", "")
   min_bin_width <- 0.10
-  hist_range <- c(-40, 10)
+  GRID_DIR <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+  minimum_energy <- determine_lower_bound(path_of_files = GRID_DIR)
+  write(paste0("Minimum Energy is: ", minimum_energy, " (Kelvin)"), "")
+  # warning message has an additional half of bin width, so minus one to make it lower
+  lower_boundary <- floor(minimum_energy*R_GAS_KJ) - 1
+  write(paste0("Lower Boundary of the pre-calculated histograms is: ",
+               lower_boundary, " (kJ/mol)"), "")
+  hist_range <- c(lower_boundary, 30)
   ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
 }
 
+if (args[length(args)] == "use_CoRE") {
+  # Last argument is a flag to change the histogram parameters.
+  # This could also be implemented with a double dash flag eventually
+  write("Overriding H2 parameters for the energy histogram with an extended range for CoRE MOFs", "")
+  min_bin_width <- 0.10
+  hist_range <- c(-113, 30)
+  ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+}
 
 # Through testing, the default params for a function (tidy_energy_hists) evaluate the global variables at runtime, not "compile"/assignment, so we can reset the appropriate parameters here.
 # Also convert J/mol to original K units reported in the energy grid scripts.
