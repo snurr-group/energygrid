@@ -4,14 +4,15 @@ parity_line <- geom_abline(slope=1, intercept=0, linetype="dashed")
 
 parity_plot <- function(act, pred, color=1, alpha=0.50) {
   # Parity plot between actual and predicted data, on square axes for g/L H2
-  qplot(act, pred, alpha=I(alpha), color=I(color)) +
+  qplot(act, pred, alpha=I(alpha), color=I(color), size = I(dot_size)) +
     xlab("'Actual' capacity (GCMC)") +
     ylab("Predicted capacity (LASSO)") +
     expand_limits(x = 0, y = 0) +
     scale_x_continuous(limits = c(0,60)) +
     scale_y_continuous(limits = c(0,60)) +
     coord_fixed() +
-    parity_line
+    parity_line + 
+    theme_classic()
 }
 
 
@@ -101,36 +102,50 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   LASSO_train_pred <- predict(results$trained_mod$mod, as.matrix(results$trained_mod$x))
   # result from predict function is a list, convert it to a vector
   LASSO_train_pred <- as.vector(LASSO_train_pred)
-  low_loading_train <- results$trained_mod$y[results$trained_mod$y <= low_loading_threshold]
-  low_loading_test <- results$pred_df$y_act[results$pred_df$y_act <= low_loading_threshold]
   # if the population within the threshold is large enough
-  if (length(low_loading_train) > 100){
     do_label_low_loading <-  TRUE
     low_loading_postresample_train <- low_loading_stat(pred = LASSO_train_pred, 
-                                                       obs = results$trained_mod$y, 
-                                                       threshold = low_loading_threshold)
+                                                       obs = results$trained_mod$y)
     low_loading_postresample_test <- low_loading_stat(pred = results$pred_df$y_pred, 
-                                                       obs = results$pred_df$y_act, 
-                                                       threshold = low_loading_threshold)
-  }
+                                                       obs = results$pred_df$y_act)
+    
+  # calculate the boundaries of a parity plot: pick the lowest
+  # put all together: training/testing, prediction/actual, get the lowest and highest
+  pred_list <- c(LASSO_train_pred, results$trained_mod$y, results$pred_df$y_pred, results$pred_df$y_act)
+  plot_limit <- c(min(pred_list), max(pred_list))
+  if (poster){
+    results$plots$parity_training <- 
+      results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
+      annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
+      #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
+      label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE)
+  }else{
   results$plots$parity_training <- 
-    results$plots$parity_training %>% 
+    results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
     annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
     #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
-    label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, 
+    label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE,
                 low_loading_label = do_label_low_loading, 
                 low_loading_stat = low_loading_postresample_train)  # decided against labeling R2 on any of the figures
-  
+  }
+  # Zhao's idea: maybe labeling R2 is worthy...
+  if (poster){
+    results$plots$parity_testing <- 
+      parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
+      # We could use a thousands separator within the figures, but it looks weird and out of place
+      #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
+      annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
+      label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE)
+  }else{
   results$plots$parity_testing <- 
-    parity_plot(y_act, y_pred, "#0070C0") %>% 
+    parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
     # We could use a thousands separator within the figures, but it looks weird and out of place
     #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
     annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-    label_stats(results$testing_fit, plot_units = plot_units, 
+    label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE,
                 low_loading_label = do_label_low_loading, 
-                low_loading_stat = low_loading_postresample_test) +
-    xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
-    ylab(paste0("Predicted capacity (", perf_label,")"))
+                low_loading_stat = low_loading_postresample_test)
+  }
   
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
   results$plots$resid_normality <- df_with_ys %>% 
@@ -204,7 +219,9 @@ annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, 
   vj <- 0.5
   # Margins to end of document
   plot_margin <- 0.05  # fraction of the plot area (0.02 is nearly flush)
-  
+  if (poster){
+    fontsize= 30
+  }
   if (str_detect(pos, "left")) {
     xpos <- plot_margin
     hj <- 0
@@ -236,19 +253,22 @@ as_plotmath <- function(x) {
   # Plotmath is such a pain.  At least scales helps take care of it: https://jangorecki.gitlab.io/data.table/library/scales/html/parse_format.html
 }
 
-rescale_ch4_parity <- function(p, lim=250) {
+rescale_ch4_parity <- function(p, lims=c(0,250)) {
   p +
-    scale_x_continuous(limits = c(0,lim)) +
-    scale_y_continuous(limits = c(0,lim))
+    scale_x_continuous(limits = c(lims[1],lims[2])) +
+    scale_y_continuous(limits = c(lims[1],lims[2]))
 }
 
 # compute statistics for low_loading region
-low_loading_stat <- function(pred, obs, threshold = 50){
+low_loading_stat <- function(pred, obs){
   # compute statistics based on GCMC loading
+  threshold = quantile(obs)[[2]] # use the first quartile of the vector as threshold
   combined_df <- as.data.frame(row.names = NULL, pred) %>% cbind(obs)
 
   combined_df <- combined_df %>% filter(obs <= threshold)
   low_loading_statistics <- postResample(pred = combined_df$pred, obs = combined_df$obs)
+  # add low loading threshold to the named numbers
+  low_loading_statistics <- c(low_loading_statistics, low_loading_Threshold=threshold)
 }
 
 # Label stats on the training and testing plots
@@ -269,8 +289,11 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
   if (low_loading_label) {
     training_stats <- paste0(
       training_stats, "\n",
-      "Low Loading MAE = ", format(low_loading_statistics["MAE"], digits=2, nsmall=1), " ", plot_units, "\n",
-      "Low Loading RMSE = ", format(low_loading_statistics["RMSE"], digits=2, nsmall=1), " ", plot_units
+      "Low Loading R\u00B2 = ", format(low_loading_statistics["Rsquared"], digits=2, nsmall=1), "\n", 
+      "Low Loading MAE = ", format(low_loading_statistics["MAE"], digits=2, nsmall=1), " ", plot_units, "\n", 
+      "Low Loading RMSE = ", format(low_loading_statistics["RMSE"], digits=2, nsmall=1), " ", plot_units, "\n",
+      "Note: Low Loading Statistics generated by First Quartile of GCMC Loading Data", "\n", 
+      "Low Loading threshold = ", format(low_loading_statistics["low_loading_Threshold"], digits=2, nsmall=1), " ", plot_units
     )
   }
   training_stats <- paste0(
@@ -282,9 +305,12 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
 }
 
 # generate rf predictions and plots
-make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_data, lim = 250, axis_label = "capacity (cm\u00B3/cm\u00B3)"){
+make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")")){
   # condition names should go like: molecule_temperature_pressure
   new_string <- paste0(condition_name, "_")
+  if(poster){
+    new_string <- paste0(new_string, "_poster")
+  }
   # make prediction
   tested <- predict(rf_model, test_data)
   train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
@@ -293,42 +319,72 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
   do_label_low_loading <- FALSE
   low_loading_postresample_train <- NULL
   low_loading_postresample_test <- NULL
-  low_loading_threshold <- 50
-  low_loading_train <- rf_model$y[rf_model$y <= low_loading_threshold]
-  low_loading_test <- test_data$y_act[test_data$y_act <= low_loading_threshold]
   # if the population within the threshold is large enough
-  if (length(low_loading_train) > 100){
     do_label_low_loading <-  TRUE
     low_loading_postresample_train <- low_loading_stat(pred = rf_model$predicted, 
-                                                       obs = rf_model$y, 
-                                                       threshold = low_loading_threshold)
+                                                       obs = rf_model$y)
     low_loading_postresample_test <- low_loading_stat(pred = tested, 
-                                                      obs = test_data$y_act, 
-                                                      threshold = low_loading_threshold)
+                                                      obs = test_data$y_act)
+  # get the lowest and highest 
+  pred_list <- c(rf_model$predicted, rf_model$y, tested, test_data$y_act)
+  plot_limit <- c(min(pred_list), max(pred_list))
+  
+  gg_rf_train <- qplot(x = rf_model$y, y = rf_model$predicted) %>% rescale_ch4_parity(., lims=plot_limit) + 
+    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+    xlab(paste0("GCMC ", axis_label)) + 
+    ylab(paste0("Predicted ", axis_label)) + 
+    geom_point(color="#CA7C1B", size = dot_size) + 
+    theme_classic()
+  
+  if(poster){
+    gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
+      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE)
+    gg_rf_train <- gg_rf_train + theme(axis.text=element_text(size=30),
+                                       axis.title=element_text(size=30,face="bold"))
+  }else{
+    gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
+      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,  
+                  low_loading_label = do_label_low_loading, 
+                  low_loading_stat = low_loading_postresample_train)
+  }
+  save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
+            gg_rf_train, base_width = 10, base_height = 10, dpi = 600)
+  
+  number_of_data_smaller_than_zero <- sum(rf_model$predicted < 0)
+  if (number_of_data_smaller_than_zero > 0){
+    file_name <- file(paste(save_path,"warning.txt"), 'a')
+    writeLines(paste0(plot_name, " has ", number_of_data_smaller_than_zero, " smaller than zero"), file_name)
   }
   
   
-  gg_rf_train <- qplot(x = rf_model$y, y = rf_model$predicted) %>% rescale_ch4_parity(., lim = lim) + 
+  gg_rf_test <- qplot(x = test_data$y_act, y = tested) %>% rescale_ch4_parity(., lims=plot_limit) + 
     geom_abline(slope = 1, intercept = 0, linetype = 2) + 
     xlab(paste0("GCMC ", axis_label)) + 
     ylab(paste0("Predicted ", axis_label)) + 
-    geom_point(color='orange')
-  gg_rf_train <- gg_rf_train %>% label_stats(., train_rmse, plot_units = "cm\u00B3/cm\u00B3", 
-                                             low_loading_label = do_label_low_loading, 
-                                             low_loading_stat = low_loading_postresample_train)
-  save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
-            gg_rf_train, base_width = 10, base_height = 8, dpi = 600)
-  
-  gg_rf_test <- qplot(x = test_data$y_act, y = tested) %>% rescale_ch4_parity(., lim = lim) + 
-    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
-    xlab(paste0("GCMC ", axis_label)) + 
-    ylab(paste0("Predicted ", axis_label)) + 
-    geom_point(color='lightblue')
-  gg_rf_test <- gg_rf_test %>% label_stats(., test_rmse, plot_units = "cm\u00B3/cm\u00B3", 
-                                           low_loading_label = do_label_low_loading, 
-                                           low_loading_stat = low_loading_postresample_test)
+    geom_point(color="#0070C0", size = dot_size) + 
+    theme_classic()
+ 
+  if(poster){
+    gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
+      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE)
+    gg_rf_test <- gg_rf_test + theme(axis.text=element_text(size=30),
+                                     axis.title=element_text(size=30,face="bold"))
+  }else{
+    gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
+      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,
+                  low_loading_label = do_label_low_loading, 
+                  low_loading_stat = low_loading_postresample_test)
+  }
   save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_test.png")), sep = ""), 
-            gg_rf_test, base_width = 10, base_height = 8, dpi = 600)
+            gg_rf_test, base_width = 10, base_height = 10, dpi = 600)
+  ## add another section that checks if predicted values has negative elements
+  # if so, write a warning text 
+  # now, check on test data
+  number_of_data_smaller_than_zero <- sum(tested < 0)
+  if (number_of_data_smaller_than_zero > 0){
+    file_name <- file(paste(save_path,"warning.txt"), 'a')
+    writeLines(paste0(plot_name, " has ", number_of_data_smaller_than_zero, " smaller than zero"), file_name)
+  }
 }
 
 make_topology_histograms <- function(condition_name, topo_data){
@@ -340,27 +396,41 @@ make_topology_histograms <- function(condition_name, topo_data){
   }
   # vf
   gg_histo_vf <- qplot(topo_data$vf, geom = "histogram") + 
-    xlab("Void Fraction") + ylab("Counts")
-  save_plot(paste(save_path_2, paste0(new_string, "_vf.png"), sep = ""), 
-            gg_histo_vf, base_width = 10, base_height = 8, dpi = 600)
+    xlab("Void Fraction") + ylab("Counts") + theme_classic() + 
+    theme(axis.text=element_text(size=30),
+          axis.title=element_text(size=30,face="bold"))
   # vsa
   gg_histo_vsa <- qplot(topo_data$vsa, geom = "histogram") + 
-    xlab("Volumetric Surface Area") + ylab("Counts")
-  save_plot(paste(save_path_2, paste0(new_string, "_vsa.png"), sep = ""), 
-            gg_histo_vsa, base_width = 10, base_height = 8, dpi = 600)
+    xlab("Volumetric Surface Area") + ylab("Counts") + theme_classic() + 
+    theme(axis.text=element_text(size=30),
+          axis.title=element_text(size=30,face="bold"))
   # gsa
   gg_histo_gsa <- qplot(topo_data$gsa, geom = "histogram") + 
-    xlab("Gravity Surface Area") + ylab("Counts")
-  save_plot(paste(save_path_2, paste0(new_string, "_gsa.png"), sep = ""), 
-            gg_histo_gsa, base_width = 10, base_height = 8, dpi = 600)
+    xlab("Gravity Surface Area") + ylab("Counts") + theme_classic() + 
+    theme(axis.text=element_text(size=30),
+          axis.title=element_text(size=30,face="bold"))
   # pld
   gg_histo_pld <- qplot(topo_data$pld, geom = "histogram") + 
-    xlab("Pore Limiting Diameter") + ylab("Counts")
-  save_plot(paste(save_path_2, paste0(new_string, "_pld.png"), sep = ""), 
-            gg_histo_pld, base_width = 10, base_height = 8, dpi = 600)
+    xlab("Pore Limiting Diameter") + ylab("Counts") + theme_classic() + 
+    theme(axis.text=element_text(size=30),
+          axis.title=element_text(size=30,face="bold"))
   # lcd
   gg_histo_lcd <- qplot(topo_data$lcd, geom = "histogram") + 
-    xlab("Pore Largest Diameter") + ylab("Counts")
+    xlab("Pore Largest Diameter") + ylab("Counts") + theme_classic() + 
+    theme(axis.text=element_text(size=30),
+          axis.title=element_text(size=30,face="bold"))
+  if(poster){
+    
+  }
+  # save the plots
+  save_plot(paste(save_path_2, paste0(new_string, "_vf.png"), sep = ""), 
+            gg_histo_vf, base_width = 10, base_height = 10, dpi = 600)
+  save_plot(paste(save_path_2, paste0(new_string, "_vsa.png"), sep = ""), 
+            gg_histo_vsa, base_width = 10, base_height = 10, dpi = 600)
+  save_plot(paste(save_path_2, paste0(new_string, "_gsa.png"), sep = ""), 
+            gg_histo_gsa, base_width = 10, base_height = 10, dpi = 600)
+  save_plot(paste(save_path_2, paste0(new_string, "_pld.png"), sep = ""), 
+            gg_histo_pld, base_width = 10, base_height = 10, dpi = 600)
   save_plot(paste(save_path_2, paste0(new_string, "_lcd.png"), sep = ""), 
-            gg_histo_lcd, base_width = 10, base_height = 8, dpi = 600)
+            gg_histo_lcd, base_width = 10, base_height = 10, dpi = 600)
 }
