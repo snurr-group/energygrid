@@ -4,7 +4,7 @@ library(dplyr)
 library(stringr)
 
 ### From setup_data.R
-read_textual_data <- function(option = "ToBaCCo"){
+read_textual_data <- function(option = "ToBaCCo", keep = FALSE){
   if (option == "ToBaCCo"){
     h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
     orig_tobacco_data <- read_xlsx(
@@ -36,10 +36,14 @@ read_textual_data <- function(option = "ToBaCCo"){
     orig_tobacco_data <- orig_tobacco_data %>% 
       mutate("n1.name" = str_c("sym", n1.sym, ifelse(n1.character=="organic", "on", "mc"), n1.ID, sep="_")) %>% 
       mutate("n2.name" = str_c("sym", n2.sym, ifelse(n2.character=="organic", "on", "mc"), n2.ID, sep="_"))
+
+  }
+  if (keep == FALSE){
     # just select the structrual data
     original_data <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
+  } else{
+    original_data <- orig_tobacco_data
   }
-  
   if (option == "CoRE"){
     # read textural data from CoRE_MOF database
     original_data <- read_xlsx("Data/COREMOF_Textual_data.xlsx")
