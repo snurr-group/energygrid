@@ -39,6 +39,15 @@ if (!exists("OVERRIDE_H2_HIST_PARAMS")) {
   hist_range <- c(-25, 5)  # Need -25 kJ/mol for tobmof5885
 }
 
+if (args[length(args)] == "use_ch4") {
+  # Last argument is a flag to change the histogram parameters.
+  # This could also be implemented with a double dash flag eventually
+  write("Overriding H2 parameters for the energy histogram with an extended range for CH4", "")
+  min_bin_width <- 0.10
+  hist_range <- c(-40, 10)
+  ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+}
+
 if (args[length(args)] == "autotune") {
   # this will give the code permission to determine the lower_bound by itself
   write("Overriding H2 parameters for the energy histogram", "")
@@ -51,6 +60,22 @@ if (args[length(args)] == "autotune") {
   lower_boundary <- floor(minimum_energy*R_GAS_KJ) - 1
   write(paste0("Lower Boundary of the pre-calculated histograms is: ",
                lower_boundary, " (kJ/mol)"), "")
+  hist_range <- c(lower_boundary, 30)
+  ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+}
+# autotune with boltzmann factor scale: deltaE/T
+if (args[length(args)] == "autotune_kB") {
+  # this will give the code permission to determine the lower_bound by itself
+  write("Overriding H2 parameters for the energy histogram", "")
+  write("Determining lower bound by itself", "")
+  min_bin_width <- 0.05
+  GRID_DIR <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+  write("Lower Boundary of the pre-calculated histograms is set to zero.", "")
+  minimum_energy <- determine_lower_bound(path_of_files = GRID_DIR)
+  write(paste0("Minimum Energy is: ", minimum_energy), "")
+  lower_boundary <- floor(minimum_energy) - 1
+  write(paste0("Lower Boundary of the pre-calculated histograms is: ",
+               lower_boundary), "")
   hist_range <- c(lower_boundary, 30)
   ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
 }
