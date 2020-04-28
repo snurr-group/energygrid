@@ -37,16 +37,22 @@ read_textual_data <- function(option = "ToBaCCo", keep = FALSE){
       mutate("n1.name" = str_c("sym", n1.sym, ifelse(n1.character=="organic", "on", "mc"), n1.ID, sep="_")) %>% 
       mutate("n2.name" = str_c("sym", n2.sym, ifelse(n2.character=="organic", "on", "mc"), n2.ID, sep="_"))
 
-  }
+  
   if (keep == FALSE){
     # just select the structrual data
     original_data <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
   } else{
     original_data <- orig_tobacco_data
   }
+  }
   if (option == "CoRE"){
     # read textural data from CoRE_MOF database
-    original_data <- read_xlsx("Data/COREMOF_Textual_data.xlsx")
+    original_CoRE_data <- read_xlsx("Data/COREMOF_Textual_data.xlsx")
+    # just select the data set same as the tobaccos
+    # vf, vsa, gsa, pld, lcd
+    original_data <- original_CoRE_data %>% select(MOF.ID, LCD, PLD, ASA_m2_cm3, ASA_m2_g, AV_VF)
+    names(original_data) <- c("MOF.ID", "lcd", "pld", "vsa", "gsa", "vf")
   }
+  
   original_data
 }
