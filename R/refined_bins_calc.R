@@ -1,4 +1,3 @@
-
 # this is a code to aggregate the bins
 # should generate a new binspec and generate lower and upper bounds
 # this new binspec contains only from and to 
