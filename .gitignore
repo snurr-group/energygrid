@@ -40,3 +40,9 @@ UFF_Energies/
 Famous_mofs/
 R/Propane_with_different_features.R
 *.png
+Results/
+old_Results/
+Raw_energies_data/
+All_data/OLD_Data_files
+All_data/mid_process_data
+All_data/merge_data
