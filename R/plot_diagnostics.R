@@ -113,6 +113,15 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   # put all together: training/testing, prediction/actual, get the lowest and highest
   pred_list <- c(LASSO_train_pred, results$trained_mod$y, results$pred_df$y_pred, results$pred_df$y_act)
   plot_limit <- c(min(pred_list), max(pred_list))
+  #plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],100)+100
+  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],50)+50
+  if (previous_plot_lim < plot_limit[2])
+  {
+    previous_plot_lim <<- plot_limit[2] # use global variable
+  }else{
+    plot_limit[2] <- previous_plot_lim
+  }
+  print(plot_limit[2])
   if (poster){
     results$plots$parity_training <- 
       results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
@@ -254,11 +263,30 @@ as_plotmath <- function(x) {
 }
 
 rescale_ch4_parity <- function(p, lims=c(0,250)) {
+  if (lims[2] < 100)
+  {
+    by_value <- round((lims[2] - lims[1])/5) 
+  }else
+  {
+    by_value <- 50
+  }
   p +
-    scale_x_continuous(limits = c(lims[1],lims[2])) +
-    scale_y_continuous(limits = c(lims[1],lims[2]))
+    scale_x_continuous(limits = c(lims[1],lims[2]), breaks = seq(from = 0, to = lims[2], by = by_value)) +
+    scale_y_continuous(limits = c(lims[1],lims[2]), breaks = seq(from = 0, to = lims[2], by = by_value))
 }
 
+rescale_ch4_parity_XeKr <- function(p, lims=c(0,250)) {
+  if (lims[2] < 100)
+  {
+    by_value <- round((lims[2] - lims[1])/5) 
+  }else
+  {
+    by_value <- 50
+  }
+  p +
+    scale_x_continuous(limits = c(lims[1],lims[2]), breaks = seq(from = 0, to = lims[2], by = by_value)) +
+    scale_y_continuous(limits = c(lims[1],lims[2]), breaks = seq(from = 0, to = lims[2], by = by_value))
+}
 # compute statistics for low_loading region
 low_loading_stat <- function(pred, obs){
   # compute statistics based on GCMC loading
@@ -327,7 +355,15 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
                                                       obs = test_data$y_act)
   # get the lowest and highest 
   pred_list <- c(rf_model$predicted, rf_model$y, tested, test_data$y_act)
+  # for here, we also need to scale
   plot_limit <- c(min(pred_list), max(pred_list))
+  
+  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],100)+100
+  if (plot_limit[2] < previous_plot_lim)
+  {
+    plot_limit[2] <- previous_plot_lim
+  }
+  print(plot_limit)
   
   gg_rf_train <- qplot(x = rf_model$y, y = rf_model$predicted) %>% rescale_ch4_parity(., lims=plot_limit) + 
     geom_abline(slope = 1, intercept = 0, linetype = 2) + 
@@ -387,6 +423,97 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
   }
 }
 
+make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")")){
+  # condition names should go like: molecule_temperature_pressure
+  new_string <- paste0(condition_name, "_")
+  if(poster)
+  {
+    new_string <- paste0(new_string, "_poster")
+  }
+  # make prediction
+  tested <- predict(rf_model, test_data)
+  train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
+  test_rmse <- postResample(pred = tested, obs = test_data$y_act)
+  # consider doing low loading stats
+  do_label_low_loading <- FALSE
+  low_loading_postresample_train <- NULL
+  low_loading_postresample_test <- NULL
+  # if the population within the threshold is large enough
+  do_label_low_loading <-  TRUE
+  low_loading_postresample_train <- low_loading_stat(pred = rf_model$predicted, 
+                                                     obs = rf_model$y)
+  low_loading_postresample_test <- low_loading_stat(pred = tested, 
+                                                    obs = test_data$y_act)
+  # get the lowest and highest 
+  pred_list <- c(rf_model$predicted, rf_model$y, tested, test_data$y_act)
+  # for here, we also need to scale
+  plot_limit <- c(min(pred_list), max(pred_list))
+  
+  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],50)+50
+  if (plot_limit[2] < previous_plot_lim)
+  {
+    plot_limit[2] <- previous_plot_lim
+  }
+  print(plot_limit)
+  
+  gg_rf_train <- qplot(x = rf_model$y, y = rf_model$predicted) %>% rescale_ch4_parity_XeKr(., lims=plot_limit) + 
+    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+    xlab(paste0("GCMC ", axis_label)) + 
+    ylab(paste0("Predicted ", axis_label)) + 
+    geom_point(color="#CA7C1B", size = dot_size) + 
+    theme_classic()
+  
+  if(poster){
+    gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
+      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE)
+    gg_rf_train <- gg_rf_train + theme(axis.text=element_text(size=30),
+                                       axis.title=element_text(size=30,face="bold"))
+  }else{
+    gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
+      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,  
+                  low_loading_label = do_label_low_loading, 
+                  low_loading_stat = low_loading_postresample_train)
+  }
+  save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
+            gg_rf_train, base_width = 10, base_height = 10, dpi = 600)
+  
+  number_of_data_smaller_than_zero <- sum(rf_model$predicted < 0)
+  if (number_of_data_smaller_than_zero > 0){
+    file_name <- file(paste(save_path,"warning.txt"), 'a')
+    writeLines(paste0(plot_name, " has ", number_of_data_smaller_than_zero, " smaller than zero"), file_name)
+  }
+  
+  
+  gg_rf_test <- qplot(x = test_data$y_act, y = tested) %>% rescale_ch4_parity_XeKr(., lims=plot_limit) + 
+    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+    xlab(paste0("GCMC ", axis_label)) + 
+    ylab(paste0("Predicted ", axis_label)) + 
+    geom_point(color="#0070C0", size = dot_size) + 
+    theme_classic()
+  
+  if(poster){
+    gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
+      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE)
+    gg_rf_test <- gg_rf_test + theme(axis.text=element_text(size=30),
+                                     axis.title=element_text(size=30,face="bold"))
+  }else{
+    gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
+      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,
+                  low_loading_label = do_label_low_loading, 
+                  low_loading_stat = low_loading_postresample_test)
+  }
+  save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_test.png")), sep = ""), 
+            gg_rf_test, base_width = 10, base_height = 10, dpi = 600)
+  ## add another section that checks if predicted values has negative elements
+  # if so, write a warning text 
+  # now, check on test data
+  number_of_data_smaller_than_zero <- sum(tested < 0)
+  if (number_of_data_smaller_than_zero > 0){
+    file_name <- file(paste(save_path,"warning.txt"), 'a')
+    writeLines(paste0(plot_name, " has ", number_of_data_smaller_than_zero, " smaller than zero"), file_name)
+  }
+}
+
 make_topology_histograms <- function(condition_name, topo_data){
   # set a folder for these histograms
   new_string <- paste0(condition_name, "_")
@@ -395,28 +522,28 @@ make_topology_histograms <- function(condition_name, topo_data){
     dir.create(save_path_2)
   }
   # vf
-  gg_histo_vf <- qplot(topo_data$vf, geom = "histogram") + 
+  gg_histo_vf <- qplot(topo_data$vf, geom = "histogram", xlim = c(0,1)) + 
     xlab("Void Fraction") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # vsa
-  gg_histo_vsa <- qplot(topo_data$vsa, geom = "histogram") + 
-    xlab("Volumetric Surface Area") + ylab("Counts") + theme_classic() + 
+  gg_histo_vsa <- qplot(topo_data$vsa, geom = "histogram", xlim = c(0,3000)) + 
+    xlab("Volumetric Surface Area (m\u00B2/cm\u00B3)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # gsa
-  gg_histo_gsa <- qplot(topo_data$gsa, geom = "histogram") + 
-    xlab("Gravity Surface Area") + ylab("Counts") + theme_classic() + 
+  gg_histo_gsa <- qplot(topo_data$gsa, geom = "histogram", xlim = c(0,10000)) + 
+    xlab("Gravity Surface Area (m\u00B2/g)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # pld
-  gg_histo_pld <- qplot(topo_data$pld, geom = "histogram") + 
-    xlab("Pore Limiting Diameter") + ylab("Counts") + theme_classic() + 
+  gg_histo_pld <- qplot(topo_data$pld, geom = "histogram", xlim = c(0,70)) + 
+    xlab("Pore Limiting Diameter (Angstrom)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # lcd
-  gg_histo_lcd <- qplot(topo_data$lcd, geom = "histogram") + 
-    xlab("Pore Largest Diameter") + ylab("Counts") + theme_classic() + 
+  gg_histo_lcd <- qplot(topo_data$lcd, geom = "histogram", xlim = c(0,80)) + 
+    xlab("Pore Largest Diameter (Angstrom)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   if(poster){
