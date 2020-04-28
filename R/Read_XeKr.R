@@ -18,7 +18,7 @@ if (poster){
 }
 
 grid_file <- "All_data/Kr_1A_greater_range.rds"
-gcmc_file <- "All_data/XeKr_mix_273_1bar.txt"
+gcmc_file <- "All_data/XeKrmix273_10bar.txt"
 gcmc_data <- read_table2(gcmc_file)
 
 gcmc_data <- na.omit(gcmc_data)
@@ -55,7 +55,7 @@ gg_histo_selectivity <- qplot(gcmc_data$Selectivity , geom = "histogram") +
   xlab("GCMC Selectivity") + ylab("Counts")
 
 save_plot(paste(save_path, paste0(string_to_paste, "_Selectivity_histogram.png"), sep = ""), 
-          gg_histo_selectivity, base_width = 10, base_height = 8, dpi = 600)
+          gg_histo_selectivity, base_width = 10, base_height = 10, dpi = 600)
 
 # other topology stuff: histograms for the population
 topologies <- read.table("All_data/fullnames_without_tob_cleaner_py.txt") # first column is ID, second column is topology
@@ -67,30 +67,49 @@ colnames(gcmc_with_MOFID)[colnames(gcmc_with_MOFID)=="ID"] <- "MOF.ID"
 topology_data <- merge(gcmc_with_MOFID, structural_data, by ="MOF.ID")
 #make_topology_histograms(condition_name = string_to_paste, topo_data = topology_data)
 
-remove_outliers <- TRUE
+remove_outliers <- FALSE
 focus <- FALSE
-plot_limit <- 500
-if (remove_outliers){
-# get rid of the outliers using 1.5 IQR method, IQR stands for interquantile range: range between 25% and 75%
-iqr_factor = 30
-iqr = IQR(gcmc_data$Selectivity)
-upper_threshold = as.numeric((iqr * iqr_factor) + quantile(gcmc_data$Selectivity)[2]) # the second value is the 25% one
-lower_threshold = as.numeric(quantile(gcmc_data$Selectivity)[4] - (iqr * iqr_factor)) # the second value is the 75% one
-# then filter out 
-gcmc_data <- gcmc_data %>% filter((Selectivity >= lower_threshold) & (Selectivity <= upper_threshold))
-string_to_paste <- paste0(string_to_paste, "_without_outliers")
-plot_limit <- max(gcmc_data$Selectivity)
-# round to the nearest 10
-plot_limit <- round(plot_limit, digits = -1) + 10
-} else if(focus){
-  plot_limit <- 30
-  string_to_paste <- paste0(string_to_paste, "less_range")
+
+if (remove_outliers)
+{
+  # get rid of the outliers using 1.5 IQR method, IQR stands for interquantile range: range between 25% and 75%
+  iqr_factor = 30
+  iqr = IQR(gcmc_data$Selectivity)
+  upper_threshold = as.numeric((iqr * iqr_factor) + quantile(gcmc_data$Selectivity)[2]) # the second value is the 25% one
+  lower_threshold = as.numeric(quantile(gcmc_data$Selectivity)[4] - (iqr * iqr_factor)) # the second value is the 75% one
+  # then filter out 
+  gcmc_data <- gcmc_data %>% filter((Selectivity >= lower_threshold) & (Selectivity <= upper_threshold))
+  string_to_paste <- paste0(string_to_paste, "_without_outliers")
+  plot_limit <- max(gcmc_data$Selectivity)
+  # round to the nearest 10
+  plot_limit <- round(plot_limit, digits = -1) + 10
+  } else if(focus){
+    plot_limit <- 30
+    string_to_paste <- paste0(string_to_paste, "less_range")
 }
+
+# we can do another filtering: based on loading
+# filter out those who has a really low loading
+filter_absolute_loading <- TRUE
+absolute_loading_threshold <- 0.1
+if (filter_absolute_loading)
+{
+  gcmc_data <- gcmc_data %>% filter(Kr_uptake > absolute_loading_threshold & Xe_uptake > absolute_loading_threshold)
+}
+plot_limit <- max(gcmc_data$Selectivity)
+plot_limit <- plot_limit-mod(plot_limit,50)+50
+previous_plot_lim <- plot_limit
+
 #gcmc_data <- gcmc_data %>% filter(Selectivity < 50)
 # convert IDs to characters
 gcmc_data$ID <- as.character(gcmc_data$ID)
 
-# 
+if (nrow(gcmc_data) > 2000)
+{
+  differ <- nrow(gcmc_data) - 2000
+  rows_to_delete <- sample(1:nrow(gcmc_data), differ)
+  gcmc_data <- gcmc_data[-rows_to_delete, ]
+}
 # h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
 # orig_tobacco_data <- read_xlsx(
 #   "Data/CrystGrowthDesign_SI.xlsx",
@@ -143,24 +162,23 @@ p_ch4_vol <- gcmc_data %>%
   mutate(g.L = Selectivity) %>%
   run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="", db_name = "tobacco")
 
-gg_train <- p_ch4_vol$plots$parity_training + 
-  scale_x_continuous(limits = c(0,plot_limit)) + scale_y_continuous(limits = c(0,plot_limit)) + 
+gg_train <- p_ch4_vol$plots$parity_training %>% rescale_ch4_parity(., lims=c(0,plot_limit)) + 
   xlab("GCMC Selectivity") + 
   ylab("Predicted Selectivity")
-gg_test <- p_ch4_vol$plots$parity_testing + 
-  scale_x_continuous(limits = c(0,plot_limit)) + scale_y_continuous(limits = c(0,plot_limit)) + 
+gg_test <- p_ch4_vol$plots$parity_testing %>% rescale_ch4_parity(., lims=c(0,plot_limit)) + 
   xlab("GCMC selectivity") + 
   ylab("Predicted selectivity")
-if (poster){
+if (poster)
+{
   gg_train <- gg_train + theme(axis.text=element_text(size=30),
                                axis.title=element_text(size=30,face="bold"))
   gg_test <- gg_test + theme(axis.text=element_text(size=30),
                              axis.title=element_text(size=30,face="bold")) 
 }
 save_plot(paste(save_path, paste0(string_to_paste, "_LASSO_train.png"), sep = ""), 
-          gg_train, base_width = 10, base_height = 8, dpi = 600)
+          gg_train, base_width = 10, base_height = 10, dpi = 600)
 save_plot(paste(save_path, paste0(string_to_paste, "_LASSO_test.png"), sep = ""), 
-          gg_test, base_width = 10, base_height = 8, dpi = 600)
+          gg_test, base_width = 10, base_height = 10, dpi = 600)
 
 train_data <- export_data(p_ch4_sets$training, 
                           rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), ch4_binspec)
@@ -169,7 +187,7 @@ test_data <- export_data(p_ch4_sets$testing,
 
 model <- randomForest(x = train_data %>% select(-y_act), y = train_data$y_act, ntree = 500)
 
-make_rf_prediction_plots(condition_name = string_to_paste, 
+make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
                          plot_name = "rf", 
                          rf_model= model,  test_data = test_data, lim = plot_limit, axis_label = "Selectivity")
 
@@ -188,10 +206,11 @@ topo_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
 
 rf_model_topo <- randomForest(x = topo_train_data %>% select(-y_act, -MOF.ID), 
                               y = topo_train_data$y_act, ntree = 500)
-make_rf_prediction_plots(condition_name = string_to_paste, 
+make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
                          plot_name = "rf_histogram_topology", 
                          rf_model= rf_model_topo,  test_data = topo_test_data, axis_label = "Selectivity")
 
+abc <- rbind(topo_train_data, topo_test_data)
 # # filter out those mofs with small lcd (between 4.1 and 7)
 # # suitable_mofs <- structural_data %>% filter(lcd > 4.1 & lcd < 7)
 # # unscreened_suitable_mofs <- suitable_mofs %>% filter(!MOF.ID %in% gcmc_data$ID)
