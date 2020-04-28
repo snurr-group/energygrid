@@ -8,11 +8,12 @@
 # added new feature: auto-tuning the lower-bound (081619)
 
 library(dplyr)
+print("pass1")
 library(readr)
 source("R/package_verification.R")
 source("R/get_energy_stats.R")
 
-
+print("pass2")
 
 
 # See arg documentation at https://www.r-bloggers.com/passing-arguments-to-an-r-script-from-command-lines/
