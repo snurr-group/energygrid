@@ -20,8 +20,12 @@ if (poster){
   dot_size <<- 1 
 }
  # define the input files
- gcmc_file = "All_data/propane_1bar.txt"
- grid_file = "All_data/CH3_1A_probe_UFF.rds"
+ #gcmc_file = "All_data/Hexane_.1bar_new_more_units.txt"
+ #gcmc_file = "All_data/Kr_1bar_more_unit.txt"
+gcmc_file = "All_data/Kr273_10bar.txt"
+ previous_plot_lim <- 200
+ #grid_file = "All_data/CH3_1A_combined_tobacco_core.rds"
+ grid_file = "All_data/Kr_0.5A_tobacco_"
  # extract the directory from the file name
  data_dir <- sub("\\/.*", "", grid_file)
  file_name <- sub(".*\\/", "", grid_file)
@@ -50,7 +54,8 @@ if (poster){
  #unit_list <- c("Molec_cm3overcm3", "Mol_kg", "Mill_gram", "Cm3_gram")
  unit_list <- c("Molec_cm3overcm3")
  for (chosen_unit in unit_list){ 
-       gcmc_data <- read_data(gcmc_file, unit_of_ads = chosen_unit)
+       gcmc_data <- read_data(gcmc_file, unit_of_ads = chosen_unit, 
+                              relax = TRUE, just2k = TRUE, no_low_loading = FALSE)
        # extract the probe name, molecule name, pressure and temperature for picture naming
        # the naming convention of rds file should be: "probe"_"size of grid"_whatever.rds
        if (str_count(grid_file, "_") > 1) {
@@ -84,6 +89,12 @@ if (poster){
        save_path <- unit_path
        # here we can have two options, feed uniform or non-uniform bins
        #binbounds <- bounds_from_params(ch4_binspec)
+       # # delete the line below, just testing Core MOFs
+       # a <- read_table2(gcmc_file)
+       # b <- a %>% select(-Heat_of_Ads, -Heat_fluc)
+       # bb <- na.omit(b)
+       # gcmc_data <- bb %>% select(ID, Temp, Pres, Molec_cm3overcm3)
+       # gcmc_data <- mutate(gcmc_data, Uptake = Molec_cm3overcm3)# delete!
        gcmc_data <- mutate(gcmc_data, id=ID)
        new_grid <- hmof_h2_grid[hmof_h2_grid[, "id"] %in% gcmc_data$id,] # select out the grids with id same as gcmc_data id
        Uniform_bins <- FALSE
@@ -119,7 +130,7 @@ if (poster){
       # calculate the plot limit: largest value in the dataset
       plot_limit <- max(gcmc_data$Uptake)
       # round to the nearest 10
-      plot_limit <- round(plot_limit, digits = -1) + 10
+      plot_limit <- plot_limit-mod(plot_limit,100)+100
       gg_train <- p_ch4_vol$plots$parity_training + 
         theme(axis.title.y = element_text(hjust=0.5)) + 
         xlab(paste0("GCMC capacity",  "(", unit_for_plot, ")")) + 
@@ -169,8 +180,16 @@ if (poster){
       
       # just keep all the structural properties that are numbers
       # filter out those tobacco data with NAs
-      orig_tobacco_data <-  na.omit(read_textual_data())
-      structural_data <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
+      ToBaCCo <- TRUE
+      CoRE <- FALSE
+      if (ToBaCCo){
+        orig_tobacco_data <-  na.omit(read_textual_data())
+      }
+      else if(CoRE){
+        orig_tobacco_data <-  na.omit(read_textual_data(option = "CoRE"))
+      }
+      #
+      structural_data <- orig_tobacco_data # %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
       
       
       train_data_with_id <- export_data(p_ch4_sets$training, 
@@ -182,9 +201,9 @@ if (poster){
       # calculate the correlation matrix for these data
       colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
       colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
-      correlation_train <- correlation_of_energy_histograms(train_data_with_id, write_to_csv = TRUE)
+      correlation_train <- correlation_of_energy_histograms(train_data_with_id)
       correlation_test <- correlation_of_energy_histograms(test_data_with_id)
-      
+      Whole_correlation <- correlation_of_energy_histograms(rbind(train_data_with_id, test_data_with_id), write_to_csv = TRUE)
       # add R-score as a predictor
       all_data_with_R <- rbind(train_data_with_id, test_data_with_id)
       correlation_all <- correlation_of_energy_histograms(all_data_with_R)
@@ -235,59 +254,69 @@ if (poster){
       topology_data <- rbind(topo_train_data, topo_test_data)
       make_topology_histograms(condition_name = string_to_paste, topo_data = topology_data)
       
-      # for outliers in hexane simulations
-      if (grepl("Hexane_298_10000", string_to_paste)){
-        # also make histograms for those large deviated points
-        # filter out those whose difference between predicted and actual is greater than 40
-        tested <- predict(rf_model_topo, topo_test_data)
-        train_pred <- predict(rf_model_topo)
-        large_deviations_train <- topo_train_data
-        large_deviations_test <- topo_test_data
-        large_deviations_train$pred <- train_pred
-        large_deviations_test$pred <- tested
-        large_deviations <- rbind(large_deviations_train, large_deviations_test)
-        small_deviations <- large_deviations %>% filter(abs(y_act - pred) < 30)
-        large_deviations <- large_deviations %>% filter(abs(y_act - pred) >= 30)
-        axis_label <- "capacity (cm\u00B3/cm\u00B3)"
-        gg_rf_test_without_outliers <- qplot(x = small_deviations$y_act, y = small_deviations$pred) +
-          geom_abline(slope = 1, intercept = 0, linetype = 2) +
-          xlab(paste0("GCMC ", axis_label)) +
-          ylab(paste0("Predicted ", axis_label))
-        # get the gcmc_data for those who has large deviations
-        large_deviation_gcmc <- gcmc_data %>% filter(ID %in% large_deviations$MOF.ID)
-        # filter the original tobacco data
-        large_deviation_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviations$MOF.ID)
-        new_string_to_paste <- paste0(string_to_paste, "_2")
-        make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_tobacco)
-
-
-        # outlier ranges for hexane at 0.1 bar
-        # for running new simulations, filter out those already simulated
-        not_touched <- structural_data %>% filter(!MOF.ID %in% gcmc_data$ID)
-        # filter vf between 0.9 and 0.95
-        new_mofs_needed <- not_touched %>% filter(vf >= 0.9 & vf <= 0.95)
-        # then filter pld: between 15 and 25
-        new_mofs_needed <- new_mofs_needed %>% filter(pld >= 15 & pld <= 25)
-        # then filter lcd between 20 and 35
-        new_mofs_needed <- new_mofs_needed %>% filter(lcd >= 20 & lcd <= 35)
-        # then filter gsa between 6250 and 8125
-        new_mofs_needed <- new_mofs_needed %>% filter(gsa >= 6250 & gsa <= 8125)
-        # finally filter vsa between 800 and 1200
-        new_mofs_needed <- new_mofs_needed %>% filter(vsa >= 800 & vsa <= 1200)
-        # then filter out those with mc_0 nodes
-        mc_0_ids <- read_table("All_data/IDs_with_mc_0.txt")
-        new_mofs_needed <- new_mofs_needed %>% filter(!MOF.ID %in% mc_0_ids$IDs_with_mc_0)
-        # make a list with unitcell xyz
-        mof_xyz <- read_table2("tob_perm_unitcells_no_mc_0.txt")
-        mof_xyz$ID <- as.character(mof_xyz$ID)
-        mof_xyz <- mof_xyz %>% filter(ID %in% new_mofs_needed$MOF.ID)
-        # convert IDs back to numbers: if write as characters, it will have quotes!
-        mof_xyz$ID <- as.integer(mof_xyz$ID)
-        write.table(mof_xyz, "biasing_list_for_hexane_point_1bar.txt", row.names = FALSE, col.names = FALSE, sep = " ")
-      }
-      # adding new features to the feature space
-      # add minimum energy, mean energy, median energy, 1st quartile
-      # remember to exclude 1.0e23, which is a place-holder
+      # # for outliers in hexane simulations
+      # if (grepl("Hexane_298_10000", string_to_paste)){
+      #   # also make histograms for those large deviated points
+      #   # filter out those whose difference between predicted and actual is greater than 40
+      #   tested <- predict(rf_model_topo, topo_test_data)
+      #   train_pred <- predict(rf_model_topo)
+      #   large_deviations_train <- topo_train_data
+      #   large_deviations_test <- topo_test_data
+      #   large_deviations_train$pred <- train_pred
+      #   large_deviations_test$pred <- tested
+      #   large_deviations <- rbind(large_deviations_train, large_deviations_test)
+      #   small_deviations <- large_deviations %>% filter(abs(y_act - pred) < 30)
+      #   large_deviations <- large_deviations %>% filter(abs(y_act - pred) >= 30)
+      #   axis_label <- "capacity (cm\u00B3/cm\u00B3)"
+      #   gg_rf_test_without_outliers <- qplot(x = small_deviations$y_act, y = small_deviations$pred) +
+      #     geom_abline(slope = 1, intercept = 0, linetype = 2) +
+      #     xlab(paste0("GCMC ", axis_label)) +
+      #     ylab(paste0("Predicted ", axis_label))
+      #   # get the gcmc_data for those who has large deviations
+      #   large_deviation_gcmc <- gcmc_data %>% filter(ID %in% large_deviations$MOF.ID)
+      #   # filter the original tobacco data
+      #   large_deviation_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviations$MOF.ID)
+      #   new_string_to_paste <- paste0(string_to_paste, "_2")
+      #   make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_tobacco)
+      #   # now lets distinguish between outlier: overpredict vs. underpredict
+      #   large_deviation_positive <- large_deviations %>% filter((y_act - pred) > 0)
+      #   large_deviation_negative <- large_deviations %>% filter((y_act - pred) <= 0)
+      #   
+      #   
+      #   large_deviation_positive_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviation_positive$MOF.ID)
+      #   large_deviation_negative_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviation_negative$MOF.ID)
+      #   new_string_to_paste <- paste0(string_to_paste, "_UP")
+      #   make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_positive_tobacco)
+      #   
+      #   new_string_to_paste <- paste0(string_to_paste, "_OP")
+      #   make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_negative_tobacco)
+      #   # outlier ranges for hexane at 0.1 bar
+      #   # for running new simulations, filter out those already simulated
+      #   not_touched <- structural_data %>% filter(!MOF.ID %in% gcmc_data$ID)
+      #   # filter vf between 0.9 and 0.95
+      #   new_mofs_needed <- not_touched %>% filter(vf >= 0.9 & vf <= 0.95)
+      #   # then filter pld: between 15 and 25
+      #   new_mofs_needed <- new_mofs_needed %>% filter(pld >= 15 & pld <= 25)
+      #   # then filter lcd between 20 and 35
+      #   new_mofs_needed <- new_mofs_needed %>% filter(lcd >= 20 & lcd <= 35)
+      #   # then filter gsa between 6250 and 8125
+      #   new_mofs_needed <- new_mofs_needed %>% filter(gsa >= 6250 & gsa <= 8125)
+      #   # finally filter vsa between 800 and 1200
+      #   new_mofs_needed <- new_mofs_needed %>% filter(vsa >= 800 & vsa <= 1200)
+      #   # then filter out those with mc_0 nodes
+      #   mc_0_ids <- read_table("All_data/IDs_with_mc_0.txt")
+      #   new_mofs_needed <- new_mofs_needed %>% filter(!MOF.ID %in% mc_0_ids$IDs_with_mc_0)
+      #   # make a list with unitcell xyz
+      #   mof_xyz <- read_table2("tob_perm_unitcells_no_mc_0.txt")
+      #   mof_xyz$ID <- as.character(mof_xyz$ID)
+      #   mof_xyz <- mof_xyz %>% filter(ID %in% new_mofs_needed$MOF.ID)
+      #   # convert IDs back to numbers: if write as characters, it will have quotes!
+      #   mof_xyz$ID <- as.integer(mof_xyz$ID)
+      #   #write.table(mof_xyz, "biasing_list_for_hexane_point_1bar.txt", row.names = FALSE, col.names = FALSE, sep = " ")
+      # }
+      # # adding new features to the feature space
+      # # add minimum energy, mean energy, median energy, 1st quartile
+      # # remember to exclude 1.0e23, which is a place-holder
       read_minimum_energy_iqr <- function(dataset, file_dir){
         # read all the files from the MOF.IDs
         list_of_files <- dataset$MOF.ID
@@ -315,8 +344,14 @@ if (poster){
         new_dataset <- merge(dataset, y, by ="MOF.ID")
         new_dataset
       }
-      more_feature_train <- read_minimum_energy_iqr(topo_train_data, file_dir = "Raw_energies_data/Energies/")
-      more_feature_test <- read_minimum_energy_iqr(topo_test_data, file_dir = "Raw_energies_data/Energies/")
+
+      if (ToBaCCo){
+      more_feature_train <- read_minimum_energy_iqr(topo_train_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
+      more_feature_test <- read_minimum_energy_iqr(topo_test_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
+      } else if (CoRE){      
+      more_feature_train <- read_minimum_energy_iqr(topo_train_data, file_dir = "../DATAS/CORE_CH3/Energies/")
+      more_feature_test <- read_minimum_energy_iqr(topo_test_data, file_dir = "../DATAS/CORE_CH3/Energies/")
+      }
       rf_model_stats <- randomForest(x = more_feature_train %>% select(-y_act, -MOF.ID), 
                                     y = more_feature_train$y_act, ntree = 500)
       make_rf_prediction_plots(condition_name = string_to_paste, 
@@ -324,53 +359,81 @@ if (poster){
                                rf_model= rf_model_stats,  test_data = more_feature_test)
  }
  
- # make histogram of 2 mofs
- # add the low/up bounds for the last bin: Inf
- binbounds_inf <- binbounds
- inf_bounds <- data.frame(0.0, 2)
- names(inf_bounds) <- c("lower", "upper")
- binbounds_inf <- rbind(binbounds_inf, inf_bounds)
- binbounds_inf$widths <- binbounds_inf$upper - binbounds_inf$lower
- t_binbounds_inf <- as.data.frame(t(binbounds_inf))
- names(t_binbounds_inf) <- 1:(length(binbounds$lower) + 1)
-
- 
- bin_heights <- train_data_with_id %>% filter(MOF.ID == "1713") %>% select(-MOF.ID, -y_act)
- # rename the Inf bin to length(binbounds$lower) + 1
- colnames(bin_heights)[colnames(bin_heights) == "Inf"] = as.character(length(binbounds$lower) + 1)
- # bind t_binbounds_inf with bin_heights
- bin_info <- rbind(t_binbounds_inf, bin_heights)
- # finally, transpose
- t_bin_info <- as.data.frame(t(bin_info))
- names(t_bin_info) <- c("lower", "upper", "range", "height")
- focused <- TRUE
- if (focused){
-   t_bin_info <- t_bin_info %>% filter(lower >= -10)
- }
- hist_df <- data.frame(width = t_bin_info$range, height = t_bin_info$height)
- hist_df$w <- cumsum(hist_df$width)
- hist_df$wm <- hist_df$w - hist_df$width
- p <- ggplot(hist_df)
- p1 <- p + geom_rect(aes(xmin = t_bin_info$lower, 
-                         xmax = t_bin_info$upper, 
-                         ymin = 0, ymax = height)) + 
-            xlab("Energies(kJ/mol)") + 
-            ylab("Relative Bin Counts") + theme_classic() + 
-              theme(axis.text=element_text(size=30),
-              axis.title=element_text(size=30,face="bold")) 
- p1 
- save_plot(paste(save_path, paste0(string_to_paste, "1713_histo.png"), sep = ""), 
-           p1, base_width = 10, base_height = 10, dpi = 600)
- # analysis on hexane outliers with movies
- out_gcmc <- read_table2("../DATAS/Hexane_.1bar_movies.tar/Hexane_.1bar_movies/file.txt")
- outlier_id <- as.character(out_gcmc$ID)
- # filter out those predictions of outliers
- # use full tobacco data
- tobacco_outlier <- read_textual_data(keep = TRUE) %>% filter(MOF.ID %in% outlier_id)
-# lets just compare 1713 and 4510
- tob_1713 <- tobacco_outlier %>% filter(MOF.ID == "1713")
- tob_4510 <- tobacco_outlier %>% filter(MOF.ID == "4510") 
- tob <- rbind(tob_1713, tob_4510)
+#  # make histogram of 2 mofs
+#  # add the low/up bounds for the last bin: Inf
+#  binbounds_inf <- binbounds
+#  inf_bounds <- data.frame(0.0, 2)
+#  names(inf_bounds) <- c("lower", "upper")
+#  binbounds_inf <- rbind(binbounds_inf, inf_bounds)
+#  binbounds_inf$widths <- binbounds_inf$upper - binbounds_inf$lower
+#  t_binbounds_inf <- as.data.frame(t(binbounds_inf))
+#  names(t_binbounds_inf) <- 1:(length(binbounds$lower) + 1)
+# 
+#  # make for 1713
+#  bin_heights <- train_data_with_id %>% filter(MOF.ID == "1713") %>% select(-MOF.ID, -y_act)
+#  # rename the Inf bin to length(binbounds$lower) + 1
+#  colnames(bin_heights)[colnames(bin_heights) == "Inf"] = as.character(length(binbounds$lower) + 1)
+#  # bind t_binbounds_inf with bin_heights
+#  bin_info <- rbind(t_binbounds_inf, bin_heights)
+#  # finally, transpose
+#  t_bin_info <- as.data.frame(t(bin_info))
+#  names(t_bin_info) <- c("lower", "upper", "range", "height")
+#  focused <- TRUE
+#  if (focused){
+#    t_bin_info <- t_bin_info %>% filter(lower >= -10)
+#  }
+#  hist_df <- data.frame(width = t_bin_info$range, height = t_bin_info$height)
+#  hist_df$w <- cumsum(hist_df$width)
+#  hist_df$wm <- hist_df$w - hist_df$width
+#  p <- ggplot(hist_df)
+#  p1 <- p + geom_rect(aes(xmin = t_bin_info$lower, 
+#                          xmax = t_bin_info$upper, 
+#                          ymin = 0, ymax = height)) + 
+#             xlab("Energies(kJ/mol)") + 
+#             ylab("Relative Bin Counts") + theme_classic() + 
+#               theme(axis.text=element_text(size=30),
+#               axis.title=element_text(size=30,face="bold")) 
+#  p1 
+#  save_plot(paste(save_path, paste0(string_to_paste, "1713_histo.png"), sep = ""), 
+#            p1, base_width = 10, base_height = 10, dpi = 600)
+#  # make for 4510
+#  bin_heights <- train_data_with_id %>% filter(MOF.ID == "4510") %>% select(-MOF.ID, -y_act)
+#  # rename the Inf bin to length(binbounds$lower) + 1
+#  colnames(bin_heights)[colnames(bin_heights) == "Inf"] = as.character(length(binbounds$lower) + 1)
+#  # bind t_binbounds_inf with bin_heights
+#  bin_info <- rbind(t_binbounds_inf, bin_heights)
+#  # finally, transpose
+#  t_bin_info <- as.data.frame(t(bin_info))
+#  names(t_bin_info) <- c("lower", "upper", "range", "height")
+#  focused <- TRUE
+#  if (focused){
+#    t_bin_info <- t_bin_info %>% filter(lower >= -10)
+#  }
+#  hist_df <- data.frame(width = t_bin_info$range, height = t_bin_info$height)
+#  hist_df$w <- cumsum(hist_df$width)
+#  hist_df$wm <- hist_df$w - hist_df$width
+#  p <- ggplot(hist_df)
+#  p1 <- p + geom_rect(aes(xmin = t_bin_info$lower, 
+#                          xmax = t_bin_info$upper, 
+#                          ymin = 0, ymax = height)) + 
+#    xlab("Energies(kJ/mol)") + 
+#    ylab("Relative Bin Counts") + theme_classic() + 
+#    theme(axis.text=element_text(size=30),
+#          axis.title=element_text(size=30,face="bold")) 
+#  p1 
+#  save_plot(paste(save_path, paste0(string_to_paste, "4510_histo.png"), sep = ""), 
+#            p1, base_width = 10, base_height = 10, dpi = 600)
+#  
+#  # analysis on hexane outliers with movies
+#  out_gcmc <- read_table2("../DATAS/Hexane_.1bar_movies.tar/Hexane_.1bar_movies/file.txt")
+#  outlier_id <- as.character(out_gcmc$ID)
+#  # filter out those predictions of outliers
+#  # use full tobacco data
+#  tobacco_outlier <- read_textual_data(keep = TRUE) %>% filter(MOF.ID %in% outlier_id)
+# # lets just compare 1713 and 4510
+#  tob_1713 <- tobacco_outlier %>% filter(MOF.ID == "1713")
+#  tob_4510 <- tobacco_outlier %>% filter(MOF.ID == "4510") 
+#  tob <- rbind(tob_1713, tob_4510)
  
  # new feature: add highest value of derivatives of PSD to the feature space
  # calculate the difference between lcd and diameter where maximum derivative occurs
@@ -390,15 +453,68 @@ if (poster){
  # try neural net
  # get the names of the features
  # type the formula
- topo_data <- rbind(topo_train_data, topo_test_data)
- V_topo_train_data <- topo_train_data
- V_topo_test_data <- topo_test_data
- colnames(V_topo_train_data) <- paste("V", colnames(V_topo_train_data), sep = "")
- colnames(V_topo_test_data) <- paste("V", colnames(V_topo_test_data), sep = "")
- feature_names <- V_topo_train_data %>% select(-VMOF.ID, -Vy_act, -VInf) %>% colnames()
- f <- as.formula(paste("Vy_act ~ ", paste(feature_names, collapse = " + ")))
- #m <- model.matrix(as.formula(paste("Vy_act ~ ", paste(feature_names, collapse = " + "))), topo_train_data)
- nn <- neuralnet(formula = f, data = V_topo_train_data, hidden = c(5,3), stepmax = 1e6)
- pred <- predict(nn, V_topo_test_data) 
+ # topo_data <- rbind(topo_train_data, topo_test_data)
+ # V_topo_train_data <- topo_train_data
+ # V_topo_test_data <- topo_test_data
+ # colnames(V_topo_train_data) <- paste("V", colnames(V_topo_train_data), sep = "")
+ # colnames(V_topo_test_data) <- paste("V", colnames(V_topo_test_data), sep = "")
+ # feature_names <- V_topo_train_data %>% select(-VMOF.ID, -Vy_act, -VInf) %>% colnames()
+ # f <- as.formula(paste("Vy_act ~ ", paste(feature_names, collapse = " + ")))
+ # #m <- model.matrix(as.formula(paste("Vy_act ~ ", paste(feature_names, collapse = " + "))), topo_train_data)
+ # nn <- neuralnet(formula = f, data = V_topo_train_data, hidden = c(5,3), stepmax = 1e6)
+ # pred <- predict(nn, V_topo_test_data) 
+ 
+ # another non-linear method also used decision trees: x-gradient boost
+ # library(xgboost)      # a faster implementation of gbm
+ # model<- train(x = train_data %>% select(-y_act), y = train_data$y_act, method = "xgbTree")
+ # predictions <- model %>% predict(test_data)
+ # qplot(x = test_data$y_act, y = predictions) + 
+ #   geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+ #   xlab(paste0("GCMC ")) + 
+ #   ylab(paste0("Predicted ")) + 
+ #   geom_point(color="#0070C0", size = dot_size) + 
+ #   theme_classic() + geom_point()
  
  
+ # another thought! Think about performing classification with random-Forest: does the molecule fit or not?
+ # get the train data
+ threshold_value <- 1 # set the divider of fit/not fit to be  1
+ gcmc_class_train <- topo_train_data
+ gcmc_class_train$canfit <- gcmc_class_train$y_act
+ gcmc_class_train$canfit[gcmc_class_train$y_act > threshold_value] = 1
+ gcmc_class_train$canfit[gcmc_class_train$y_act < threshold_value] = -1
+ # get the test data
+ gcmc_class_test <- topo_test_data
+ gcmc_class_test$canfit <- gcmc_class_test$y_act
+ gcmc_class_test$canfit[gcmc_class_test$y_act > threshold_value] = 1
+ gcmc_class_test$canfit[gcmc_class_test$y_act < threshold_value] = -1
+ all_features <- TRUE
+ just_textural <- FALSE
+ just_energy_histogram <- FALSE
+ if (all_features){
+   rf_model_class <- randomForest(x = gcmc_class_train %>% select(-y_act, -MOF.ID, -canfit), y = gcmc_class_train$canfit, ntree = 500)
+ } else if (just_textural){
+   rf_model_class <- randomForest(x = gcmc_class_train %>% select(vf, vsa, gsa, pld, lcd), y = gcmc_class_train$canfit, ntree = 500)
+ } else if (just_energy_histogram){
+   rf_model_class <- randomForest(x = gcmc_class_train %>% select(-vf, -vsa, -gsa, -pld, -lcd, -y_act, -MOF.ID, -canfit), 
+                                  y = gcmc_class_train$canfit, ntree = 500)
+ }
+ test_class <- predict(rf_model_class, gcmc_class_test)
+ test_class_normal <- test_class/abs(test_class)
+ 
+ gcmc_class_train_combined <- gcmc_class_train
+ gcmc_class_train_combined$predicted <- rf_model_class$predicted
+ gcmc_class_test_combined <- gcmc_class_test
+ gcmc_class_test_combined$predicted <- test_class
+ gcmc_class_combined <- rbind(gcmc_class_train_combined, gcmc_class_test_combined) 
+ qplot(x = gcmc_class_combined$canfit, y = gcmc_class_combined$predicted) + geom_point()
+ mis_class_greater <- gcmc_class_combined[(gcmc_class_combined$predicted > 0) & (gcmc_class_combined$canfit < 0),] 
+ mis_class_lesser <- gcmc_class_combined[(gcmc_class_combined$predicted < 0) & (gcmc_class_combined$canfit > 0),] 
+ # compute the percent of error
+ mis_percent_greater <- nrow(mis_class_greater)/nrow(gcmc_class_combined)
+ mis_percent_smaller <- nrow(mis_class_lesser)/nrow(gcmc_class_combined)
+ 
+ # compute the total number of not-fits
+ n_not_fits <- as.numeric(sum(gcmc_class_combined$y_act < threshold_value))
+ mis_class_among_not_fits <- (nrow(mis_class_greater) + nrow(mis_class_lesser))/n_not_fits
+  

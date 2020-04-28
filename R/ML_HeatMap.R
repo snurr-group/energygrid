@@ -45,7 +45,7 @@ dd1 <- aa[,colSums(aa[, 1:ncol(aa)]) > 0.3]
 dd1 <- dd1/rowSums(dd1)
 dd1$ID <- a$ID
 dd1 <- dd1[order(match(dd1$ID, gcmc_data$ID)),] # without this line, it won't be right
-heat_maps <- cbind(dd1, gcmc_data %>% select(ID, Molec_cm3overcm3)) # may generate a duplicated colname
+heat_maps <- cbind(dd1, gcmc_data %>% select(ID, Uptake)) # may generate a duplicated colname
 # remove the duplicated column name
 heat_maps <-heat_maps[, !duplicated(colnames(heat_maps))]
 
@@ -53,13 +53,13 @@ DATA_SPLIT = 1000
 training_rows <- sample(length(heat_maps$ID), DATA_SPLIT)
 training_data <- heat_maps[training_rows, ]
 testing_data <- heat_maps[-training_rows, ]
-trained_model <- training_data %>% select(-ID, -Molec_cm3overcm3) %>% fit_glmnet(., training_data$Molec_cm3overcm3, lambda = NULL, alpha = 1)
+trained_model <- training_data %>% select(-ID, -Uptake) %>% fit_glmnet(., training_data$Uptake, lambda = NULL, alpha = 1)
 
-tested <- pred_glmnet(trained_model, testing_data %>% select(-ID, -Molec_cm3overcm3))
-postResample(tested, testing_data$Molec_cm3overcm3)
-qplot(x = testing_data$Molec_cm3overcm3, y = tested) + geom_abline(slope = 1, intercept = 0) + scale_x_continuous(limits=c(0, 200))+ scale_y_continuous(limits=c(0, 200))
+tested <- pred_glmnet(trained_model, testing_data %>% select(-ID, -Uptake))
+postResample(tested, testing_data$Uptake)
+qplot(x = testing_data$Uptake, y = tested) + geom_abline(slope = 1, intercept = 0) + scale_x_continuous(limits=c(0, 200))+ scale_y_continuous(limits=c(0, 200))
 
-trained_rf <- randomForest(x = training_data %>% select(-ID, -Molec_cm3overcm3), y = training_data$Molec_cm3overcm3, ntree = 500)
-tested_rf <- predict(trained_rf, testing_data %>% select(-ID, Molec_cm3overcm3))
-postResample(tested_rf, testing_data$Molec_cm3overcm3)
-qplot(x = testing_data$Molec_cm3overcm3, y = tested_rf) + geom_abline(slope = 1, intercept = 0)
+trained_rf <- randomForest(x = training_data %>% select(-ID, -Uptake), y = training_data$Uptake, ntree = 500)
+tested_rf <- predict(trained_rf, testing_data %>% select(-ID, Uptake))
+postResample(tested_rf, testing_data$Uptake)
+qplot(x = testing_data$Uptake, y = tested_rf) + geom_abline(slope = 1, intercept = 0)
