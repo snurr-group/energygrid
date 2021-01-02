@@ -1,4 +1,4 @@
-THis folder contains all files needed to run the code.
+This folder contains all files needed to run the code.
 _____
 **Initial Setup**:<br/>
 One needs **R code** and **RStudio** as requirements. <br/> Zhao uses Windows 10, so please forgive me for lack of knowledge on other platforms. <br/>
