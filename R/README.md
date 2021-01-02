@@ -35,6 +35,6 @@ The code first uses LASSO and then RandomForest for the fitting. <br/>
 Additional features are also tested, for example, R score between energy histograms, textural properties, and energy statistics from energy grid files. <br/>
 _____
 **Where does output go???**<br/>
-During the machine learning run, the outputs (training/testing data, parity plots, histograms) are stored in **Results/** folder. <br/>
+During the machine learning run, the outputs (training/testing data, parity plots, histograms) are stored in **Results/** folder (needs to be created beforehand). <br/>
 Subfolders are named and created according to the molecule, condition, and grid probe. <br/>
 _____
