@@ -29,7 +29,7 @@ read_textual_data <- function(option = "ToBaCCo", keep = FALSE, keepVF = FALSE){
         "cbb.ID"
       )
     )
-    tobacco_codes <- read_table2("All_Data/mofs_map_without_tobacco_cleaner_py.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
+    tobacco_codes <- read_table2("All_data/mofs_map_without_tobacco_cleaner_py.dat", col_names = c("MOF.ID", "python.id"), col_types="ic")
     
     orig_tobacco_data <- orig_tobacco_data %>% left_join(tobacco_codes, by="MOF.ID")
     
@@ -50,7 +50,7 @@ read_textual_data <- function(option = "ToBaCCo", keep = FALSE, keepVF = FALSE){
   }
   if (option == "CoRE"){
     # read textural data from CoRE_MOF database
-    original_CoRE_data <- read_xlsx("All_Data/COREMOF_Textual_data.xlsx")
+    original_CoRE_data <- read_xlsx("All_data/COREMOF_Textual_data.xlsx")
     # just select the data set same as the tobaccos
     # vf, vsa, gsa, pld, lcd
     original_data <- original_CoRE_data %>% select(MOF.ID, LCD, PLD, ASA_m2_cm3, ASA_m2_g, AV_VF)
