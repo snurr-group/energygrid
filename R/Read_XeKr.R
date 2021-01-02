@@ -7,7 +7,7 @@ source("R/plot_diagnostics.R")
 source("R/save_train_test_data.R")
 source("R/read_textural_data.R")
 source("R/package_verification.R")
-
+source("R/read_gcmc_data.R")
 set.seed(12345) # seems ok for both 1bar and 10bar
 
 unit_for_plot <<- "" # Selectivity is unitless
@@ -21,10 +21,14 @@ if (poster){
 }
 
 grid_file <- "All_data/Kr_1A_greater_range.rds"
-gcmc_file <- "All_data/XeKrmix273_1bar_cm3.txt"
-gcmc_data <- read_table2(gcmc_file)
 
-gcmc_data <- na.omit(gcmc_data)
+molecule_name <- "XeKr_Mix"
+Temperature <- "273K"
+Pressure <- "1Bar"
+chosen_unit <- "Molec_cm3overcm3"
+gcmc_data <- read_data(gcmc_file, read_SI = TRUE, sheetname = paste(molecule_name, Temperature, Pressure, sep = "_"), 
+                       unit_of_ads = chosen_unit, 
+                       relax = TRUE, just2k = TRUE, no_low_loading = FALSE)
 # extract the probe name, molecule name, pressure and temperature for picture naming
 # the naming convention of rds file should be: "probe"_"size of grid"_whatever.rds
 if (str_count(grid_file, "_") > 1) {
@@ -37,10 +41,8 @@ if (str_count(grid_file, "_") > 1) {
   grid_info <- sub(".*\\/", "", grid_file) %>% sub("\\.rds", "", .)
 }
 # extract the molecule name, pressure and temperature for picture naming
-molecule_name <- sub(".*\\/", "", gcmc_file) %>% sub("\\_.*", "", .)
-temperature <- gcmc_data$Temp[1]
-pressure <- gcmc_data$Pres[1]
-string_to_paste <- paste(molecule_name, temperature, pressure, grid_info, sep = "_")
+
+string_to_paste <- paste(molecule_name, Temperature, Pressure, grid_info, sep = "_")
 # create a directory for that condition and molecule
 save_path <- paste0(string_to_paste, "/", sep = "")
 # if save for poster figures, put poster in the front
@@ -70,7 +72,7 @@ colnames(gcmc_with_MOFID)[colnames(gcmc_with_MOFID)=="ID"] <- "MOF.ID"
 topology_data <- merge(gcmc_with_MOFID, structural_data, by ="MOF.ID")
 #make_topology_histograms(condition_name = string_to_paste, topo_data = topology_data)
 
-remove_outliers <- TRUE
+remove_outliers <- FALSE
 focus <- FALSE
 
 if (remove_outliers)
@@ -291,3 +293,141 @@ rf_model_topo %>% saveRDS(., paste(save_path, paste0(string_to_paste, "topo_RF.r
 # dataset_with_minE <- rbind(train_with_min_E, test_with_min_E)
 # # filter out the large selectivities
 # dataset_with_minE %>% filter(y_act > 1000)
+
+#####################################
+# we can try fit loading, here.######
+#####################################
+save_path <- paste0(save_path, "/FitLoading/")
+if (!dir.exists(save_path)){
+  dir.create(save_path)
+}
+train_data_Kr <- export_data(p_ch4_sets$training, 
+                             rename(gcmc_data %>% mutate(g.L = Kr_uptake), y_act=g.L), ch4_binspec, with_id = TRUE)
+test_data_Kr <- export_data(p_ch4_sets$testing, 
+                            rename(gcmc_data %>% mutate(g.L = Kr_uptake), y_act=g.L), ch4_binspec, with_id = TRUE)
+
+train_data_Xe <- export_data(p_ch4_sets$training, 
+                             rename(gcmc_data %>% mutate(g.L = Xe_uptake), y_act=g.L), ch4_binspec, with_id = TRUE)
+test_data_Xe <- export_data(p_ch4_sets$testing, 
+                            rename(gcmc_data %>% mutate(g.L = Xe_uptake), y_act=g.L), ch4_binspec, with_id = TRUE)
+train_data_Select <- export_data(p_ch4_sets$training, 
+                                 rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), ch4_binspec, with_id = TRUE)
+test_data_Select <- export_data(p_ch4_sets$testing, 
+                                rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), ch4_binspec, with_id = TRUE)
+colnames(train_data_Kr)[colnames(train_data_Kr)=="id"] <- "MOF.ID"
+colnames(test_data_Kr)[colnames(test_data_Kr)=="id"] <- "MOF.ID"
+topo_train_data_Kr <- merge(train_data_Kr, structural_data, by ="MOF.ID")
+topo_test_data_Kr <- merge(test_data_Kr, structural_data, by ="MOF.ID")
+
+colnames(train_data_Xe)[colnames(train_data_Xe)=="id"] <- "MOF.ID"
+colnames(test_data_Xe)[colnames(test_data_Xe)=="id"] <- "MOF.ID"
+topo_train_data_Xe <- merge(train_data_Xe, structural_data, by ="MOF.ID")
+topo_test_data_Xe <- merge(test_data_Xe, structural_data, by ="MOF.ID")
+model_Kr <- randomForest(x = train_data_Kr %>% select(-y_act, -MOF.ID), y = train_data_Kr$y_act, ntree = 500)
+model_Xe <- randomForest(x = train_data_Xe %>% select(-y_act, -MOF.ID), y = train_data_Xe$y_act, ntree = 500)
+
+make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
+                              plot_name = "rf_Kr_Loading", 
+                              rf_model= model_Kr,  test_data = test_data_Kr, lim = plot_limit, axis_label = "Loading [cm\u00B3/cm\u00B3]")
+
+make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
+                              plot_name = "rf_Xe_Loading", 
+                              rf_model= model_Xe,  test_data = test_data_Xe, lim = plot_limit, axis_label = "Loading [cm\u00B3/cm\u00B3]")
+Kr_prediction <- predict(model_Kr, test_data_Kr)
+Kr_prediction_train <- model_Kr$predicted
+Xe_prediction <- predict(model_Xe, test_data_Xe)
+Xe_prediction_train <- model_Xe$predicted
+# get the selectivity
+XeKr_Select <- (Xe_prediction/0.2)/(Kr_prediction/0.8)
+XeKr_Select_train <- (Xe_prediction_train/0.2)/(Kr_prediction_train/0.8)
+test_rmse <- postResample(pred = XeKr_Select, obs = test_data_Select$y_act)
+train_rmse <- postResample(pred = XeKr_Select_train, obs = train_data_Select$y_act)
+
+
+makequickplot <- function(condition_name, plot_name, xdata, ydata, axislabel, test = FALSE, postresult, zoomin = FALSE){
+  plot_limit <- c(0, max(xdata, ydata))
+  if(!zoomin){
+    plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],50)+50
+    if (previous_plot_lim < plot_limit[2])
+    {
+      previous_plot_lim <<- plot_limit[2] # use global variable
+    }else{
+      plot_limit[2] <- previous_plot_lim
+    }
+  }
+  new_string <- paste0(condition_name, "_")
+  if(poster)
+  {
+    new_string <- paste0(new_string, "_poster")
+  }
+  if(test){
+    colorboard <- "#0070C0"
+  }else{
+    colorboard <- "#CA7C1B"
+  }
+  gg_rf <- qplot(x = xdata, y = ydata) %>% rescale_ch4_parity_XeKr(., lims=plot_limit) + 
+    geom_abline(slope = 1, intercept = 0, linetype = 2) + 
+    xlab(paste0("GCMC ", axislabel)) + 
+    ylab(paste0("Predicted ", axislabel)) + 
+    geom_point(color=colorboard, size = dot_size) + 
+    theme_classic()
+  if(test){
+    gg_rf <- gg_rf %>% annotate_plot(paste0("Testing data\n", length(xdata)," ", "points"), "top.left", colorboard) %>% 
+      label_stats(., postresult, plot_units = "", do_label_r2=TRUE)
+  }else{
+    gg_rf <- gg_rf %>% annotate_plot(paste0("Training data\n", length(xdata)," ", "points"), "top.left", colorboard) %>% 
+      label_stats(., postresult, plot_units = "", do_label_r2=TRUE)
+  }
+  gg_rf <- gg_rf + theme(axis.text=element_text(size=30),
+                         axis.title=element_text(size=30,face="bold"))
+  if(test){
+    save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_test.png")), sep = ""), 
+              gg_rf, base_width = 10, base_height = 10, dpi = 600)
+  }else{
+    save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
+              gg_rf, base_width = 10, base_height = 10, dpi = 600)
+  }
+}
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_train', 
+              xdata = train_data_Select$y_act, 
+              ydata = XeKr_Select_train, axislabel = "Selectivity",
+              test = FALSE, postresult = train_rmse)
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_test', 
+              xdata = test_data_Select$y_act, 
+              ydata = XeKr_Select, axislabel = "Selectivity",
+              test = TRUE, postresult = test_rmse)
+# try get rid of the outlier when plotting!
+test_data_no_outlier <- test_data_Select %>% filter(test_data_Select$y_act < 30)
+numbers <- which(test_data_Select$y_act >= 30)
+if(length(numbers) > 0){
+  XeKr_Select_no_outlier <- XeKr_Select[-numbers]
+}else{
+  XeKr_Select_no_outlier <- XeKr_Select
+}
+test_rmse_no_out <- postResample(pred = XeKr_Select_no_outlier, obs = test_data_no_outlier$y_act)
+# do the same for train data
+train_data_no_outlier <- train_data_Select %>% filter(train_data_Select$y_act < 30)
+numbers <- which(train_data_Select$y_act >= 30)
+if(length(numbers) > 0){
+  XeKr_Select_no_outlier_train <- XeKr_Select_train[-numbers]
+}else{
+  XeKr_Select_no_outlier_train <- XeKr_Select_train
+}
+train_rmse_no_out <- postResample(pred = XeKr_Select_no_outlier_train, obs = train_data_no_outlier$y_act)
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_test_remove2outliers', 
+              xdata = test_data_no_outlier$y_act, 
+              ydata = XeKr_Select_no_outlier, axislabel = "Selectivity",
+              test = TRUE, postresult = test_rmse_no_out, zoomin = TRUE)
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_train_remove2outliers', 
+              xdata = train_data_no_outlier$y_act, 
+              ydata = XeKr_Select_no_outlier_train, axislabel = "Selectivity",
+              test = FALSE, postresult = train_rmse_no_out, zoomin = TRUE)
+# print the train and test datasets, also save models!
+model_Kr %>% saveRDS(., paste(save_path, paste0(string_to_paste, "Kr_RF.rds"), sep = ""))
+model_Xe %>% saveRDS(., paste(save_path, paste0(string_to_paste, "Xe_RF.rds"), sep = ""))
+topo_train_data_Kr %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_train_Kr.csv"), sep = ""))
+topo_test_data_Kr %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_test_Kr.csv"), sep = ""))
+topo_train_data_Xe %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_train_Xe.csv"), sep = ""))
+topo_test_data_Xe %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_test_Xe.csv"), sep = ""))
+train_data_Select %>% write.csv(., paste(save_path, paste0(string_to_paste, "Train_Selectivity.csv"), sep = ""))
+test_data_Select %>% write.csv(., paste(save_path, paste0(string_to_paste, "Test_Selectivity.csv"), sep = ""))
