@@ -633,27 +633,27 @@ make_topology_histograms <- function(condition_name, topo_data){
     dir.create(save_path_2)
   }
   # vf
-  gg_histo_vf <- qplot(topo_data$vf, geom = "histogram", xlim = c(0,1)) + 
-    xlab("Void Fraction") + ylab("Counts") + theme_classic() + 
-    theme(axis.text=element_text(size=30),
-          axis.title=element_text(size=30,face="bold"))
+  #gg_histo_vf <- qplot(topo_data$VF, geom = "histogram", xlim = c(0,1)) + 
+   # xlab("Void Fraction") + ylab("Counts") + theme_classic() + 
+   # theme(axis.text=element_text(size=30),
+   #       axis.title=element_text(size=30,face="bold"))
   # vsa
-  gg_histo_vsa <- qplot(topo_data$vsa, geom = "histogram", xlim = c(0,3000)) + 
+  gg_histo_vsa <- qplot(topo_data$VSA, geom = "histogram", xlim = c(0,3000)) + 
     xlab("Volumetric Surface Area (m\u00B2/cm\u00B3)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # gsa
-  gg_histo_gsa <- qplot(topo_data$gsa, geom = "histogram", xlim = c(0,10000)) + 
+  gg_histo_gsa <- qplot(topo_data$GSA, geom = "histogram", xlim = c(0,10000)) + 
     xlab("Gravitational Surface Area (m\u00B2/g)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # pld
-  gg_histo_pld <- qplot(topo_data$pld, geom = "histogram", xlim = c(0,70)) + 
+  gg_histo_pld <- qplot(topo_data$PLD, geom = "histogram", xlim = c(0,70)) + 
     xlab("Pore Limiting Diameter (\305)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # lcd
-  gg_histo_lcd <- qplot(topo_data$lcd, geom = "histogram", xlim = c(0,80)) + 
+  gg_histo_lcd <- qplot(topo_data$LCD, geom = "histogram", xlim = c(0,80)) + 
     xlab("Largest Cavity Diameter (\305)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
