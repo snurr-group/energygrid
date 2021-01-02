@@ -46,3 +46,10 @@ Raw_energies_data/
 All_data/OLD_Data_files
 All_data/mid_process_data
 All_data/merge_data
+R/another_change_data.R
+R/analysing_coremofs.R
+R/change_data.R
+R/EnergyHistogram_Effective_Ethan.R
+R/EnergyHistogram_NewTrials.R
+R/plot_PSD.R
+All_Data/*.txt
