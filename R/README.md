@@ -26,13 +26,15 @@ The inputs one needs to define in this wrapper is: <br/>
 _____
 **How Energy Histograms Are Used as Features**<br/>
 The fine histograms are aggregated in when performing machine learning. <br/>
-There are mainly two ways of aggregation:
-1. Equally sized bins, for example, bin size equals 1kJ/mol. 
-2. Automatic aggregation. The code decides the bin bounds depending on the weight of energy regions: if a region has more counts, then the code use more bins to describe it. 
+There are mainly two ways of aggregation:<br/>
+1. Equally sized bins, for example, bin size equals 1kJ/mol. <br/>
+2. Automatic aggregation. The code decides the bin bounds depending on the weight of energy regions: if a region has more counts, then the code use more bins to describe it. <br/>
 _____
-**Machine Learning**
-The code first uses LASSO and then RandomForest for the fitting. Additional features are also tested, for example, R score between energy histograms, textural properties, and energy statistics from energy grid files. 
+**Machine Learning**<br/>
+The code first uses LASSO and then RandomForest for the fitting. <br/>
+Additional features are also tested, for example, R score between energy histograms, textural properties, and energy statistics from energy grid files. <br/>
 _____
-**Where does output go???**
-During the machine learning run, the outputs (training/testing data, parity plots, histograms) are stored in **Results/** folder. Subfolders are named and created according to the molecule, condition, and grid probe. 
+**Where does output go???**<br/>
+During the machine learning run, the outputs (training/testing data, parity plots, histograms) are stored in **Results/** folder. <br/>
+Subfolders are named and created according to the molecule, condition, and grid probe. <br/>
 _____
