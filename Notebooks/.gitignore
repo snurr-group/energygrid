@@ -1,4 +1,0 @@
-# Let's only save the source Rmd notebooks
-*.nb.html
-*.pdf
-other_analysis_for_future_work.txt
