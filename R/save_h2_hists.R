@@ -49,6 +49,15 @@ if (args[length(args)] == "use_ch4") {
   ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
 }
 
+if (args[length(args)] == "use_largerange") {
+  # Last argument is a flag to change the histogram parameters.
+  # This could also be implemented with a double dash flag eventually
+  write("Overriding H2 parameters for the energy histogram with an extended range for CH4", "")
+  min_bin_width <- 0.10
+  hist_range <- c(-100, 10)
+  ANALYSIS_DIRS <- ANALYSIS_DIRS[1:(length(ANALYSIS_DIRS)-1)]
+}
+
 if (args[length(args)] == "autotune") {
   # this will give the code permission to determine the lower_bound by itself
   write("Overriding H2 parameters for the energy histogram", "")
