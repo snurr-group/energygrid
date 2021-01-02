@@ -13,3 +13,5 @@ _____
 **Citation**<br/>
 Bucior, B. J.; Bobbitt, N. S.; Islamoglu, T.; Goswami, S.; Gopalan, A.; Yildirim, T.; Farha, O. K.; Bagheri, N.; Snurr, R. Q. Energy-Based Descriptors to Rapidly Predict Hydrogen Storage in Metal–Organic Frameworks. Mol. Syst. Des. Eng. 2019, 4 (1), 162–174. <br/>
 _____
+**Usage**
+For detailed usages of this code, please go to the **R/** source code directory. 
