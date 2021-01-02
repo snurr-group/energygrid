@@ -122,38 +122,77 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
     plot_limit[2] <- previous_plot_lim
   }
   print(plot_limit[2])
-  if (poster){
-    results$plots$parity_training <- 
+  # get to see if we are doing XeKr selectivity
+  if(XeKr){
+    if (poster){
+      results$plots$parity_training <- 
+        results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
+        annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
+        #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
+        label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE, label_position = "forXeKr")
+    }else{
+      results$plots$parity_training <- 
+        results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
+        annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
+        #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
+        label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE,
+                    low_loading_label = do_label_low_loading, 
+                    low_loading_stat = low_loading_postresample_train, label_position = "forXeKr")  # decided against labeling R2 on any of the figures
+    }
+  }else{
+    if (poster){
+      results$plots$parity_training <- 
+        results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
+        annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
+        #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
+        label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE)
+    }else{
+      results$plots$parity_training <- 
       results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
       annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
       #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
-      label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE)
-  }else{
-  results$plots$parity_training <- 
-    results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
-    annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
-    #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
-    label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE,
-                low_loading_label = do_label_low_loading, 
-                low_loading_stat = low_loading_postresample_train)  # decided against labeling R2 on any of the figures
+      label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE,
+                  low_loading_label = do_label_low_loading, 
+                  low_loading_stat = low_loading_postresample_train)  # decided against labeling R2 on any of the figures
+    }
   }
-  # Zhao's idea: maybe labeling R2 is worthy...
-  if (poster){
+  if(XeKr){
+    if (poster){
+      results$plots$parity_testing <- 
+        parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
+        # We could use a thousands separator within the figures, but it looks weird and out of place
+        #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
+        annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
+        label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE, label_position = "forXeKr")
+    }else{
+      results$plots$parity_testing <- 
+        parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
+        # We could use a thousands separator within the figures, but it looks weird and out of place
+        #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
+        annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
+        label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE,
+                    low_loading_label = do_label_low_loading, 
+                    low_loading_stat = low_loading_postresample_test, label_position = "forXeKr")
+    }
+  }else{
+    # Zhao's idea: maybe labeling R2 is worthy...
+    if (poster){
+      results$plots$parity_testing <- 
+        parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
+        # We could use a thousands separator within the figures, but it looks weird and out of place
+        #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
+        annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
+        label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE)
+   }else{
     results$plots$parity_testing <- 
       parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
       # We could use a thousands separator within the figures, but it looks weird and out of place
       #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
       annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-      label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE)
-  }else{
-  results$plots$parity_testing <- 
-    parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
-    # We could use a thousands separator within the figures, but it looks weird and out of place
-    #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
-    annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-    label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE,
-                low_loading_label = do_label_low_loading, 
-                low_loading_stat = low_loading_postresample_test)
+      label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE,
+                  low_loading_label = do_label_low_loading, 
+                  low_loading_stat = low_loading_postresample_test)
+   }
   }
   
   # Check the normality of the residuals.  Though recall that ridge/LASSO are biased estimators
@@ -247,7 +286,12 @@ annotate_plot <- function(p, label, pos="top.left", col="black", fontsize = 10, 
     ypos <- plot_margin
     vj <- 0
   }
-  
+  if (str_detect(pos, "forXeKr")) {
+    xpos <- 1.0 - plot_margin 
+    ypos <- plot_margin + 0.05
+    vj <- 0
+    hj <- 1
+  }
   p + annotation_custom(textGrob(
     label,
     x=xpos, y=ypos, hjust=hj, vjust=vj,
@@ -300,7 +344,7 @@ low_loading_stat <- function(pred, obs){
 }
 
 # Label stats on the training and testing plots
-label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, plot_units = "g/L", low_loading_label=FALSE, low_loading_statistics = NULL) {
+label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, plot_units = "g/L", low_loading_label=FALSE, low_loading_statistics = NULL, label_position = "bottom.right") {
   training_stats <- ""
   if (!is.null(label_q2)) {
     training_stats <- paste0(
@@ -329,7 +373,7 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
     "MAE = ", format(postresample_results["MAE"], digits=2, nsmall=1), " ", plot_units, "\n",
     "RMSE = ", format(postresample_results["RMSE"], digits=2, nsmall=1), " ", plot_units
   )  # https://en.wikipedia.org/wiki/Unicode_subscripts_and_superscripts
-  p %>% annotate_plot(training_stats, "bottom.right")
+  p %>% annotate_plot(training_stats, label_position)
 }
 
 # generate rf predictions and plots
@@ -423,7 +467,74 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
   }
 }
 
-make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")")){
+# get RandomForest Variable Importance
+getVarImp <- function(RFmodel, modelshort = "RF", howmany = 10, condition, modelname, rename_bins = TRUE){
+  rf_varimp <- importance(RFmodel)
+  rf_varimp <- as.data.frame(rf_varimp)
+  rf_varimp$varnames <- rownames(rf_varimp)
+  rownames(rf_varimp) <- NULL
+  
+  # use mid-points for energy bins
+  rf_varimp$midpoints <- rf_varimp$varnames
+  # rename the energy bins to ranges of energies?
+  if (rename_bins){
+    for (i in 1:length(rf_varimp$varnames)){
+      if (rf_varimp$varnames[i] %>% grepl("^[0-9]+$", ., perl = T)){ # if it is number-only
+        upper <- round(ch4_binspec$bounds$upper[strtoi(rf_varimp$varnames[i])], 1)
+        lower <- round(ch4_binspec$bounds$lower[strtoi(rf_varimp$varnames[i])], 1)
+        if (lower == -50){
+          lower = -Inf
+        }
+        varstr <- paste0(toString(lower), " to\n", toString(upper))
+        rf_varimp$varnames[i] <- varstr
+        rf_varimp$midpoints[i] <- (lower + upper)/2
+      } else if (rf_varimp$varnames[i] == "Inf") {
+        rf_varimp$varnames[i] <- "Inf"
+        rf_varimp$midpoints[i] <- "2"
+      }
+    }
+  }
+  rf_varimp %>% write_csv(., paste(save_path, paste0(modelshort, "_VarImp.csv"), sep = ""))
+  #rf_varimp %>% write_csv(paste(save_path, paste0(modelshort, "_VarImp.png"), sep = ""))
+  rf_varimp_purity <- rf_varimp %>% top_n(., IncNodePurity, n = howmany)
+  plt_rfimp <- ggplot(rf_varimp_purity, aes(x = reorder(varnames, IncNodePurity), 
+                                     weight = IncNodePurity))+
+    geom_bar() +
+    scale_fill_discrete(name="Feature") +
+    ylab("Feature Importance") +
+    xlab("Feature Name")
+  texttopaste <- paste0(condition, "\n", modelname)
+  plt_rfimp <- plt_rfimp %>% annotate_plot(., texttopaste, "top.left", 
+                                           col="black", fontsize = 10) + 
+    theme(axis.text=element_text(size=25),
+          axis.title=element_text(size=25,face="bold"))
+  # convert variable name to string
+  # deparse(substitute(RFmodel))
+  
+  save_plot(paste(save_path, paste0(modelshort, "_VarImp.png"), sep = ""), 
+            plt_rfimp, base_width = 15, base_height = 10, dpi = 600)
+  # make a similar figure, but with %IncMSE
+  rf_varimp_IncMSE <- rf_varimp %>% top_n(., `%IncMSE`, n = howmany)
+  plt_rfimp <- ggplot(rf_varimp_IncMSE, aes(x = reorder(varnames, `%IncMSE`), 
+                                     weight = `%IncMSE`))+
+    geom_bar() +
+    scale_fill_discrete(name="Feature") +
+    ylab("Feature %IncMSE") +
+    xlab("Feature Name")
+  texttopaste <- paste0(condition, "\n", modelname)
+  
+  plt_rfimp <- plt_rfimp %>% annotate_plot(., texttopaste, "top.left", 
+                                           col="black", fontsize = 10) + 
+    theme(axis.text=element_text(size=25),
+          axis.title=element_text(size=25,face="bold"))
+  # convert variable name to string
+  # deparse(substitute(RFmodel))
+  
+  save_plot(paste(save_path, paste0(modelshort, "_Var_PIncMSE.png"), sep = ""), 
+            plt_rfimp, base_width = 15, base_height = 10, dpi = 600)
+}
+
+make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")"), Errorlabel = "", interval = 50){
   # condition names should go like: molecule_temperature_pressure
   new_string <- paste0(condition_name, "_")
   if(poster)
@@ -449,7 +560,7 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   # for here, we also need to scale
   plot_limit <- c(min(pred_list), max(pred_list))
   
-  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],50)+50
+  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],interval)+interval
   if (plot_limit[2] < previous_plot_lim)
   {
     plot_limit[2] <- previous_plot_lim
@@ -465,14 +576,14 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   
   if(poster){
     gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
-      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE)
+      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE, label_position = "forXeKr")
     gg_rf_train <- gg_rf_train + theme(axis.text=element_text(size=30),
                                        axis.title=element_text(size=30,face="bold"))
   }else{
     gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
       label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,  
                   low_loading_label = do_label_low_loading, 
-                  low_loading_stat = low_loading_postresample_train)
+                  low_loading_stat = low_loading_postresample_train, label_position = "forXeKr")
   }
   save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_train.png")), sep = ""), 
             gg_rf_train, base_width = 10, base_height = 10, dpi = 600)
@@ -493,14 +604,14 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   
   if(poster){
     gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
-      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE)
+      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE, label_position = "forXeKr")
     gg_rf_test <- gg_rf_test + theme(axis.text=element_text(size=30),
                                      axis.title=element_text(size=30,face="bold"))
   }else{
     gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
       label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,
                   low_loading_label = do_label_low_loading, 
-                  low_loading_stat = low_loading_postresample_test)
+                  low_loading_stat = low_loading_postresample_test, label_position = "forXeKr")
   }
   save_plot(paste(save_path, paste0(new_string, paste0(plot_name, "_test.png")), sep = ""), 
             gg_rf_test, base_width = 10, base_height = 10, dpi = 600)
@@ -533,17 +644,17 @@ make_topology_histograms <- function(condition_name, topo_data){
           axis.title=element_text(size=30,face="bold"))
   # gsa
   gg_histo_gsa <- qplot(topo_data$gsa, geom = "histogram", xlim = c(0,10000)) + 
-    xlab("Gravity Surface Area (m\u00B2/g)") + ylab("Counts") + theme_classic() + 
+    xlab("Gravitational Surface Area (m\u00B2/g)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # pld
   gg_histo_pld <- qplot(topo_data$pld, geom = "histogram", xlim = c(0,70)) + 
-    xlab("Pore Limiting Diameter (Angstrom)") + ylab("Counts") + theme_classic() + 
+    xlab("Pore Limiting Diameter (\305)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # lcd
   gg_histo_lcd <- qplot(topo_data$lcd, geom = "histogram", xlim = c(0,80)) + 
-    xlab("Pore Largest Diameter (Angstrom)") + ylab("Counts") + theme_classic() + 
+    xlab("Largest Cavity Diameter (\305)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   if(poster){
