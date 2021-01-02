@@ -4,7 +4,7 @@ library(dplyr)
 library(stringr)
 
 ### From setup_data.R
-read_textual_data <- function(option = "ToBaCCo", keep = FALSE){
+read_textual_data <- function(option = "ToBaCCo", keep = FALSE, keepVF = FALSE){
   if (option == "ToBaCCo"){
     h2_types <- paste0("y.h2.", c("g.L", "mol.kg", "wtp"))  # Prefix data with its source (Yamil, Scotty, etc.)
     orig_tobacco_data <- read_xlsx(
@@ -13,7 +13,7 @@ read_textual_data <- function(option = "ToBaCCo", keep = FALSE){
       skip = 3, na = "inf",
       col_names = c(
         "MOF.ID",
-        "vf", "vsa", "gsa", "pld", "lcd",
+        "VF", "VSA", "GSA", "PLD", "LCD",
         paste0(h2_types, ".100.77"),
         paste0(h2_types, ".100.130"),
         paste0(h2_types, ".100.200"),
@@ -40,9 +40,12 @@ read_textual_data <- function(option = "ToBaCCo", keep = FALSE){
   
   if (keep == FALSE){
     # just select the structrual data
-    original_data <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
+    original_data <- orig_tobacco_data %>% select(MOF.ID, VF, VSA, GSA, PLD, LCD)
   } else{
     original_data <- orig_tobacco_data
+  }
+  if (keepVF == FALSE){
+    original_data <- original_data %>% select(-VF)
   }
   }
   if (option == "CoRE"){
@@ -51,7 +54,7 @@ read_textual_data <- function(option = "ToBaCCo", keep = FALSE){
     # just select the data set same as the tobaccos
     # vf, vsa, gsa, pld, lcd
     original_data <- original_CoRE_data %>% select(MOF.ID, LCD, PLD, ASA_m2_cm3, ASA_m2_g, AV_VF)
-    names(original_data) <- c("MOF.ID", "lcd", "pld", "vsa", "gsa", "vf")
+    names(original_data) <- c("MOF.ID", "LCD", "PLD", "VSA", "GSA", "VF")
   }
   
   original_data
