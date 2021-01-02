@@ -2,7 +2,22 @@ library(dplyr)
 library(readr)
 library(tidyr)
 library(openxlsx)
-read_data <- function(filename, unit_of_ads="cm3overcm3", relax = FALSE, just2k = FALSE, no_low_loading = TRUE){ 
+read_data <- function(filename, read_SI = FALSE, sheetname = 'None', unit_of_ads="cm3overcm3", relax = FALSE, just2k = FALSE, no_low_loading = TRUE){ 
+if (read_SI){
+  gcmc_data <- read_excel("All_data/SI.xlsx", sheet = sheetname)
+  # detect if mixture
+  if(grepl("Mix", sheetname, fixed = TRUE)){
+    names(gcmc_data) <- c("ID", "Temp", "Pres", "Kr_uptake", "Xe_uptake")
+    unit_for_plot <<- " "
+  }else{
+  gcmc_data$ID <- as.character(gcmc_data$ID)
+  if(sum(grepl("Error", names(gcmc_data))) == 1){
+    gcmc_data <- gcmc_data %>% select(-`GCMC_Uptake_Error_Bar [cm3/cm3]`)
+  }
+  names(gcmc_data) <- c("ID", "Temp", "Pres", "Uptake")
+  unit_for_plot <<- "cm\u00B3/cm\u00B3"
+  }
+}else{
 gcmc_data <- read_table2(filename)
 gcmc_data$ID <- as.character(gcmc_data$ID)
 #gcmc_data <- na.omit(gcmc_data)
@@ -35,6 +50,7 @@ if (unit_of_ads == "Molec_cm3overcm3"){
   
 } else{
   unit_for_plot <<- " "
+}
 }
 if (!relax){
   gcmc_data <- gcmc_data %>% filter(!ID %in% mc_0_ids$IDs_with_mc_0)
