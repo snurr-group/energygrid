@@ -53,3 +53,4 @@ R/EnergyHistogram_Effective_Ethan.R
 R/EnergyHistogram_NewTrials.R
 R/plot_PSD.R
 All_Data/*.txt
+*.txt
