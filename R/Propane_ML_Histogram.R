@@ -23,25 +23,15 @@ if (poster){
 }
 XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
  # define the input files
- #gcmc_file = "All_data/Butane_2.4Bar-partialfix.txt"
- #gcmc_file = "All_data/Butane_2.4Bar.txt"
- #gcmc_file = "All_data/Ethane_4bar.txt"
- #gcmc_file = "All_data/Ethane_20bar_298K.txt"
- #gcmc_file = "All_data/Ethane_40bar.txt"
- #gcmc_file = "All_data/Propane_10bar_new.txt"
- #gcmc_file = "All_data/Propane_5bar.txt"
- #gcmc_file = "All_data/Propane_1bar_new.txt"
- #gcmc_file = "All_data/Kr_1bar_more_unit.txt"
- #gcmc_file = "All_data/Kr_1bar-newnewnewn.txt"
- #gcmc_file = "All_data/Kr273_10bar.txt"
- #gcmc_file = "All_data/Xe_1bar_more_unit.txt"
- #gcmc_file = "All_data/Xe273_10bar.txt"
+ molecule_name <- "Propane"
+ Temperature <- "298K"
+ Pressure <- "10Bar" # use Bar
  previous_plot_lim <- 300
  #grid_file = "All_data/Xe_1A_autotune_tob.rds"
  #grid_file = "All_data/Kr_0.5A_tob_largerange_"
- grid_file = "All_data/Kr_1A_greater_range.rds"
+ #grid_file = "All_data/Kr_1A_greater_range.rds"
  #grid_file = "All_data/Xe_0.5A_tob_"
- #grid_file = "All_data/CH3_1A_combined_tobacco_core.rds"
+ grid_file = "All_data/CH3_1A_combined_tobacco_core.rds"
  # extract the directory from the file name
  data_dir <- sub("\\/.*", "", grid_file)
  file_name <- sub(".*\\/", "", grid_file)
@@ -66,11 +56,10 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
 
  if (!dir.exists("Results")){
    dir.create("Results")
- }
- #unit_list <- c("Molec_cm3overcm3", "Mol_kg", "Mill_gram", "Cm3_gram")
- unit_list <- c("Molec_cm3overcm3")
- for (chosen_unit in unit_list){ 
-       gcmc_data <- read_data(gcmc_file, unit_of_ads = chosen_unit, 
+ }     
+       chosen_unit <- "Molec_cm3overcm3"
+       gcmc_data <- read_data(gcmc_file, read_SI = TRUE, sheetname = paste(molecule_name, Temperature, Pressure, sep = "_"), 
+                              unit_of_ads = chosen_unit, 
                               relax = TRUE, just2k = TRUE, no_low_loading = FALSE)
        # extract the probe name, molecule name, pressure and temperature for picture naming
        # the naming convention of rds file should be: "probe"_"size of grid"_whatever.rds
@@ -83,10 +72,8 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
        } else{
          grid_info <- sub(".*\\/", "", grid_file) %>% sub("\\.rds", "", .)
        }
-       molecule_name <- sub(".*\\/", "", gcmc_file) %>% sub("\\_.*", "", .)
-       temperature <- gcmc_data$Temp[1]
-       pressure <- gcmc_data$Pres[1]
-       string_to_paste <- paste(molecule_name, temperature, pressure, grid_info, sep = "_")
+       
+       string_to_paste <- paste(molecule_name, Temperature, Pressure, grid_info, sep = "_")
        # create a directory for that condition and molecule
        save_path <- paste0(string_to_paste, "/", sep = "")
        # if save for poster figures, put poster in the front
@@ -193,23 +180,21 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
                                 plot_name = "rf", lim = plot_limit, 
                                 rf_model= rf_model,  test_data = test_data)
        textcondition <- paste0("Regression of ", molecule_name, 
-                               " at ", toString(temperature), 
-                               " K and ",toString(pressure/1e5), " Bar")
+                               " at ", toString(gcmc_data$Temp[1]), 
+                               " K and ",toString(gcmc_data$Pres[1]/1e5), " Bar")
        modelname <- paste0("RF using ", "Energy Histogram")
        getVarImp(rf_model, modelshort = "RF", 
                  howmany = 10, condition = textcondition, modelname = modelname)
       # Part below are related to topology, see Paper by Yamil and Diego
-      # Read the names with topology
       topologies <- read.table("All_data/fullnames_without_tob_cleaner_py.txt") # first column is ID, second column is topology
-      
+       
       # just keep all the structural properties that are numbers
       # filter out those tobacco data with NAs
       ToBaCCo <- TRUE
       CoRE <- FALSE
       if (ToBaCCo){
         orig_tobacco_data <-  na.omit(read_textual_data())
-      }
-      else if(CoRE){
+      }else if(CoRE){
         orig_tobacco_data <-  na.omit(read_textual_data(option = "CoRE"))
       }
       #
@@ -277,8 +262,8 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
                                rf_model= rf_model_topo,  test_data = topo_test_data)
       
       textcondition <- paste0("Regression of ", molecule_name, 
-                              " at ", toString(temperature), 
-                              " K and ",toString(pressure/1e5), " Bar")
+                              " at ", toString(gcmc_data$Temp[1]), 
+                              " K and ",toString(gcmc_data$Pres[1]), " Bar")
       modelname <- paste0("RF using ", "Energy Histogram", " and ", 
                           "Textural Properties")
       getVarImp(rf_model_topo, modelshort = "RF-Textural", 
@@ -410,8 +395,8 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
                                rf_model= rf_model_stats,  test_data = more_feature_test)
       
       textcondition <- paste0("Regression of ", molecule_name, 
-                              " at ", toString(temperature), 
-                              " K and ",toString(pressure/1e5), " Bar")
+                              " at ", toString(gcmc_data$Temp[1]), 
+                              " K and ",toString(gcmc_data$Pres[1]/1e5), " Bar")
       modelname <- paste0("RF using ", "Energy Histogram", ", \n", 
                           "Textural Properties," ," and ", "Energy Stats")
       getVarImp(rf_model_stats, modelshort = "RF-Textural-Energy-Stats", 
@@ -423,164 +408,3 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
       more_feature_test %>% write.csv(., paste(save_path, paste0(string_to_paste, "Stats-test.csv"), sep = ""))
       more_feature_train <- more_feature_train %>% select(-predicted)
       more_feature_test <- more_feature_test %>% select(-predicted)
- }
- 
-#  # make histogram of 2 mofs
-#  # add the low/up bounds for the last bin: Inf
-#  binbounds_inf <- binbounds
-#  inf_bounds <- data.frame(0.0, 2)
-#  names(inf_bounds) <- c("lower", "upper")
-#  binbounds_inf <- rbind(binbounds_inf, inf_bounds)
-#  binbounds_inf$widths <- binbounds_inf$upper - binbounds_inf$lower
-#  t_binbounds_inf <- as.data.frame(t(binbounds_inf))
-#  names(t_binbounds_inf) <- 1:(length(binbounds$lower) + 1)
-# 
-#  # make for 1713
-#  bin_heights <- train_data_with_id %>% filter(MOF.ID == "1713") %>% select(-MOF.ID, -y_act)
-#  # rename the Inf bin to length(binbounds$lower) + 1
-#  colnames(bin_heights)[colnames(bin_heights) == "Inf"] = as.character(length(binbounds$lower) + 1)
-#  # bind t_binbounds_inf with bin_heights
-#  bin_info <- rbind(t_binbounds_inf, bin_heights)
-#  # finally, transpose
-#  t_bin_info <- as.data.frame(t(bin_info))
-#  names(t_bin_info) <- c("lower", "upper", "range", "height")
-#  focused <- TRUE
-#  if (focused){
-#    t_bin_info <- t_bin_info %>% filter(lower >= -10)
-#  }
-#  hist_df <- data.frame(width = t_bin_info$range, height = t_bin_info$height)
-#  hist_df$w <- cumsum(hist_df$width)
-#  hist_df$wm <- hist_df$w - hist_df$width
-#  p <- ggplot(hist_df)
-#  p1 <- p + geom_rect(aes(xmin = t_bin_info$lower, 
-#                          xmax = t_bin_info$upper, 
-#                          ymin = 0, ymax = height)) + 
-#             xlab("Energies(kJ/mol)") + 
-#             ylab("Relative Bin Counts") + theme_classic() + 
-#               theme(axis.text=element_text(size=30),
-#               axis.title=element_text(size=30,face="bold")) 
-#  p1 
-#  save_plot(paste(save_path, paste0(string_to_paste, "1713_histo.png"), sep = ""), 
-#            p1, base_width = 10, base_height = 10, dpi = 600)
-#  # make for 4510
-#  bin_heights <- train_data_with_id %>% filter(MOF.ID == "4510") %>% select(-MOF.ID, -y_act)
-#  # rename the Inf bin to length(binbounds$lower) + 1
-#  colnames(bin_heights)[colnames(bin_heights) == "Inf"] = as.character(length(binbounds$lower) + 1)
-#  # bind t_binbounds_inf with bin_heights
-#  bin_info <- rbind(t_binbounds_inf, bin_heights)
-#  # finally, transpose
-#  t_bin_info <- as.data.frame(t(bin_info))
-#  names(t_bin_info) <- c("lower", "upper", "range", "height")
-#  focused <- TRUE
-#  if (focused){
-#    t_bin_info <- t_bin_info %>% filter(lower >= -10)
-#  }
-#  hist_df <- data.frame(width = t_bin_info$range, height = t_bin_info$height)
-#  hist_df$w <- cumsum(hist_df$width)
-#  hist_df$wm <- hist_df$w - hist_df$width
-#  p <- ggplot(hist_df)
-#  p1 <- p + geom_rect(aes(xmin = t_bin_info$lower, 
-#                          xmax = t_bin_info$upper, 
-#                          ymin = 0, ymax = height)) + 
-#    xlab("Energies(kJ/mol)") + 
-#    ylab("Relative Bin Counts") + theme_classic() + 
-#    theme(axis.text=element_text(size=30),
-#          axis.title=element_text(size=30,face="bold")) 
-#  p1 
-#  save_plot(paste(save_path, paste0(string_to_paste, "4510_histo.png"), sep = ""), 
-#            p1, base_width = 10, base_height = 10, dpi = 600)
-#  
-#  # analysis on hexane outliers with movies
-#  out_gcmc <- read_table2("../DATAS/Hexane_.1bar_movies.tar/Hexane_.1bar_movies/file.txt")
-#  outlier_id <- as.character(out_gcmc$ID)
-#  # filter out those predictions of outliers
-#  # use full tobacco data
-#  tobacco_outlier <- read_textual_data(keep = TRUE) %>% filter(MOF.ID %in% outlier_id)
-# # lets just compare 1713 and 4510
-#  tob_1713 <- tobacco_outlier %>% filter(MOF.ID == "1713")
-#  tob_4510 <- tobacco_outlier %>% filter(MOF.ID == "4510") 
-#  tob <- rbind(tob_1713, tob_4510)
- 
- # new feature: add highest value of derivatives of PSD to the feature space
- # calculate the difference between lcd and diameter where maximum derivative occurs
- psd_data <- read_table2("Data/PSD_tobacco.txt")
- psd_data$MOF.ID <- as.character(psd_data$MOF.ID)
- # filter out those don't have good psd data
- psd_train_data <- merge(topo_train_data, psd_data, by = "MOF.ID")
- psd_test_data <- merge(topo_test_data, psd_data, by = "MOF.ID")
- # calculate the difference between lcd and max_dir
- psd_train_data$distance <- psd_train_data$max_dir_diameter - psd_train_data$lcd
- psd_test_data$distance <- psd_test_data$max_dir_diameter - psd_test_data$lcd
- rf_model_psd <- randomForest(x = psd_train_data %>% select(-y_act, -MOF.ID), y = psd_train_data$y_act, ntree = 500)
- make_rf_prediction_plots(condition_name = string_to_paste, 
-                          plot_name = "rf_histogram_psd_max_dir", lim = plot_limit, 
-                          rf_model= rf_model_psd,  test_data = psd_test_data)
- 
- # try neural net
- # get the names of the features
- # type the formula
- # topo_data <- rbind(topo_train_data, topo_test_data)
- # V_topo_train_data <- topo_train_data
- # V_topo_test_data <- topo_test_data
- # colnames(V_topo_train_data) <- paste("V", colnames(V_topo_train_data), sep = "")
- # colnames(V_topo_test_data) <- paste("V", colnames(V_topo_test_data), sep = "")
- # feature_names <- V_topo_train_data %>% select(-VMOF.ID, -Vy_act, -VInf) %>% colnames()
- # f <- as.formula(paste("Vy_act ~ ", paste(feature_names, collapse = " + ")))
- # #m <- model.matrix(as.formula(paste("Vy_act ~ ", paste(feature_names, collapse = " + "))), topo_train_data)
- # nn <- neuralnet(formula = f, data = V_topo_train_data, hidden = c(5,3), stepmax = 1e6)
- # pred <- predict(nn, V_topo_test_data) 
- 
- # another non-linear method also used decision trees: x-gradient boost
- # library(xgboost)      # a faster implementation of gbm
- # model<- train(x = train_data %>% select(-y_act), y = train_data$y_act, method = "xgbTree")
- # predictions <- model %>% predict(test_data)
- # qplot(x = test_data$y_act, y = predictions) + 
- #   geom_abline(slope = 1, intercept = 0, linetype = 2) + 
- #   xlab(paste0("GCMC ")) + 
- #   ylab(paste0("Predicted ")) + 
- #   geom_point(color="#0070C0", size = dot_size) + 
- #   theme_classic() + geom_point()
- 
- 
- # another thought! Think about performing classification with random-Forest: does the molecule fit or not?
- # get the train data
- threshold_value <- 1 # set the divider of fit/not fit to be  1
- gcmc_class_train <- topo_train_data
- gcmc_class_train$canfit <- gcmc_class_train$y_act
- gcmc_class_train$canfit[gcmc_class_train$y_act > threshold_value] = 1
- gcmc_class_train$canfit[gcmc_class_train$y_act < threshold_value] = -1
- # get the test data
- gcmc_class_test <- topo_test_data
- gcmc_class_test$canfit <- gcmc_class_test$y_act
- gcmc_class_test$canfit[gcmc_class_test$y_act > threshold_value] = 1
- gcmc_class_test$canfit[gcmc_class_test$y_act < threshold_value] = -1
- all_features <- TRUE
- just_textural <- FALSE
- just_energy_histogram <- FALSE
- if (all_features){
-   rf_model_class <- randomForest(x = gcmc_class_train %>% select(-y_act, -MOF.ID, -canfit), y = gcmc_class_train$canfit, ntree = 500)
- } else if (just_textural){
-   rf_model_class <- randomForest(x = gcmc_class_train %>% select(vf, vsa, gsa, pld, lcd), y = gcmc_class_train$canfit, ntree = 500)
- } else if (just_energy_histogram){
-   rf_model_class <- randomForest(x = gcmc_class_train %>% select(-vf, -vsa, -gsa, -pld, -lcd, -y_act, -MOF.ID, -canfit), 
-                                  y = gcmc_class_train$canfit, ntree = 500)
- }
- test_class <- predict(rf_model_class, gcmc_class_test)
- test_class_normal <- test_class/abs(test_class)
- 
- gcmc_class_train_combined <- gcmc_class_train
- gcmc_class_train_combined$predicted <- rf_model_class$predicted
- gcmc_class_test_combined <- gcmc_class_test
- gcmc_class_test_combined$predicted <- test_class
- gcmc_class_combined <- rbind(gcmc_class_train_combined, gcmc_class_test_combined) 
- qplot(x = gcmc_class_combined$canfit, y = gcmc_class_combined$predicted) + geom_point()
- mis_class_greater <- gcmc_class_combined[(gcmc_class_combined$predicted > 0) & (gcmc_class_combined$canfit < 0),] 
- mis_class_lesser <- gcmc_class_combined[(gcmc_class_combined$predicted < 0) & (gcmc_class_combined$canfit > 0),] 
- # compute the percent of error
- mis_percent_greater <- nrow(mis_class_greater)/nrow(gcmc_class_combined)
- mis_percent_smaller <- nrow(mis_class_lesser)/nrow(gcmc_class_combined)
- 
- # compute the total number of not-fits
- n_not_fits <- as.numeric(sum(gcmc_class_combined$y_act < threshold_value))
- mis_class_among_not_fits <- (nrow(mis_class_greater) + nrow(mis_class_lesser))/n_not_fits
-  
