@@ -12,13 +12,27 @@ Using Vanilla (base) R, in command prompt (Windows), type the following command:
 ```
 Rscript --vanilla R\save_h2_hists.R whatever.rds Energies\ <keyword>
 ```
-**'Energies\'** is the directory where the energy files are stored. Keywords specifies the maximum and minimum bounds for the histogram, using **'autotune'** will automatically detect the minimum energy from the energy files. The fine histograms are stored in **whatever.rds**, ready for machine learning. <br/>
+**'Energies\'** is the directory where the energy grid files are stored. <br/>
+Keywords specifies the maximum and minimum bounds for the histogram, using **'autotune'** will automatically detect the minimum energy from the energy grid files. <br/>
+The fine histograms are stored in **whatever.rds**, ready for machine learning. <br/>
 _____
-The wrapper for single component prediction is **Propane_ML_Histogram.R**<br/>
+The wrapper for single component prediction is **Propane_ML_Histogram.R**, a similar wrapper for mixture fitting is **Read_XeKr.R**<br/>
 It reads the data from "**SI.xlsx**" from "**All_data**" folder. <br/>
-The inputs one needs to define in this file is: <br/>
+The inputs one needs to define in this wrapper is: <br/>
 1. **'molecule_name'**: "Ethane", "Propane", "Xe", "Kr" <br/>
 2. **'Temperature'**: "273K", "298K" <br/>
 3. **'Pressure'**: "1Bar", "5Bar", "10Bar" (For more, see different sheets in SI.xlsx) <br/>
+4. **.rds** file that stores fine histograms from energy grids. (Look for the previous section for details.)<br/>
 _____
-
+**How Energy Histograms Are Used as Features**<br/>
+The fine histograms are aggregated in when performing machine learning. <br/>
+There are mainly two ways of aggregation:
+1. Equally sized bins, for example, bin size equals 1kJ/mol. 
+2. Automatic aggregation. The code decides the bin bounds depending on the weight of energy regions: if a region has more counts, then the code use more bins to describe it. 
+_____
+**Machine Learning**
+The code first uses LASSO and then RandomForest for the fitting. Additional features are also tested, for example, R score between energy histograms, textural properties, and energy statistics from energy grid files. 
+_____
+**Where does output go???**
+During the machine learning run, the outputs (training/testing data, parity plots, histograms) are stored in **Results/** folder. Subfolders are named and created according to the molecule, condition, and grid probe. 
+_____
