@@ -1,8 +1,8 @@
 THis folder contains all files needed to run the code.
 _____
 **Initial Setup**:<br/>
-One needs **R code** and **RStudio** as requirements. Zhao uses Windows 10, so please forgive me for lack of knowledge on other platforms. 
-After installation, one can run **package_verification.R** to check for needed R packages. If a package is not found, it will try to install it. 
+One needs **R code** and **RStudio** as requirements. <br/> Zhao uses Windows 10, so please forgive me for lack of knowledge on other platforms. <br/>
+After installation, one can run **package_verification.R** to check for needed R packages. If a package is not found, it will try to install it. <br/>
 _____
 The wrapper is **Propane_ML_Histogram.R**
 It reads the data from "**SI.xlsx**" from "**All_data**" folder. <br/>
