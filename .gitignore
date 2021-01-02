@@ -54,3 +54,7 @@ R/EnergyHistogram_NewTrials.R
 R/plot_PSD.R
 All_Data/*.txt
 *.txt
+/All_old_data/
+/Old_scripts/
+/MSDE_Example_old/
+/Notebooks/
