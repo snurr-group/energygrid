@@ -661,8 +661,8 @@ make_topology_histograms <- function(condition_name, topo_data){
     
   }
   # save the plots
-  save_plot(paste(save_path_2, paste0(new_string, "_vf.png"), sep = ""), 
-            gg_histo_vf, base_width = 10, base_height = 10, dpi = 600)
+  #save_plot(paste(save_path_2, paste0(new_string, "_vf.png"), sep = ""), 
+   #         gg_histo_vf, base_width = 10, base_height = 10, dpi = 600)
   save_plot(paste(save_path_2, paste0(new_string, "_vsa.png"), sep = ""), 
             gg_histo_vsa, base_width = 10, base_height = 10, dpi = 600)
   save_plot(paste(save_path_2, paste0(new_string, "_gsa.png"), sep = ""), 
