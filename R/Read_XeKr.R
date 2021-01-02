@@ -8,8 +8,11 @@ source("R/save_train_test_data.R")
 source("R/read_textural_data.R")
 source("R/package_verification.R")
 
+set.seed(12345) # seems ok for both 1bar and 10bar
+
 unit_for_plot <<- "" # Selectivity is unitless
 poster <<- TRUE # save this as a global variable: no need to pass it around
+XeKr <<- TRUE
 # poster plots should have big dots
 if (poster){
   dot_size <<- 3
@@ -18,7 +21,7 @@ if (poster){
 }
 
 grid_file <- "All_data/Kr_1A_greater_range.rds"
-gcmc_file <- "All_data/XeKrmix273_10bar.txt"
+gcmc_file <- "All_data/XeKrmix273_1bar_cm3.txt"
 gcmc_data <- read_table2(gcmc_file)
 
 gcmc_data <- na.omit(gcmc_data)
@@ -67,7 +70,7 @@ colnames(gcmc_with_MOFID)[colnames(gcmc_with_MOFID)=="ID"] <- "MOF.ID"
 topology_data <- merge(gcmc_with_MOFID, structural_data, by ="MOF.ID")
 #make_topology_histograms(condition_name = string_to_paste, topo_data = topology_data)
 
-remove_outliers <- FALSE
+remove_outliers <- TRUE
 focus <- FALSE
 
 if (remove_outliers)
@@ -90,7 +93,7 @@ if (remove_outliers)
 
 # we can do another filtering: based on loading
 # filter out those who has a really low loading
-filter_absolute_loading <- TRUE
+filter_absolute_loading <- FALSE
 absolute_loading_threshold <- 0.1
 if (filter_absolute_loading)
 {
@@ -160,7 +163,7 @@ p_ch4_sets <- partition_data_subsets(hmof_h2_grid, gcmc_data, DATA_SPLIT)
 
 p_ch4_vol <- gcmc_data %>%
   mutate(g.L = Selectivity) %>%
-  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="", db_name = "tobacco")
+  run_model_on_partitions(p_ch4_sets, ., ch4_binspec, plot_units="", db_name = "points")
 
 gg_train <- p_ch4_vol$plots$parity_training %>% rescale_ch4_parity(., lims=c(0,plot_limit)) + 
   xlab("GCMC Selectivity") + 
@@ -211,6 +214,11 @@ make_rf_prediction_plots_XeKr(condition_name = string_to_paste,
                          rf_model= rf_model_topo,  test_data = topo_test_data, axis_label = "Selectivity")
 
 abc <- rbind(topo_train_data, topo_test_data)
+# save train and test data
+train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "train_Select.csv"), sep = ""))
+test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "test_Select.csv"), sep = ""))
+model %>% saveRDS(., paste(save_path, paste0(string_to_paste, "normal_RF.rds"), sep = ""))
+rf_model_topo %>% saveRDS(., paste(save_path, paste0(string_to_paste, "topo_RF.rds"), sep = ""))
 # # filter out those mofs with small lcd (between 4.1 and 7)
 # # suitable_mofs <- structural_data %>% filter(lcd > 4.1 & lcd < 7)
 # # unscreened_suitable_mofs <- suitable_mofs %>% filter(!MOF.ID %in% gcmc_data$ID)
