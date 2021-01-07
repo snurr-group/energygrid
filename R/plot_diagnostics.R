@@ -71,7 +71,11 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   # What are the stats for R2, MAE, RMSE?
   results$training_fit <- postResample(pred=predict(trained_mod$mod, as.matrix(trained_mod$x)), obs=trained_mod$y)
   results$testing_fit <- postResample(pred=y_pred, obs=y_act)
-  
+  if(XeKr){
+    results$training_fit['Spearman'] <- cor.test(predict(trained_mod$mod, as.matrix(trained_mod$x)), 
+                                                 trained_mod$y, method = "spearman", exact = FALSE)$estimate
+    results$testing_fit['Spearman'] <- cor.test(y_pred, y_act, method = "spearman", exact = FALSE)$estimate
+  }
   # Begin the plots
   results$plots$parity_bw <- parity_plot(y_act, y_pred) +
     xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
@@ -129,7 +133,9 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
         results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
         annotate_plot(paste0("Training data\n", glmnet_mod$nfit," ", db_name), "top.left", "#CA7C1B") %>% 
         #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
-        label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE, label_position = "forXeKr")
+        label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE, 
+                    do_label_spearman = TRUE, 
+                    label_position = "forXeKr")
     }else{
       results$plots$parity_training <- 
         results$plots$parity_training %>% rescale_ch4_parity(lims = plot_limit) %>% 
@@ -137,6 +143,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
         #label_stats(results$training_fit, label_q2=NULL, do_label_r2=TRUE)  # skip Q2 stats
         label_stats(results$training_fit, label_q2=NULL, plot_units = plot_units, do_label_r2=TRUE,
                     low_loading_label = do_label_low_loading, 
+                    do_label_spearman = TRUE, 
                     low_loading_stat = low_loading_postresample_train, label_position = "forXeKr")  # decided against labeling R2 on any of the figures
     }
   }else{
@@ -163,7 +170,9 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
         # We could use a thousands separator within the figures, but it looks weird and out of place
         #annotate_plot(paste0("Testing data\n", format(nrow(df_with_ys), , big.mark=",")," ", db_name), "top.left", "#0070C0") %>%
         annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
-        label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE, label_position = "forXeKr")
+        label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE, 
+                    do_label_spearman = TRUE, 
+                    label_position = "forXeKr")
     }else{
       results$plots$parity_testing <- 
         parity_plot(y_act, y_pred, "#0070C0") %>% rescale_ch4_parity(lims = plot_limit) %>% 
@@ -172,6 +181,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
         annotate_plot(paste0("Testing data\n", nrow(df_with_ys)," ", db_name), "top.left", "#0070C0") %>% 
         label_stats(results$testing_fit, plot_units = plot_units, do_label_r2=TRUE,
                     low_loading_label = do_label_low_loading, 
+                    do_label_spearman = TRUE, 
                     low_loading_stat = low_loading_postresample_test, label_position = "forXeKr")
     }
   }else{
@@ -344,7 +354,7 @@ low_loading_stat <- function(pred, obs){
 }
 
 # Label stats on the training and testing plots
-label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, plot_units = "g/L", low_loading_label=FALSE, low_loading_statistics = NULL, label_position = "bottom.right") {
+label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALSE, do_label_spearman=FALSE, plot_units = "g/L", low_loading_label=FALSE, low_loading_statistics = NULL, label_position = "bottom.right") {
   training_stats <- ""
   if (!is.null(label_q2)) {
     training_stats <- paste0(
@@ -356,6 +366,12 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
     training_stats <- paste0(
       training_stats, "\n",
       "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2, nsmall=2)
+    )
+  }
+  if (do_label_spearman) {
+    training_stats <- paste0(
+      training_stats, "\n",
+      "\u03c1 = ", format(postresample_results["Spearman"], digits=2, nsmall=2)
     )
   }
   if (low_loading_label) {
@@ -534,7 +550,7 @@ getVarImp <- function(RFmodel, modelshort = "RF", howmany = 10, condition, model
             plt_rfimp, base_width = 15, base_height = 10, dpi = 600)
 }
 
-make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")"), Errorlabel = "", interval = 50){
+make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")"), Errorlabel = "", interval = 50, makeselectivity = FALSE){
   # condition names should go like: molecule_temperature_pressure
   new_string <- paste0(condition_name, "_")
   if(poster)
@@ -545,6 +561,10 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   tested <- predict(rf_model, test_data)
   train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
   test_rmse <- postResample(pred = tested, obs = test_data$y_act)
+  if(makeselectivity){
+    train_rmse['Spearman'] <- cor.test(rf_model$predicted, rf_model$y, method = "spearman", exact = FALSE)$estimate
+    test_rmse['Spearman'] <- cor.test(tested, test_data$y_act, method = "spearman", exact = FALSE)$estimate
+  }
   # consider doing low loading stats
   do_label_low_loading <- FALSE
   low_loading_postresample_train <- NULL
@@ -576,12 +596,14 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   
   if(poster){
     gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
-      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE, label_position = "forXeKr")
+      label_stats(., train_rmse, plot_units = Errorlabel, do_label_r2=TRUE, 
+                  do_label_spearman = makeselectivity, label_position = "forXeKr")
     gg_rf_train <- gg_rf_train + theme(axis.text=element_text(size=30),
                                        axis.title=element_text(size=30,face="bold"))
   }else{
     gg_rf_train <- gg_rf_train %>% annotate_plot(paste0("Training data\n", length(rf_model$y)," ", "points"), "top.left", "#CA7C1B") %>% 
-      label_stats(., train_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,  
+      label_stats(., train_rmse, plot_units = Errorlabel, do_label_r2=TRUE,  
+                  do_label_spearman = makeselectivity, 
                   low_loading_label = do_label_low_loading, 
                   low_loading_stat = low_loading_postresample_train, label_position = "forXeKr")
   }
@@ -604,12 +626,15 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   
   if(poster){
     gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
-      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE, label_position = "forXeKr")
+      label_stats(., test_rmse, plot_units = Errorlabel, do_label_r2=TRUE, 
+                  do_label_spearman = makeselectivity, 
+                  label_position = "forXeKr")
     gg_rf_test <- gg_rf_test + theme(axis.text=element_text(size=30),
                                      axis.title=element_text(size=30,face="bold"))
   }else{
     gg_rf_test <- gg_rf_test %>% annotate_plot(paste0("Testing data\n", nrow(test_data)," ", "points"), "top.left", "#0070C0") %>% 
-      label_stats(., test_rmse, plot_units = unit_for_plot, do_label_r2=TRUE,
+      label_stats(., test_rmse, plot_units = Errorlabel, do_label_r2=TRUE,
+                  do_label_spearman = makeselectivity, 
                   low_loading_label = do_label_low_loading, 
                   low_loading_stat = low_loading_postresample_test, label_position = "forXeKr")
   }
