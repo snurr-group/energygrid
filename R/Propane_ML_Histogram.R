@@ -21,17 +21,17 @@ if (poster){
 }else{
   dot_size <<- 1 
 }
-XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
+XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
  # define the input files
- molecule_name <- "Propane"
- Temperature <- "298K"
+ molecule_name <- "Xe"
+ Temperature <- "273K"
  Pressure <- "10Bar" # use Bar
  previous_plot_lim <- 300
  #grid_file = "All_data/Xe_1A_autotune_tob.rds"
  #grid_file = "All_data/Kr_0.5A_tob_largerange_"
- #grid_file = "All_data/Kr_1A_greater_range.rds"
+ grid_file = "All_data/Kr_1A_greater_range.rds"
  #grid_file = "All_data/Xe_0.5A_tob_"
- grid_file = "All_data/CH3_1A_combined_tobacco_core.rds"
+ #grid_file = "All_data/CH3_1A_combined_tobacco_core.rds"
  # extract the directory from the file name
  data_dir <- sub("\\/.*", "", grid_file)
  file_name <- sub(".*\\/", "", grid_file)
@@ -357,7 +357,7 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
         list_of_files <- dataset$MOF.ID
         #file_dir <- "../DATAS/Diff_grids_XeKr_kB_Favors_Xe/"
         y <- data.frame(MOF.ID=character(), min_energy=double(), 
-                        mean_energy=double(),
+                        #mean_energy=double(),
                         median_energy=double(), 
                         fst_quartile=double())
         
@@ -367,12 +367,12 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
           # exclude 1.0e23
           energies <- energies[!energies == 1.0e23]
           minimum_energy <- min(energies)
-          mean_E <- mean(energies)
+          #mean_E <- mean(energies) Mean value excluded
           median_E <- median(energies)
           fst_iqr_E <- as.double(quantile(energies)[2])
           y <- rbind(y, data.frame(MOF.ID = grid_file, 
                                    Min = minimum_energy, 
-                                   Mean=mean_E, 
+                                   #Mean=mean_E, 
                                    Median=median_E, 
                                    Q1=fst_iqr_E))
         }
@@ -406,5 +406,4 @@ XeKr <<- TRUE # for distinguishing normal fitting from XeKr selectivity fitting
       more_feature_test$predicted <- predict(rf_model_stats, more_feature_test)
       more_feature_train %>% write.csv(., paste(save_path, paste0(string_to_paste, "Stats-train.csv"), sep = ""))
       more_feature_test %>% write.csv(., paste(save_path, paste0(string_to_paste, "Stats-test.csv"), sep = ""))
-      more_feature_train <- more_feature_train %>% select(-predicted)
-      more_feature_test <- more_feature_test %>% select(-predicted)
+      
