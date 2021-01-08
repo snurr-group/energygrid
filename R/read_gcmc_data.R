@@ -14,6 +14,9 @@ if (read_SI){
   if(sum(grepl("Error", names(gcmc_data))) == 1){
     gcmc_data <- gcmc_data %>% select(-`GCMC_Uptake_Error_Bar [cm3/cm3]`)
   }
+  if(sum(grepl("Heat_of_Adsorption", names(gcmc_data))) == 1){
+    gcmc_data <- gcmc_data %>% select(-`Heat_of_Adsorption [K]`)
+  }
   names(gcmc_data) <- c("ID", "Temp", "Pres", "Uptake")
   unit_for_plot <<- "cm\u00B3/cm\u00B3"
   }
