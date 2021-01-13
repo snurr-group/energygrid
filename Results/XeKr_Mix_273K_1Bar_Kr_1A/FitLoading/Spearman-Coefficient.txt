@@ -1,0 +1,4 @@
+Spearman Coefficient for Training data Selectivity is 
+0.954140475002897
+Spearman Coefficient for Testing data Selectivity is 
+0.971052214704841
