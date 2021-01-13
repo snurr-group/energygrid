@@ -8,7 +8,7 @@ source("R/save_train_test_data.R")
 source("R/read_textural_data.R")
 source("R/package_verification.R")
 source("R/read_gcmc_data.R")
-set.seed(12345) # seems ok for both 1bar and 10bar
+set.seed(12345)
 
 unit_for_plot <<- "" # Selectivity is unitless
 poster <<- TRUE # save this as a global variable: no need to pass it around
@@ -24,8 +24,9 @@ grid_file <- "All_data/Kr_1A_greater_range.rds"
 
 molecule_name <- "XeKr_Mix"
 Temperature <- "273K"
-Pressure <- "1Bar"
-chosen_unit <- "Molec_cm3overcm3"
+Pressure <- "10Bar"
+chosen_unit <- "cm3overcm3"
+remove_outliers <- TRUE # remove outlier from dataset by IQR filtering?
 gcmc_data <- read_data(gcmc_file, read_SI = TRUE, sheetname = paste(molecule_name, Temperature, Pressure, sep = "_"), 
                        unit_of_ads = chosen_unit, 
                        relax = TRUE, just2k = TRUE, no_low_loading = FALSE)
@@ -45,10 +46,6 @@ if (str_count(grid_file, "_") > 1) {
 string_to_paste <- paste(molecule_name, Temperature, Pressure, grid_info, sep = "_")
 # create a directory for that condition and molecule
 save_path <- paste0(string_to_paste, "/", sep = "")
-# if save for poster figures, put poster in the front
-if(poster){
-  save_path <- paste0("Poster_", save_path)
-}
 save_path <- paste0("Results/", save_path)
 if (!dir.exists(save_path)){
   dir.create(save_path)
@@ -56,23 +53,17 @@ if (!dir.exists(save_path)){
 gcmc_data$Selectivity <- (gcmc_data$Xe_uptake/0.2)/(gcmc_data$Kr_uptake/0.8)
 # intentionally filter out that outlier > 1M
 #gcmc_data <- gcmc_data %>% filter(Selectivity < 1000)
-gg_histo_selectivity <- qplot(gcmc_data$Selectivity , geom = "histogram") + 
-  xlab("GCMC Selectivity") + ylab("Counts")
 
-save_plot(paste(save_path, paste0(string_to_paste, "_Selectivity_histogram.png"), sep = ""), 
-          gg_histo_selectivity, base_width = 10, base_height = 10, dpi = 600)
-
-# other topology stuff: histograms for the population
-topologies <- read.table("All_data/fullnames_without_tob_cleaner_py.txt") # first column is ID, second column is topology
+# other textural properties stuff: histograms for the population
+textural_prop <- read.table("All_data/fullnames_without_tob_cleaner_py.txt") # first column is ID, second column is textural properties
 
 # just keep all the structural properties that are numbers
 structural_data <- read_textual_data(option = "ToBaCCo")
 gcmc_with_MOFID <- gcmc_data
 colnames(gcmc_with_MOFID)[colnames(gcmc_with_MOFID)=="ID"] <- "MOF.ID"
-topology_data <- merge(gcmc_with_MOFID, structural_data, by ="MOF.ID")
-#make_topology_histograms(condition_name = string_to_paste, topo_data = topology_data)
+textural_data <- merge(gcmc_with_MOFID, structural_data, by ="MOF.ID")
+#make_textural_histograms(condition_name = string_to_paste, text_data = textural_data)
 
-remove_outliers <- TRUE
 focus <- FALSE
 
 if (remove_outliers)
@@ -163,18 +154,39 @@ save_plot(paste(save_path, paste0(string_to_paste, "_LASSO_test.png"), sep = "")
           gg_test, base_width = 10, base_height = 10, dpi = 600)
 
 train_data <- export_data(p_ch4_sets$training, 
-                          rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), ch4_binspec)
+                          rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), 
+                          ch4_binspec, with_id = TRUE)
 test_data <- export_data(p_ch4_sets$testing, 
-                         rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), ch4_binspec)
+                         rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), 
+                         ch4_binspec, with_id = TRUE)
+# get the LASSO predictions out
+# sort by 1st digit
+train_data <- train_data[order(train_data$id),]
+test_data <- test_data[order(test_data$id),]
+# add LASSO predictions to the data
+train_data$lassopred <- predict(p_ch4_vol$trained_mod$mod, as.matrix(p_ch4_vol$trained_mod$x))
+test_data$lassopred <- p_ch4_vol$pred_df$y_pred
+train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_LASSO_train.csv"), sep = ""))
+test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_LASSO_test.csv"), sep = ""))
+# remove the predictions, and IDs for later
+train_data <- train_data %>% select(-id, -lassopred)
+test_data <- test_data %>% select(-id, -lassopred)
+
+###############################
+# RANDOM FOREST STARTS HERE####
+###############################
 
 model <- randomForest(x = train_data %>% select(-y_act), y = train_data$y_act, ntree = 500)
 
 make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
-                         plot_name = "rf", 
+                         plot_name = "RF", 
                          rf_model= model,  test_data = test_data, lim = plot_limit, axis_label = "Selectivity", 
                          makeselectivity = TRUE)
 train_data$Selectivity <- model$predicted
 test_data$Selectivity <- predict(model, test_data)
+# save train and test data
+train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_train_Select.csv"), sep = ""))
+test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_test_Select.csv"), sep = ""))
 Spearman_train <- cor.test(train_data$y_act, train_data$Selectivity, method = "spearman", exact = FALSE)
 Spearman_test <- cor.test(test_data$y_act, test_data$Selectivity, method = "spearman", exact = FALSE)
 file.create(paste(save_path, "Spearman-Coefficient-RF.txt", sep = ""))
@@ -187,7 +199,7 @@ close(Spearman_file)
 ##############################################
 #Add textural Properties into the features   #
 ##############################################
-# get the histograms and topology, glued together
+# get the histograms and textural properties, glued together
 train_data_with_id <- export_data(p_ch4_sets$training, 
                           rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), 
                           ch4_binspec, with_id = TRUE)
@@ -196,29 +208,31 @@ test_data_with_id <- export_data(p_ch4_sets$testing,
                          ch4_binspec, with_id = TRUE)
 colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
 colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
-topo_train_data <- merge(train_data_with_id, structural_data, by ="MOF.ID")
-topo_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
+text_train_data <- merge(train_data_with_id, structural_data, by ="MOF.ID")
+text_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
 
-rf_model_topo <- randomForest(x = topo_train_data %>% select(-y_act, -MOF.ID), 
-                              y = topo_train_data$y_act, ntree = 500)
+rf_model_text <- randomForest(x = text_train_data %>% select(-y_act, -MOF.ID), 
+                              y = text_train_data$y_act, ntree = 500)
 make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
-                         plot_name = "rf_histogram_topology", 
-                         rf_model= rf_model_topo,  test_data = topo_test_data, axis_label = "Selectivity", 
+                         plot_name = "RF_histogram_textural", 
+                         rf_model= rf_model_text,  test_data = text_test_data, axis_label = "Selectivity", 
                          makeselectivity = TRUE)
 
-abc <- rbind(topo_train_data, topo_test_data)
-# save train and test data
-train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "train_Select.csv"), sep = ""))
-test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "test_Select.csv"), sep = ""))
-model %>% saveRDS(., paste(save_path, paste0(string_to_paste, "normal_RF.rds"), sep = ""))
-rf_model_topo %>% saveRDS(., paste(save_path, paste0(string_to_paste, "topo_RF.rds"), sep = ""))
+abc <- rbind(text_train_data, text_test_data)
 
-topo_train_data$Selectivity <- rf_model_topo$predicted
-topo_test_data$Selectivity <- predict(rf_model_topo, topo_test_data)
-Spearman_train <- cor.test(topo_train_data$y_act, topo_train_data$Selectivity, method = "spearman", exact = FALSE)
-Spearman_test <- cor.test(topo_test_data$y_act, topo_test_data$Selectivity, method = "spearman", exact = FALSE)
-file.create(paste(save_path, "Spearman-Coefficient-RF-TexturalProperties.txt", sep = ""))
-Spearman_file <- file(paste(save_path, "Spearman-Coefficient-RF-TexturalProperties.txt", sep = ""))
+model %>% saveRDS(., paste(save_path, paste0(string_to_paste, "_RF.rds"), sep = ""))
+rf_model_text %>% saveRDS(., paste(save_path, paste0(string_to_paste, "_text_RF.rds"), sep = ""))
+
+text_train_data$Selectivity <- rf_model_text$predicted
+text_test_data$Selectivity <- predict(rf_model_text, text_test_data)
+# save to csv file
+text_train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_textural_train_Select.csv"), sep = ""))
+text_test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_textural_test_Select.csv"), sep = ""))
+
+Spearman_train <- cor.test(text_train_data$y_act, text_train_data$Selectivity, method = "spearman", exact = FALSE)
+Spearman_test <- cor.test(text_test_data$y_act, text_test_data$Selectivity, method = "spearman", exact = FALSE)
+file.create(paste(save_path, "Spearman-Coefficient-RF-Textural.txt", sep = ""))
+Spearman_file <- file(paste(save_path, "Spearman-Coefficient-RF-Textural.txt", sep = ""))
 writeLines(c("Spearman Coefficient for Training data Selectivity is ", 
              toString(Spearman_train$estimate), 
              "Spearman Coefficient for Testing data Selectivity is ", 
@@ -247,23 +261,20 @@ test_data_Select <- export_data(p_ch4_sets$testing,
                                 rename(gcmc_data %>% mutate(g.L = Selectivity), y_act=g.L), ch4_binspec, with_id = TRUE)
 colnames(train_data_Kr)[colnames(train_data_Kr)=="id"] <- "MOF.ID"
 colnames(test_data_Kr)[colnames(test_data_Kr)=="id"] <- "MOF.ID"
-topo_train_data_Kr <- merge(train_data_Kr, structural_data, by ="MOF.ID")
-topo_test_data_Kr <- merge(test_data_Kr, structural_data, by ="MOF.ID")
 
 colnames(train_data_Xe)[colnames(train_data_Xe)=="id"] <- "MOF.ID"
 colnames(test_data_Xe)[colnames(test_data_Xe)=="id"] <- "MOF.ID"
-topo_train_data_Xe <- merge(train_data_Xe, structural_data, by ="MOF.ID")
-topo_test_data_Xe <- merge(test_data_Xe, structural_data, by ="MOF.ID")
+
 model_Kr <- randomForest(x = train_data_Kr %>% select(-y_act, -MOF.ID), y = train_data_Kr$y_act, ntree = 500)
 model_Xe <- randomForest(x = train_data_Xe %>% select(-y_act, -MOF.ID), y = train_data_Xe$y_act, ntree = 500)
 
 make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
-                              plot_name = "rf_Kr_Loading", 
+                              plot_name = "RF_Kr_Loading", 
                               rf_model= model_Kr,  test_data = test_data_Kr, lim = plot_limit, 
                               axis_label = "Loading [cm\u00B3/cm\u00B3]", Errorlabel = "cm\u00B3/cm\u00B3")
 
 make_rf_prediction_plots_XeKr(condition_name = string_to_paste, 
-                              plot_name = "rf_Xe_Loading", 
+                              plot_name = "RF_Xe_Loading", 
                               rf_model= model_Xe,  test_data = test_data_Xe, lim = plot_limit, 
                               axis_label = "Loading [cm\u00B3/cm\u00B3]", , Errorlabel = "cm\u00B3/cm\u00B3")
 Kr_prediction <- predict(model_Kr, test_data_Kr)
@@ -291,10 +302,7 @@ makequickplot <- function(condition_name, plot_name, xdata, ydata, axislabel, te
     }
   }
   new_string <- paste0(condition_name, "_")
-  if(poster)
-  {
-    new_string <- paste0(new_string, "_poster")
-  }
+
   if(test){
     colorboard <- "#0070C0"
   }else{
@@ -323,11 +331,11 @@ makequickplot <- function(condition_name, plot_name, xdata, ydata, axislabel, te
               gg_rf, base_width = 10, base_height = 10, dpi = 600)
   }
 }
-makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_train', 
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity', 
               xdata = train_data_Select$y_act, 
               ydata = XeKr_Select_train, axislabel = "Selectivity",
               test = FALSE, postresult = train_rmse)
-makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_test', 
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity', 
               xdata = test_data_Select$y_act, 
               ydata = XeKr_Select, axislabel = "Selectivity",
               test = TRUE, postresult = test_rmse)
@@ -351,25 +359,31 @@ if(length(numbers) > 0){
 }
 train_rmse_no_out <- postResample(pred = XeKr_Select_no_outlier_train, obs = train_data_no_outlier$y_act)
 train_rmse_no_out['Spearman'] <- cor.test(XeKr_Select_no_outlier_train, train_data_no_outlier$y_act, method = "spearman", exact = FALSE)$estimate
-makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_test_remove2outliers', 
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_remove_outliers', 
               xdata = test_data_no_outlier$y_act, 
               ydata = XeKr_Select_no_outlier, axislabel = "Selectivity",
               test = TRUE, postresult = test_rmse_no_out, zoomin = TRUE)
-makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_train_remove2outliers', 
+makequickplot(condition_name = string_to_paste, plot_name = 'Selectivity_remove_outliers', 
               xdata = train_data_no_outlier$y_act, 
               ydata = XeKr_Select_no_outlier_train, axislabel = "Selectivity",
               test = FALSE, postresult = train_rmse_no_out, zoomin = TRUE)
 # print the train and test datasets, also save models!
-model_Kr %>% saveRDS(., paste(save_path, paste0(string_to_paste, "Kr_RF.rds"), sep = ""))
-model_Xe %>% saveRDS(., paste(save_path, paste0(string_to_paste, "Xe_RF.rds"), sep = ""))
-topo_train_data_Kr %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_train_Kr.csv"), sep = ""))
-topo_test_data_Kr %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_test_Kr.csv"), sep = ""))
-topo_train_data_Xe %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_train_Xe.csv"), sep = ""))
-topo_test_data_Xe %>% write.csv(., paste(save_path, paste0(string_to_paste, "Topo_test_Xe.csv"), sep = ""))
+model_Kr %>% saveRDS(., paste(save_path, paste0(string_to_paste, "_Kr_RF.rds"), sep = ""))
+model_Xe %>% saveRDS(., paste(save_path, paste0(string_to_paste, "_Xe_RF.rds"), sep = ""))
+# include the single component predicted values
+train_data_Kr$Kr_prediction <- Kr_prediction_train
+test_data_Kr$Kr_prediction <- Kr_prediction
+train_data_Xe$Xe_prediction <- Xe_prediction_train
+test_data_Xe$Xe_prediction <- Xe_prediction
+
+train_data_Kr %>% write.csv(., paste(save_path, paste0(string_to_paste, "_train_Kr.csv"), sep = ""))
+test_data_Kr %>% write.csv(., paste(save_path, paste0(string_to_paste, "_test_Kr.csv"), sep = ""))
+train_data_Xe %>% write.csv(., paste(save_path, paste0(string_to_paste, "_train_Xe.csv"), sep = ""))
+test_data_Xe %>% write.csv(., paste(save_path, paste0(string_to_paste, "_test_Xe.csv"), sep = ""))
 train_data_Select$Selectivity <- XeKr_Select_train
 test_data_Select$Selectivity <- XeKr_Select
-train_data_Select %>% write.csv(., paste(save_path, paste0(string_to_paste, "Train_Selectivity.csv"), sep = ""))
-test_data_Select %>% write.csv(., paste(save_path, paste0(string_to_paste, "Test_Selectivity.csv"), sep = ""))
+train_data_Select %>% write.csv(., paste(save_path, paste0(string_to_paste, "_train_Selectivity.csv"), sep = ""))
+test_data_Select %>% write.csv(., paste(save_path, paste0(string_to_paste, "_test_Selectivity.csv"), sep = ""))
 Spearman_train <- cor.test(train_data_Select$y_act, train_data_Select$Selectivity, method = "spearman", exact = FALSE)
 Spearman_test <- cor.test(test_data_Select$y_act, test_data_Select$Selectivity, method = "spearman", exact = FALSE)
 file.create(paste(save_path, "Spearman-Coefficient.txt", sep = ""))
@@ -379,4 +393,3 @@ writeLines(c("Spearman Coefficient for Training data Selectivity is ",
              "Spearman Coefficient for Testing data Selectivity is ", 
              toString(Spearman_test$estimate)), Spearman_file)
 close(Spearman_file)
-
