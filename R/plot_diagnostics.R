@@ -396,9 +396,6 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
 make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")")){
   # condition names should go like: molecule_temperature_pressure
   new_string <- paste0(condition_name, "_")
-  if(poster){
-    new_string <- paste0(new_string, "_poster")
-  }
   # make prediction
   tested <- predict(rf_model, test_data)
   train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
@@ -551,12 +548,9 @@ getVarImp <- function(RFmodel, modelshort = "RF", howmany = 10, condition, model
 }
 
 make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")"), Errorlabel = "", interval = 50, makeselectivity = FALSE){
+
   # condition names should go like: molecule_temperature_pressure
   new_string <- paste0(condition_name, "_")
-  if(poster)
-  {
-    new_string <- paste0(new_string, "_poster")
-  }
   # make prediction
   tested <- predict(rf_model, test_data)
   train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
@@ -650,35 +644,35 @@ make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, t
   }
 }
 
-make_topology_histograms <- function(condition_name, topo_data){
+make_textural_histograms <- function(condition_name, text_data){
   # set a folder for these histograms
   new_string <- paste0(condition_name, "_")
-  save_path_2 <- paste0(save_path, "topology_histograms/")
+  save_path_2 <- paste0(save_path, "Textural_histograms/")
   if (!dir.exists(save_path_2)){
     dir.create(save_path_2)
   }
   # vf
-  #gg_histo_vf <- qplot(topo_data$VF, geom = "histogram", xlim = c(0,1)) + 
+  #gg_histo_vf <- qplot(text_data$VF, geom = "histogram", xlim = c(0,1)) + 
    # xlab("Void Fraction") + ylab("Counts") + theme_classic() + 
    # theme(axis.text=element_text(size=30),
    #       axis.title=element_text(size=30,face="bold"))
   # vsa
-  gg_histo_vsa <- qplot(topo_data$VSA, geom = "histogram", xlim = c(0,3000)) + 
+  gg_histo_vsa <- qplot(text_data$VSA, geom = "histogram", xlim = c(0,3000)) + 
     xlab("Volumetric Surface Area (m\u00B2/cm\u00B3)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # gsa
-  gg_histo_gsa <- qplot(topo_data$GSA, geom = "histogram", xlim = c(0,10000)) + 
+  gg_histo_gsa <- qplot(text_data$GSA, geom = "histogram", xlim = c(0,10000)) + 
     xlab("Gravitational Surface Area (m\u00B2/g)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # pld
-  gg_histo_pld <- qplot(topo_data$PLD, geom = "histogram", xlim = c(0,70)) + 
+  gg_histo_pld <- qplot(text_data$PLD, geom = "histogram", xlim = c(0,70)) + 
     xlab("Pore Limiting Diameter (\305)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
   # lcd
-  gg_histo_lcd <- qplot(topo_data$LCD, geom = "histogram", xlim = c(0,80)) + 
+  gg_histo_lcd <- qplot(text_data$LCD, geom = "histogram", xlim = c(0,80)) + 
     xlab("Largest Cavity Diameter (\305)") + ylab("Counts") + theme_classic() + 
     theme(axis.text=element_text(size=30),
           axis.title=element_text(size=30,face="bold"))
@@ -688,12 +682,12 @@ make_topology_histograms <- function(condition_name, topo_data){
   # save the plots
   #save_plot(paste(save_path_2, paste0(new_string, "_vf.png"), sep = ""), 
    #         gg_histo_vf, base_width = 10, base_height = 10, dpi = 600)
-  save_plot(paste(save_path_2, paste0(new_string, "_vsa.png"), sep = ""), 
+  save_plot(paste(save_path_2, paste0(new_string, "VSA.png"), sep = ""), 
             gg_histo_vsa, base_width = 10, base_height = 10, dpi = 600)
-  save_plot(paste(save_path_2, paste0(new_string, "_gsa.png"), sep = ""), 
+  save_plot(paste(save_path_2, paste0(new_string, "GSA.png"), sep = ""), 
             gg_histo_gsa, base_width = 10, base_height = 10, dpi = 600)
-  save_plot(paste(save_path_2, paste0(new_string, "_pld.png"), sep = ""), 
+  save_plot(paste(save_path_2, paste0(new_string, "PLD.png"), sep = ""), 
             gg_histo_pld, base_width = 10, base_height = 10, dpi = 600)
-  save_plot(paste(save_path_2, paste0(new_string, "_lcd.png"), sep = ""), 
+  save_plot(paste(save_path_2, paste0(new_string, "LCD.png"), sep = ""), 
             gg_histo_lcd, base_width = 10, base_height = 10, dpi = 600)
 }
