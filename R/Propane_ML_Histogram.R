@@ -23,15 +23,13 @@ if (poster){
 }
 XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
  # define the input files
- molecule_name <- "Xe"
+ molecule_name <- "Kr"
  Temperature <- "273K"
- Pressure <- "10Bar" # use Bar
+ Pressure <- "1Bar" # use Bar
  previous_plot_lim <- 300
- #grid_file = "All_data/Xe_1A_autotune_tob.rds"
- #grid_file = "All_data/Kr_0.5A_tob_largerange_"
- grid_file = "All_data/Kr_1A_greater_range.rds"
- #grid_file = "All_data/Xe_0.5A_tob_"
- #grid_file = "All_data/CH3_1A_combined_tobacco_core.rds"
+
+ grid_file = "All_data/Kr_1A_greater_range.rds" # use for Xe and Kr
+ #grid_file = "All_data/CH3_1A_combined_tobacco_core.rds" # use for alkanes
  # extract the directory from the file name
  data_dir <- sub("\\/.*", "", grid_file)
  file_name <- sub(".*\\/", "", grid_file)
@@ -57,7 +55,7 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
  if (!dir.exists("Results")){
    dir.create("Results")
  }     
-       chosen_unit <- "Molec_cm3overcm3"
+       chosen_unit <- "cm3overcm3"
        gcmc_data <- read_data(gcmc_file, read_SI = TRUE, sheetname = paste(molecule_name, Temperature, Pressure, sep = "_"), 
                               unit_of_ads = chosen_unit, 
                               relax = TRUE, just2k = TRUE, no_low_loading = FALSE)
@@ -77,9 +75,6 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
        # create a directory for that condition and molecule
        save_path <- paste0(string_to_paste, "/", sep = "")
        # if save for poster figures, put poster in the front
-       if(poster){
-         save_path <- paste0("Poster_", save_path)
-       }
        save_path <- paste0("Results/", save_path)
        if (!dir.exists(save_path)){
          dir.create(save_path)
@@ -96,8 +91,8 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
        # a <- read_table2(gcmc_file)
        # b <- a %>% select(-Heat_of_Ads, -Heat_fluc)
        # bb <- na.omit(b)
-       # gcmc_data <- bb %>% select(ID, Temp, Pres, Molec_cm3overcm3)
-       # gcmc_data <- mutate(gcmc_data, Uptake = Molec_cm3overcm3)# delete!
+       # gcmc_data <- bb %>% select(ID, Temp, Pres, cm3overcm3)
+       # gcmc_data <- mutate(gcmc_data, Uptake = cm3overcm3)# delete!
        gcmc_data <- mutate(gcmc_data, id=ID)
        new_grid <- hmof_h2_grid[hmof_h2_grid[, "id"] %in% gcmc_data$id,] # select out the grids with id same as gcmc_data id
        Uniform_bins <- FALSE
@@ -153,31 +148,37 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
                 gg_train, base_width = 10, base_height = 10, dpi = 600)
       save_plot(paste(save_path, paste0(string_to_paste, "_LASSO_test.png"), sep = ""), 
                 gg_test, base_width = 10, base_height = 10, dpi = 600)
+      
       # export data for later testing other models, one can also export data to csv files
-       train_data <- export_data(p_ch4_sets$training, 
-                                 rename(gcmc_data %>% mutate(g.L = Uptake), y_act=g.L), ch4_binspec)
-       test_data <- export_data(p_ch4_sets$testing, 
-                                rename(gcmc_data %>% mutate(g.L = Uptake), y_act=g.L), ch4_binspec)
-       train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "train_yact.csv"), sep = ""))
-       test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "test_yact.csv"), sep = ""))
-      # a histogram correlation analysis
-        train_histo_bins <- train_data %>% select(-y_act)
-        test_histo_bins <- test_data %>% select(-y_act)
-        cor(as.matrix(t(train_histo_bins[1:2,])))
+      train_data <- export_data(p_ch4_sets$training, 
+                               rename(gcmc_data %>% mutate(g.L = Uptake), y_act=g.L), ch4_binspec, with_id = TRUE)
+      
+      test_data <- export_data(p_ch4_sets$testing, 
+                               rename(gcmc_data %>% mutate(g.L = Uptake), y_act=g.L), ch4_binspec, with_id = TRUE)
+      # sort by 1st digit
+      train_data <- train_data[order(train_data$id),]
+      test_data <- test_data[order(test_data$id),]
+       # add LASSO predictions to the data
+       train_data$lassopred <- predict(p_ch4_vol$trained_mod$mod, as.matrix(p_ch4_vol$trained_mod$x))
+       test_data$lassopred <- p_ch4_vol$pred_df$y_pred
+       train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_LASSO_train.csv"), sep = ""))
+       test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_LASSO_test.csv"), sep = ""))
+       # remove the predictions, and IDs for later
+       train_data <- train_data %>% select(-lassopred)
+       test_data <- test_data %>% select(-lassopred)
+       
+##############################
+# RANDOM FOREST STARTS HERE###
+##############################
+       
       # Run a random forest model
-       rf_model <- randomForest(x = train_data %>% select(-y_act), 
+       rf_model <- randomForest(x = train_data %>% select(-y_act, -id), 
                                 y = train_data$y_act, ntree = 500, 
                                 importance = TRUE)
        # gg <- qplot(x = model$predicted, y = model$y) + geom_abline(slope = 1, intercept = 0)
       
-      # # plot error automatically if model is a randomforest
-      # #plot(model)
-      # # making predictions/ testing your fit, tell what variables are important
-       #varplot <- varImpPlot(rf_model)
-       #save_plot(paste("Results/", paste0(string_to_paste, "_Variable_Importance_Plot.png"), sep = ""),varplot, base_width = 10, base_height = 8, dpi = 600)
-      # 
        make_rf_prediction_plots(condition_name = string_to_paste, 
-                                plot_name = "rf", lim = plot_limit, 
+                                plot_name = "RF", lim = plot_limit, 
                                 rf_model= rf_model,  test_data = test_data)
        textcondition <- paste0("Regression of ", molecule_name, 
                                " at ", toString(gcmc_data$Temp[1]), 
@@ -185,8 +186,14 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
        modelname <- paste0("RF using ", "Energy Histogram")
        getVarImp(rf_model, modelshort = "RF", 
                  howmany = 10, condition = textcondition, modelname = modelname)
-      # Part below are related to topology, see Paper by Yamil and Diego
-      topologies <- read.table("All_data/fullnames_without_tob_cleaner_py.txt") # first column is ID, second column is topology
+       train_data$predicted <- predict(rf_model, train_data)
+       test_data$predicted <- predict(rf_model, test_data)
+       train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_train.csv"), sep = ""))
+       test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_test.csv"), sep = ""))
+       train_data <- train_data %>% select(-predicted)
+       test_data <- test_data %>% select(-predicted)
+      # Part below are related to textural properties, see Paper by Yamil and Diego
+      textural_prop <- read.table("All_data/fullnames_without_tob_cleaner_py.txt") # first column is ID, second column is textural properties
        
       # just keep all the structural properties that are numbers
       # filter out those tobacco data with NAs
@@ -207,148 +214,49 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
       test_data_with_id <- export_data(p_ch4_sets$testing, 
                                        rename(gcmc_data %>% mutate(g.L = Uptake), y_act=g.L), 
                                        ch4_binspec, with_id = TRUE)
-      train_data_with_id$predicted <- predict(rf_model, train_data)
-      test_data_with_id$predicted <- predict(rf_model, test_data)
-      train_data_with_id %>% write.csv(., paste(save_path, paste0(string_to_paste, "train_yact_with_predicted.csv"), sep = ""))
-      test_data_with_id %>% write.csv(., paste(save_path, paste0(string_to_paste, "test_yact_with_predicted.csv"), sep = ""))
-      train_data_with_id <- train_data_with_id %>% select(-predicted)
-      test_data_with_id <- test_data_with_id %>% select(-predicted)
+      
       # calculate the correlation matrix for these data
       colnames(train_data_with_id)[colnames(train_data_with_id)=="id"] <- "MOF.ID"
       colnames(test_data_with_id)[colnames(test_data_with_id)=="id"] <- "MOF.ID"
-      correlation_train <- correlation_of_energy_histograms(train_data_with_id)
-      correlation_test <- correlation_of_energy_histograms(test_data_with_id)
-      Whole_correlation <- correlation_of_energy_histograms(rbind(train_data_with_id, test_data_with_id), write_to_csv = TRUE)
-      # add R-score as a predictor
-      all_data_with_R <- rbind(train_data_with_id, test_data_with_id)
-      correlation_all <- correlation_of_energy_histograms(all_data_with_R)
-      # randomly select an ID as the reference for R-scores
-      random_ID <- sample(all_data_with_R$MOF.ID, size = 1)
-      all_Rs <- subset(correlation_all, rownames(correlation_all) %in% random_ID)
-      df_all_Rs <- data.frame(t(all_Rs))
-      colnames(df_all_Rs)[colnames(df_all_Rs)==paste0("X", random_ID)] <- "R_scores"
-      all_data_with_R$Rscore <- df_all_Rs$R_scores
-      training_rows <- sample(length(all_data_with_R$MOF.ID), DATA_SPLIT)
-      training_data_with_R <- all_data_with_R[training_rows, ]
-      testing_data_with_R <- all_data_with_R[-training_rows, ]
-      # show that Rscore and uptake are related
-      #Rscore_compare <- all_data_with_R %>% select(MOF.ID, y_act, Rscore)
-      #Rscore_2 <- Rscore_compare[order(-Rscore_compare$Rscore),]
-      
-      
-      rf_model_Rscore <- randomForest(x = training_data_with_R %>% select(-y_act, -MOF.ID),
-                                      y = training_data_with_R$y_act, ntree = 500)
-      make_rf_prediction_plots(condition_name = string_to_paste, 
-                               plot_name = "rf_histogram_Rscore", lim = plot_limit, 
-                               rf_model= rf_model_Rscore,  test_data = testing_data_with_R)
-      training_data_with_R$predicted <- predict(rf_model_Rscore, training_data_with_R)
-      testing_data_with_R$predicted <- predict(rf_model_Rscore, testing_data_with_R)
-      training_data_with_R %>% write.csv(., paste(save_path, paste0(string_to_paste, "Rscore-train.csv"), sep = ""))
-      testing_data_with_R %>% write.csv(., paste(save_path, paste0(string_to_paste, "Rscore-test.csv"), sep = ""))
-      training_data_with_R <- training_data_with_R %>% select(-predicted)
-      testing_data_with_R <- testing_data_with_R %>% select(-predicted)
-      # learning using Topology data
-      topo_train_data<- merge(train_data_with_id, structural_data, by ="MOF.ID")
-      topo_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
+########################################
+# USE TEXTURAL PROPERTIES AS FEATURES###
+########################################
+      # learning using Textural properties data
+      text_train_data<- merge(train_data_with_id, structural_data, by ="MOF.ID")
+      text_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
       
       # perform a random forest model with these structural properties
       # check if training and testing data has MOF.ID that has NAs in tobacco data
       
-      rf_model_topo <- randomForest(x = topo_train_data %>% select(-y_act, -MOF.ID), 
-                                    y = topo_train_data$y_act, ntree = 500, 
+      rf_model_text <- randomForest(x = text_train_data %>% select(-y_act, -MOF.ID), 
+                                    y = text_train_data$y_act, ntree = 500, 
                                     importance = TRUE)
       make_rf_prediction_plots(condition_name = string_to_paste, 
-                               plot_name = "rf_histogram_topology", lim = plot_limit, 
-                               rf_model= rf_model_topo,  test_data = topo_test_data)
+                               plot_name = "RF_Histogram_Textural", lim = plot_limit, 
+                               rf_model= rf_model_text,  test_data = text_test_data)
       
       textcondition <- paste0("Regression of ", molecule_name, 
                               " at ", toString(gcmc_data$Temp[1]), 
                               " K and ",toString(gcmc_data$Pres[1]), " Bar")
       modelname <- paste0("RF using ", "Energy Histogram", " and ", 
                           "Textural Properties")
-      getVarImp(rf_model_topo, modelshort = "RF-Textural", 
+      getVarImp(rf_model_text, modelshort = "RF-Textural", 
                 howmany = 10, condition = textcondition, modelname = modelname)
-      topo_train_data$predicted <- rf_model_topo$predicted
-      topo_test_data$predicted <- predict(rf_model_topo, topo_test_data)
-      topo_train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "textural_train.csv"), sep = ""))
-      topo_test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "textural_test.csv"), sep = ""))
-      topo_train_data <- topo_train_data %>% select(-predicted)
-      topo_test_data <- topo_test_data %>% select(-predicted)
-      # do this qplot stuff again, to extract what are those outliers
+      text_train_data$predicted <- rf_model_text$predicted
+      text_test_data$predicted <- predict(rf_model_text, text_test_data)
+      text_train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Textural_train.csv"), sep = ""))
+      text_test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Textural_test.csv"), sep = ""))
+      text_train_data <- text_train_data %>% select(-predicted)
+      text_test_data <- text_test_data %>% select(-predicted)
+
+      # generate textural properties histograms
+      textural_data <- rbind(text_train_data, text_test_data)
+      make_textural_histograms(condition_name = string_to_paste, text_data = textural_data)
       
-      # seems ch4 qst at low loading is interesting...add into feature space
-      # data_with_met_qst <- orig_tobacco_data %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
-      # topo_qst_train_data<- merge(train_data_with_id, data_with_met_qst, by ="MOF.ID")
-      # topo_qst_test_data <- merge(test_data_with_id, data_with_met_qst, by ="MOF.ID")
-      # rf_model_topo_qst <- randomForest(x = topo_qst_train_data %>% select(-y_act, -MOF.ID), 
-      #                               y = topo_qst_train_data$y_act, ntree = 500)
-      # make_rf_prediction_plots(condition_name = string_to_paste, 
-      #                          plot_name = "rf_histogram_topology_qst", 
-      #                          rf_model= rf_model_topo_qst,  test_data = topo_qst_test_data)
-      # generate topology histograms
-      topology_data <- rbind(topo_train_data, topo_test_data)
-      make_topology_histograms(condition_name = string_to_paste, topo_data = topology_data)
+###################################
+# ENERGY STATISTICS AS FEATURES ###
+###################################
       
-      # # for outliers in hexane simulations
-      if (grepl("Hexane_298_10000", string_to_paste)){
-        # also make histograms for those large deviated points
-        # filter out those whose difference between predicted and actual is greater than 40
-        tested <- predict(rf_model_topo, topo_test_data)
-        train_pred <- predict(rf_model_topo)
-        large_deviations_train <- topo_train_data
-        large_deviations_test <- topo_test_data
-        large_deviations_train$pred <- train_pred
-        large_deviations_test$pred <- tested
-        large_deviations <- rbind(large_deviations_train, large_deviations_test)
-        small_deviations <- large_deviations %>% filter(abs(y_act - pred) < 30)
-        large_deviations <- large_deviations %>% filter(abs(y_act - pred) >= 30)
-        axis_label <- "capacity (cm\u00B3/cm\u00B3)"
-        gg_rf_test_without_outliers <- qplot(x = small_deviations$y_act, y = small_deviations$pred) +
-          geom_abline(slope = 1, intercept = 0, linetype = 2) +
-          xlab(paste0("GCMC ", axis_label)) +
-          ylab(paste0("Predicted ", axis_label))
-        # get the gcmc_data for those who has large deviations
-        large_deviation_gcmc <- gcmc_data %>% filter(ID %in% large_deviations$MOF.ID)
-        # filter the original tobacco data
-        large_deviation_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviations$MOF.ID)
-        new_string_to_paste <- paste0(string_to_paste, "_2")
-        make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_tobacco)
-        # now lets distinguish between outlier: overpredict vs. underpredict
-        large_deviation_positive <- large_deviations %>% filter((y_act - pred) > 0)
-        large_deviation_negative <- large_deviations %>% filter((y_act - pred) <= 0)
-
-
-        large_deviation_positive_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviation_positive$MOF.ID)
-        large_deviation_negative_tobacco <- orig_tobacco_data %>% filter(MOF.ID %in% large_deviation_negative$MOF.ID)
-        new_string_to_paste <- paste0(string_to_paste, "_UP")
-        make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_positive_tobacco)
-
-        new_string_to_paste <- paste0(string_to_paste, "_OP")
-        make_topology_histograms(condition_name = new_string_to_paste, topo_data = large_deviation_negative_tobacco)
-        # outlier ranges for hexane at 0.1 bar
-        # for running new simulations, filter out those already simulated
-        not_touched <- structural_data %>% filter(!MOF.ID %in% gcmc_data$ID)
-        # filter vf between 0.9 and 0.95
-        new_mofs_needed <- not_touched %>% filter(vf >= 0.9 & vf <= 0.95)
-        # then filter pld: between 15 and 25
-        new_mofs_needed <- new_mofs_needed %>% filter(pld >= 15 & pld <= 25)
-        # then filter lcd between 20 and 35
-        new_mofs_needed <- new_mofs_needed %>% filter(lcd >= 20 & lcd <= 35)
-        # then filter gsa between 6250 and 8125
-        new_mofs_needed <- new_mofs_needed %>% filter(gsa >= 6250 & gsa <= 8125)
-        # finally filter vsa between 800 and 1200
-        new_mofs_needed <- new_mofs_needed %>% filter(vsa >= 800 & vsa <= 1200)
-        # then filter out those with mc_0 nodes
-        mc_0_ids <- read_table("All_data/IDs_with_mc_0.txt")
-        new_mofs_needed <- new_mofs_needed %>% filter(!MOF.ID %in% mc_0_ids$IDs_with_mc_0)
-        # make a list with unitcell xyz
-        mof_xyz <- read_table2("tob_perm_unitcells_no_mc_0.txt")
-        mof_xyz$ID <- as.character(mof_xyz$ID)
-        mof_xyz <- mof_xyz %>% filter(ID %in% new_mofs_needed$MOF.ID)
-        # convert IDs back to numbers: if write as characters, it will have quotes!
-        mof_xyz$ID <- as.integer(mof_xyz$ID)
-        #write.table(mof_xyz, "biasing_list_for_hexane_point_1bar.txt", row.names = FALSE, col.names = FALSE, sep = " ")
-      }
       # adding new features to the feature space
       # add minimum energy, mean energy, median energy, 1st quartile
       # remember to exclude 1.0e23, which is a place-holder
@@ -381,17 +289,17 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
       }
 
       if (ToBaCCo){
-      more_feature_train <- read_minimum_energy_iqr(topo_train_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
-      more_feature_test <- read_minimum_energy_iqr(topo_test_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
+      more_feature_train <- read_minimum_energy_iqr(text_train_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
+      more_feature_test <- read_minimum_energy_iqr(text_test_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
       } else if (CoRE){      
-      more_feature_train <- read_minimum_energy_iqr(topo_train_data, file_dir = "../DATAS/CORE_CH3/Energies/")
-      more_feature_test <- read_minimum_energy_iqr(topo_test_data, file_dir = "../DATAS/CORE_CH3/Energies/")
+      more_feature_train <- read_minimum_energy_iqr(text_train_data, file_dir = "../DATAS/CORE_CH3/Energies/")
+      more_feature_test <- read_minimum_energy_iqr(text_test_data, file_dir = "../DATAS/CORE_CH3/Energies/")
       }
       rf_model_stats <- randomForest(x = more_feature_train %>% select(-y_act, -MOF.ID), 
                                     y = more_feature_train$y_act, ntree = 500, 
                                     importance = TRUE)
       make_rf_prediction_plots(condition_name = string_to_paste, 
-                               plot_name = "rf_stats", lim = plot_limit, 
+                               plot_name = "RF_Textural_Stats", lim = plot_limit, 
                                rf_model= rf_model_stats,  test_data = more_feature_test)
       
       textcondition <- paste0("Regression of ", molecule_name, 
@@ -404,6 +312,6 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
       
       more_feature_train$predicted <- predict(rf_model_stats, more_feature_train)
       more_feature_test$predicted <- predict(rf_model_stats, more_feature_test)
-      more_feature_train %>% write.csv(., paste(save_path, paste0(string_to_paste, "Stats-train.csv"), sep = ""))
-      more_feature_test %>% write.csv(., paste(save_path, paste0(string_to_paste, "Stats-test.csv"), sep = ""))
+      more_feature_train %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Stats_train.csv"), sep = ""))
+      more_feature_test %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Stats_test.csv"), sep = ""))
       
