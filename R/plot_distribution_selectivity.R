@@ -32,7 +32,7 @@ gcmc_data_10bar <- read_data(gcmc_file, read_SI = TRUE, sheetname = "XeKr_Mix_27
 gcmc_data_10bar$Selectivity <- (gcmc_data_10bar$Xe_uptake/0.2)/(gcmc_data_10bar$Kr_uptake/0.8)
 
 # create save path
-save_path <- "Results/XeKr_1_10Bar_Selectivity_Distribution/"
+save_path <- "Results/XeKr_Mix_Selectivity_Distribution/"
 if (!dir.exists(save_path)){
   dir.create(save_path)
 }
