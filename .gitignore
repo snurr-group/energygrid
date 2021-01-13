@@ -27,7 +27,6 @@ GenericMOF_Energies/
 *.rds
 *.jpg
 *.jpeg
-*.csv
 /propane_1bar_60K_Cycle.txt
 Picture/
 All_Data/*.rds
@@ -39,9 +38,8 @@ HeatMaps/
 UFF_Energies/
 Famous_mofs/
 R/Propane_with_different_features.R
-*.png
-Results/
 old_Results/
+All-old-Results/
 Raw_energies_data/
 All_data/OLD_Data_files
 All_data/mid_process_data
@@ -53,8 +51,8 @@ R/EnergyHistogram_Effective_Ethan.R
 R/EnergyHistogram_NewTrials.R
 R/plot_PSD.R
 All_Data/*.txt
-*.txt
 /All_old_data/
 /Old_scripts/
 /MSDE_Example_old/
 /Notebooks/
+/Notebooks_old/
