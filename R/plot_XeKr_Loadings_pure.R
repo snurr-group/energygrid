@@ -29,8 +29,8 @@ if (!dir.exists(save_path)){
 }
 
 if(Xe_1bar){
-  gcmc_Xe1bar_train <- read.csv("Results/Poster_Xe_273K_1Bar_Kr_1A/Molec_cm3overcm3/Xe_273K_1Bar_Kr_1Atrain_yact_with_predicted.csv")
-  gcmc_Xe1bar_test <- read.csv("Results/Poster_Xe_273K_1Bar_Kr_1A/Molec_cm3overcm3/Xe_273K_1Bar_Kr_1Atest_yact_with_predicted.csv")
+  gcmc_Xe1bar_train <- read.csv("Results/Xe_273K_1Bar_Kr_1A/cm3overcm3/Xe_273K_1Bar_Kr_1A_RF_train.csv")
+  gcmc_Xe1bar_test <- read.csv("Results/Xe_273K_1Bar_Kr_1A/cm3overcm3/Xe_273K_1Bar_Kr_1A_RF_test.csv")
   gcmc_Xe1bar <- rbind(gcmc_Xe1bar_train, gcmc_Xe1bar_test)
   #names(gcmc_Xe1bar)[names(gcmc_Xe1bar) == "y_act"] <- "Xe_1Bar"
   gcmc_data <- read_excel("All_data/SI.xlsx", sheet = "Xe_273K_1Bar")
@@ -44,8 +44,8 @@ if(Xe_1bar){
   heat_Xe1bar$Condition <- strrep("Xe_1bar",times = rep(1,nrow(heat_Xe1bar)))
 }
 if(Xe_10bar){
-  gcmc_Xe10bar_train <- read.csv("Results/Poster_Xe_273K_10Bar_Kr_1A/Molec_cm3overcm3/Xe_273K_10Bar_Kr_1Atrain_yact_with_predicted.csv")
-  gcmc_Xe10bar_test <- read.csv("Results/Poster_Xe_273K_10Bar_Kr_1A/Molec_cm3overcm3/Xe_273K_10Bar_Kr_1Atest_yact_with_predicted.csv")
+  gcmc_Xe10bar_train <- read.csv("Results/Xe_273K_10Bar_Kr_1A/cm3overcm3/Xe_273K_10Bar_Kr_1A_RF_train.csv")
+  gcmc_Xe10bar_test <- read.csv("Results/Xe_273K_10Bar_Kr_1A/cm3overcm3/Xe_273K_10Bar_Kr_1A_RF_test.csv")
   gcmc_Xe10bar <- rbind(gcmc_Xe10bar_train, gcmc_Xe10bar_test)
   #names(gcmc_Xe10bar)[names(gcmc_Xe10bar) == "y_act"] <- "Xe_10Bar"
   gcmc_data <- read_excel("All_data/SI.xlsx", sheet = "Xe_273K_10Bar")
@@ -59,8 +59,8 @@ if(Xe_10bar){
   heat_Xe10bar$Condition <- strrep("Xe_10bar",times = rep(1,nrow(heat_Xe10bar)))
 }
 if(Kr_1bar){
-  gcmc_Kr1bar_train <- read.csv("Results/Poster_Kr_273K_1Bar_Kr_1A/Molec_cm3overcm3/Kr_273K_1Bar_Kr_1Atrain_yact_with_predicted.csv")
-  gcmc_Kr1bar_test <- read.csv("Results/Poster_Kr_273K_1Bar_Kr_1A/Molec_cm3overcm3/Kr_273K_1Bar_Kr_1Atest_yact_with_predicted.csv")
+  gcmc_Kr1bar_train <- read.csv("Results/Kr_273K_1Bar_Kr_1A/cm3overcm3/Kr_273K_1Bar_Kr_1A_RF_train.csv")
+  gcmc_Kr1bar_test <- read.csv("Results/Kr_273K_1Bar_Kr_1A/cm3overcm3/Kr_273K_1Bar_Kr_1A_RF_test.csv")
   gcmc_Kr1bar <- rbind(gcmc_Kr1bar_train, gcmc_Kr1bar_test)
   #names(gcmc_Kr1bar)[names(gcmc_Kr1bar) == "y_act"] <- "Kr_1Bar"
   gcmc_data <- read_excel("All_data/SI.xlsx", sheet = "Kr_273K_1Bar")
@@ -74,8 +74,8 @@ if(Kr_1bar){
   heat_Kr1bar$Condition <- strrep("Kr_1bar",times = rep(1,nrow(heat_Kr1bar)))
 }
 if(Kr_10bar){
-  gcmc_Kr10bar_train <- read.csv("Results/Poster_Kr_273K_10Bar_Kr_1A/Molec_cm3overcm3/Kr_273K_10Bar_Kr_1Atrain_yact_with_predicted.csv")
-  gcmc_Kr10bar_test <- read.csv("Results/Poster_Kr_273K_10Bar_Kr_1A/Molec_cm3overcm3/Kr_273K_10Bar_Kr_1Atest_yact_with_predicted.csv")
+  gcmc_Kr10bar_train <- read.csv("Results/Kr_273K_10Bar_Kr_1A/cm3overcm3/Kr_273K_10Bar_Kr_1A_RF_train.csv")
+  gcmc_Kr10bar_test <- read.csv("Results/Kr_273K_10Bar_Kr_1A/cm3overcm3/Kr_273K_10Bar_Kr_1A_RF_test.csv")
   gcmc_Kr10bar <- rbind(gcmc_Kr10bar_train, gcmc_Kr10bar_test)
   #names(gcmc_Kr10bar)[names(gcmc_Kr10bar) == "y_act"] <- "Kr_10Bar"
   gcmc_data <- read_excel("All_data/SI.xlsx", sheet = "Kr_273K_10Bar")
@@ -160,7 +160,7 @@ p <- ggplot(gcmc_select, aes(x=Condition, y = y_act, fill = Condition)) +
   geom_violin(scale = "width")
 #p + stat_summary(fun.y=median, geom="point", shape=23, size=2, color = 'red')
 fig <- p + geom_boxplot(width=0.1) + coord_flip()
-save_plot(paste0(save_path, stringtopaste, ".png"), fig, base_width = 10, base_height = 10, dpi = 600)
+save_plot(paste0(save_path, stringtopaste, "_Loading.png"), fig, base_width = 10, base_height = 10, dpi = 600)
 
 # make plot for qst
 qst <- rbind(qst_a, qst_b)
@@ -176,7 +176,7 @@ p <- ggplot(qst, aes(x=Condition, y = -1*Heat_of_Ads, fill = Condition)) +
   geom_violin(scale = "width")
 #p + stat_summary(fun.y=median, geom="point", shape=23, size=2, color = 'red')
 fig <- p + geom_boxplot(width=0.1) + coord_flip()
-save_plot(paste0(save_path, stringtopaste,"_qst", ".png"), fig, base_width = 10, base_height = 10, dpi = 600)
+save_plot(paste0(save_path, stringtopaste,"_Qst", ".png"), fig, base_width = 10, base_height = 10, dpi = 600)
 # also make plots like the ones in Ben Sikora's paper
 orig_tobacco_data <-  na.omit(read_textual_data())
 colnames(orig_tobacco_data)[colnames(orig_tobacco_data)=="MOF.ID"] <- "id"
@@ -194,7 +194,7 @@ p <- ggplot(Xe_1bar_text, aes(x=LCD, y = y_act)) +
              color = "red", size=1.5) + 
   xlim(0, 80) +
   ylim(0, 300)
-save_plot(paste0(save_path, stringtopaste,"_Xe1barLoading", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
+save_plot(paste0(save_path, "Xe1bar_Loading_vs_LCD", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
 }
 if(Xe_10bar){
   Xe_10bar_text <- merge(orig_tobacco_data, gcmc_Xe10bar)
@@ -208,7 +208,7 @@ if(Xe_10bar){
                color = "red", size=1.5) + 
     xlim(0, 80) +
     ylim(0, 300)
-  save_plot(paste0(save_path, stringtopaste,"_Xe10barLoading", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
+  save_plot(paste0(save_path, "Xe10bar_Loading_vs_LCD", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
 }
 if(Kr_1bar){
   Kr_1bar_text <- merge(orig_tobacco_data, gcmc_Kr1bar)
@@ -222,7 +222,7 @@ if(Kr_1bar){
                color = "red", size=1.5) + 
     xlim(0, 80) +
     ylim(0, 300)
-  save_plot(paste0(save_path, stringtopaste,"_Kr1barLoading", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
+  save_plot(paste0(save_path, "Kr1bar_Loading_vs_LCD", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
 }
 if(Kr_10bar){
   Kr_10bar_text <- merge(orig_tobacco_data, gcmc_Kr10bar)
@@ -236,5 +236,5 @@ if(Kr_10bar){
                color = "red", size=1.5) + 
     xlim(0, 80) +
     ylim(0, 300)
-  save_plot(paste0(save_path, stringtopaste,"_Kr10barLoading", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
+  save_plot(paste0(save_path, "Kr10bar_Loading_vs_LCD", ".png"), p, base_width = 10, base_height = 10, dpi = 600)
 }
