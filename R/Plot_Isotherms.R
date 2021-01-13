@@ -8,7 +8,7 @@ library(cowplot)
 library(readxl)
 #gcmc_data <- read_table2("file.txt")
 #
-molecule <- "Propane"
+molecule <- "Ethane"
 if(molecule == "Ethane"){
   gcmc_data <- read_excel("All_data/SI.xlsx", sheet = "Ethane_Isotherm")
   VP=40e5 # vapor pressure
@@ -22,7 +22,7 @@ if(sum(grepl("Error", names(gcmc_data))) == 1){
   gcmc_data <- gcmc_data %>% select(-`GCMC_Uptake_Error_Bar [cm3/cm3]`)
 }
 names(gcmc_data) <- c("ID", "Temp", "Pres", "Uptake")
-save_path <- "Results/Isotherms/"
+save_path <- "Results/Ethane_Propane_Isotherms/"
 if (!dir.exists(save_path)){
   dir.create(save_path)
 }
