@@ -24,18 +24,18 @@ export_data <- function(test_grid, df_with_y_act, binspec, with_id = FALSE, alig
   }
   results
 }
-# extra function for extracting a separate set of topology data from other training purposes
+# extra function for extracting a separate set of textural properties data from other training purposes
 # Just toplogies
-export_topology_data <- function(test_grid, df_with_y_act,topo_data,filename){
+export_textural_data <- function(test_grid, df_with_y_act,text_data,filename){
   # first get those IDs
   new_df <- subset(df_with_y_act, df_with_y_act$id %in% test_grid$id)
   # join it with gcmc_data
-  topo_data$MOF.ID <- as.character(topo_data$MOF.ID)
-  colnames(topo_data)[colnames(topo_data) == "MOF.ID"] <- "id"
+  text_data$MOF.ID <- as.character(text_data$MOF.ID)
+  colnames(text_data)[colnames(text_data) == "MOF.ID"] <- "id"
   
-  results <- topo_data %>% 
-  select(id,vf,vsa,gsa,pld,lcd) %>% 
+  results <- text_data %>% 
+  select(id,VF,VSA,GSA,PLD,LCD) %>% 
   inner_join(new_df, by = "id") %>% 
-  select(`Guest-Guest`,vf,vsa,gsa,pld,lcd)
+  select(`Guest-Guest`,VF,VSA,GSA,PLD,LCD)
   results %>% write_csv(filename)
 }
