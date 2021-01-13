@@ -1,0 +1,5 @@
+#!/bin/bash
+
+currentdir=$(pwd)
+cp ../../../Results/Xe_Kr_SingleComponent_Analysis/XeKr_1_10bar_dist_Qst.png Figure_S4.png
+
