@@ -23,13 +23,19 @@ if (poster){
 }
 XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
  # define the input files
- molecule_name <- "Propane"
- Temperature <- "298K"
- Pressure <- "1Bar" # use Bar
+ molecule_name <- "Xe"
+ Temperature <- "273K"
+ Pressure <- "10Bar" # use Bar
  previous_plot_lim <- 300
-
- #grid_file = "All_data/Kr_1A_greater_range.rds" # use for Xe and Kr
- grid_file = "All_data/CH3_1A_combined_tobacco_core.rds" # use for alkanes
+# need to distinguish between Xe, Kr, and the alkanes
+ if(molecule_name == "Xe" || molecule_name == "Kr"){
+   Xe_Kr <<- TRUE # Xe_Kr is indicating Xe or Kr single component, This is a flag used later when plotting and calculating error
+   grid_file = "All_data/Kr_1A_greater_range.rds" # use for Xe and Kr
+ }else{
+   Xe_Kr <<- FALSE
+   grid_file = "All_data/CH3_1A_combined_tobacco_core.rds" # use for alkanes
+ }
+ 
  # extract the directory from the file name
  data_dir <- sub("\\/.*", "", grid_file)
  file_name <- sub(".*\\/", "", grid_file)
