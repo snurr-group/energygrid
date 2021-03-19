@@ -23,13 +23,13 @@ if (poster){
 }
 XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
  # define the input files
- molecule_name <- "Kr"
- Temperature <- "273K"
+ molecule_name <- "Propane"
+ Temperature <- "298K"
  Pressure <- "1Bar" # use Bar
  previous_plot_lim <- 300
 
- grid_file = "All_data/Kr_1A_greater_range.rds" # use for Xe and Kr
- #grid_file = "All_data/CH3_1A_combined_tobacco_core.rds" # use for alkanes
+ #grid_file = "All_data/Kr_1A_greater_range.rds" # use for Xe and Kr
+ grid_file = "All_data/CH3_1A_combined_tobacco_core.rds" # use for alkanes
  # extract the directory from the file name
  data_dir <- sub("\\/.*", "", grid_file)
  file_name <- sub(".*\\/", "", grid_file)
@@ -200,9 +200,9 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
       ToBaCCo <- TRUE
       CoRE <- FALSE
       if (ToBaCCo){
-        orig_tobacco_data <-  na.omit(read_textual_data())
+        orig_tobacco_data <-  na.omit(read_textual_data(keepVF = TRUE))
       }else if(CoRE){
-        orig_tobacco_data <-  na.omit(read_textual_data(option = "CoRE"))
+        orig_tobacco_data <-  na.omit(read_textual_data(option = "CoRE", keepVF = TRUE))
       }
       #
       structural_data <- orig_tobacco_data # %>% select(MOF.ID, vf, vsa, gsa, pld, lcd)
@@ -222,35 +222,33 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
 # USE TEXTURAL PROPERTIES AS FEATURES###
 ########################################
       # learning using Textural properties data
-      text_train_data<- merge(train_data_with_id, structural_data, by ="MOF.ID")
-      text_test_data <- merge(test_data_with_id, structural_data, by ="MOF.ID")
+      Jtext_train<- merge(train_data_with_id, structural_data, by ="MOF.ID") %>% select(MOF.ID, VF, PLD, LCD, GSA, VSA, y_act)
+      Jtext_test <- merge(test_data_with_id, structural_data, by ="MOF.ID") %>% select(MOF.ID, VF, PLD, LCD, GSA, VSA, y_act)
       
       # perform a random forest model with these structural properties
       # check if training and testing data has MOF.ID that has NAs in tobacco data
       
-      rf_model_text <- randomForest(x = text_train_data %>% select(-y_act, -MOF.ID), 
-                                    y = text_train_data$y_act, ntree = 500, 
+      rf_model_text <- randomForest(x = Jtext_train %>% select(-y_act, -MOF.ID), 
+                                    y = Jtext_train$y_act, ntree = 500, 
                                     importance = TRUE)
       make_rf_prediction_plots(condition_name = string_to_paste, 
-                               plot_name = "RF_Histogram_Textural", lim = plot_limit, 
-                               rf_model= rf_model_text,  test_data = text_test_data)
+                               plot_name = "RF_Just_Textural", lim = plot_limit, 
+                               rf_model= rf_model_text,  test_data = Jtext_test)
       
       textcondition <- paste0("Regression of ", molecule_name, 
                               " at ", toString(gcmc_data$Temp[1]), 
                               " K and ",toString(gcmc_data$Pres[1]), " Bar")
-      modelname <- paste0("RF using ", "Energy Histogram", " and ", 
-                          "Textural Properties")
-      getVarImp(rf_model_text, modelshort = "RF-Textural", 
-                howmany = 10, condition = textcondition, modelname = modelname)
-      text_train_data$predicted <- rf_model_text$predicted
-      text_test_data$predicted <- predict(rf_model_text, text_test_data)
-      text_train_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Textural_train.csv"), sep = ""))
-      text_test_data %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Textural_test.csv"), sep = ""))
-      text_train_data <- text_train_data %>% select(-predicted)
-      text_test_data <- text_test_data %>% select(-predicted)
+      modelname <- paste0("RF using 5 Textural Properties")
+
+      Jtext_train$predicted <- rf_model_text$predicted
+      Jtext_test$predicted <- predict(rf_model_text, Jtext_test)
+      Jtext_train %>% write.csv(., paste(save_path, "RF_Just_Textural_train.csv", sep = ""))
+      Jtext_test %>% write.csv(., paste(save_path, "RF_Just_Textural_test.csv", sep = ""))
+      Jtext_train <- Jtext_train %>% select(-predicted)
+      Jtext_test <- Jtext_test %>% select(-predicted)
 
       # generate textural properties histograms
-      textural_data <- rbind(text_train_data, text_test_data)
+      textural_data <- rbind(Jtext_train, Jtext_test)
       make_textural_histograms(condition_name = string_to_paste, text_data = textural_data)
       
 ###################################
@@ -289,29 +287,26 @@ XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
       }
 
       if (ToBaCCo){
-      more_feature_train <- read_minimum_energy_iqr(text_train_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
-      more_feature_test <- read_minimum_energy_iqr(text_test_data, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
+      more_feature_train <- read_minimum_energy_iqr(Jtext_train, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
+      more_feature_test <- read_minimum_energy_iqr(Jtext_test, file_dir = "Raw_energies_data/ToBaCCo_CH3_Energies/")
       } else if (CoRE){      
-      more_feature_train <- read_minimum_energy_iqr(text_train_data, file_dir = "../DATAS/CORE_CH3/Energies/")
-      more_feature_test <- read_minimum_energy_iqr(text_test_data, file_dir = "../DATAS/CORE_CH3/Energies/")
+      more_feature_train <- read_minimum_energy_iqr(Jtext_train, file_dir = "../DATAS/CORE_CH3/Energies/")
+      more_feature_test <- read_minimum_energy_iqr(Jtext_test, file_dir = "../DATAS/CORE_CH3/Energies/")
       }
       rf_model_stats <- randomForest(x = more_feature_train %>% select(-y_act, -MOF.ID), 
                                     y = more_feature_train$y_act, ntree = 500, 
                                     importance = TRUE)
       make_rf_prediction_plots(condition_name = string_to_paste, 
-                               plot_name = "RF_Textural_Stats", lim = plot_limit, 
+                               plot_name = "RF_Just_Textural_Stats", lim = plot_limit, 
                                rf_model= rf_model_stats,  test_data = more_feature_test)
       
       textcondition <- paste0("Regression of ", molecule_name, 
                               " at ", toString(gcmc_data$Temp[1]), 
                               " K and ",toString(gcmc_data$Pres[1]/1e5), " Bar")
-      modelname <- paste0("RF using ", "Energy Histogram", ", \n", 
-                          "Textural Properties," ," and ", "Energy Stats")
-      getVarImp(rf_model_stats, modelshort = "RF-Textural-Energy-Stats", 
-                howmany = 10, condition = textcondition, modelname = modelname)
+      modelname <- paste0("RF using 5 Textural Properties," ," and ", "3 Energy Stats")
       
       more_feature_train$predicted <- predict(rf_model_stats, more_feature_train)
       more_feature_test$predicted <- predict(rf_model_stats, more_feature_test)
-      more_feature_train %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Stats_train.csv"), sep = ""))
-      more_feature_test %>% write.csv(., paste(save_path, paste0(string_to_paste, "_RF_Stats_test.csv"), sep = ""))
+      more_feature_train %>% write.csv(., paste(save_path, "RF_Just_Text_Stats_train.csv", sep = ""))
+      more_feature_test %>% write.csv(., paste(save_path, "RF_Just_Text_Stats_test.csv", sep = ""))
       
