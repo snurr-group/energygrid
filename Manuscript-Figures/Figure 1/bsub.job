@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name="C2multithread test"
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH -C haswell
+#SBATCH -t 48:00:00
+#SBATCH -q regular
+#SBATCH -A m538
+
+module purge all
+
+echo START: `date`
+
+export RASPA_DIR=/project/projectdirs/m538/zhaoli2023/RASPA-2.0/

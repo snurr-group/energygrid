@@ -1,0 +1,170 @@
+#!/bin/bash
+
+#################################################
+
+#WHEN CIF FILES ALREADY EXIST, RUN THIS FILE
+#INCORPORATES MULTIPROCESSES
+#THIS IS A CODE FOR HEXANE
+#IT USES CBMC
+#################################################
+#rm -r $d
+job=$(squeue -u zhaoli20)
+#echo $job
+
+# COUNT THE NUMBER OF GREP
+count=$(echo "$job" | grep -c "zhaoli20")
+echo $count
+# CHECK IF THE JOB IS STILL RUNNING
+
+item=$(echo "$job" | grep "zhaoli20")
+#echo $item
+echo "$item" > printscr.txt
+file=printscr.txt
+# COUNT NUMBER OF LINES IN THIS item variable
+num=$(echo "$item" | wc -l)
+echo $num
+
+
+#count the number of jobs still on Quest
+while IFS='' read -r line || [[ -n "$line" ]]; do
+echo $line
+
+if [[ $line == *" R "* ]]; then 
+echo "Ahh it is still running!"
+fi
+
+# IF IT STOPS
+if [[ $line == *" C "* ]]; then
+echo "Ohh it is stopped!"
+# SEARCH FOR STRING "finished" in the output file
+#mv Output/System_0/ou* Output/System_0/outlet.txt
+#grep "Simulation finished" Output/System_0/outlet.txt
+#        if [[ $? != 0 ]]; then
+#        echo "ad" >> needrestart.txt
+#        fi
+
+fi
+
+done < "$file"
+
+
+# count the number of cif files in the cifdir
+# cd to cif directory
+cifdir=/project/projectdirs/m538/zhaoli2023/RASPA-2.0/share/raspa/structures/cif
+result_folder=/project/projectdirs/m538/zhaoli2023/Butane-1.2Bar
+input_folder=$(pwd)
+cd $result_folder
+
+cif_count=$(find . -maxdepth 1 -type d | wc -l)
+echo "THERE ARE THESE FOLDERS EXIST"
+#IT ALWAYS COUNT ONE MORE, SO SUBTRACT BY 1
+cif_count=`echo "$cif_count -1" | bc`
+echo $cif_count
+
+## THINK ABOUT SUBMITTING JOBS WHEN JOBS ON QUEST IS LESS THAN 500
+count=`echo "850 - $count" | bc`
+echo "YOU CAN STILL SUBMIT THESE AMOUNT OF JOBS"
+echo $count
+
+########################################################
+# input for how many jobs you want to put in one file  
+# depends on how many processors a node has           
+# useful for NERSC jobs
+nthreads=32 # number of threads in a multi-tasking job
+msg1='$' # these two are used for generating job file
+msg2='`'
+########################################################
+
+
+#INPUT SECTION
+
+# Cycles of runs
+
+i_cycles=30000
+#
+p_cycles=30000
+# External Pressure of the system, with unit of pa
+# like 1bar = 1.0e5, 0.01bar = 1000 
+pres=1.2e5
+# External Temperature, with unit of K
+temp=298
+# Molecule
+MY_MOLECULE='butane' # find this in RASPA/share/raspa/molecule
+
+
+######################################################
+
+# RANDOM PERMUTE THE ORDER OF TABACCO LIST: remember to do it when starting a new set of simulations
+for ((i = 1; i <= $count; i++)); do
+folder_num=`echo "$cif_count + $i" | bc`
+echo "THIS WILL BE FOLDER '$folder_num'"
+
+# SET YOUR UPPER LIMIT OF SIMULATIONS
+# FOR EXAMPLE, I WANT TO SCREEN 3000
+# I WILL HAVE folder_num <= 1000 with each folder contains 3 simulations
+if [[ $folder_num  -gt 63 ]] ; then
+    echo "YOUR SIMULATIONS ARE COMPLETED, NO NEED FOR MORE!"
+    exit 1
+fi
+
+
+mkdir $folder_num # make the big folder, it contains several simulations
+cd $folder_num
+cp $input_folder/bsub.job bsub.job
+sed -i 's/multithread test/_'$folder_num'/g' bsub.job
+echo "export SIMDIR=${result_folder}/${folder_num}" >> bsub.job
+processor_count=0 # count the number of processors, used for job file
+for ((j = 1; j <= $nthreads; j++)) do
+# get the name of mof
+# if there are 8 simulations, get the 8 + i cif 
+proper_line=`echo "($folder_num-1)*$nthreads + $j" | bc`
+line=$(sed "${proper_line}q;d" $input_folder/NeededCells_Butane_1.2Bar.txt)
+echo $line
+
+MOF_ID=$(echo "$line" | awk '{print $1}')
+# Get the unit cell size from the line
+unitcell_x=$(echo "$line" | awk '{print $2}')
+unitcell_y=$(echo "$line" | awk '{print $3}')
+unitcell_z=$(echo "$line" | awk '{print $4}')
+
+# make a directory of that mof
+mkdir $MOF_ID
+cd $MOF_ID
+
+# Copy input file and submission file to that folder
+cp $input_folder/simulation.input simulation.input
+
+# Substitute unitcell lengths
+sed -i 's/.*UnitCells.*/UnitCells '$unitcell_x' '$unitcell_y' '$unitcell_z'/g' simulation.input
+# Substitute MOF_ID
+sed -i 's/.*FrameworkName.*/FrameworkName '$MOF_ID'/g' simulation.input
+# Substitute Pressure
+sed -i 's/.*ExternalPressure.*/ExternalPressure '$pres'/g' simulation.input
+# Substitute Temperature
+sed -i 's/.*ExternalTemperature.*/ExternalTemperature '$temp'/g' simulation.input
+# Substitute the molecule of our simulation
+sed -i 's/methane/'$MY_MOLECULE'/g' simulation.input
+# Substitute cycles, do it to both equil and production
+sed -i 's/.*NumberOfCycles.*/NumberOfCycles '$p_cycles'/g' simulation.input
+sed -i 's/.*NumberOfInitializationCycles.*/NumberOfInitializationCycles '$i_cycles'/g' simulation.input
+
+#this script will automatically generate a bsub file
+echo "cd $MOF_ID/ && "${msg1}RASPA_DIR"/bin/simulate -i "${msg1}SIMDIR"/$MOF_ID/simulation.input &" >> ../bsub.job
+processor_count=`echo "$processor_count + 1" | bc`
+
+# cd back to the big folder
+cd ..
+done
+
+# cd back to the big folder
+# change the number of processors and finish this job file
+sed -i 's/--ntasks-per-node=.*$/--ntasks-per-node='$processor_count'/g' bsub.job
+echo "wait" >> bsub.job
+echo "echo FINISH: ${msg2}date${msg2}" >> bsub.job
+
+# FINALLY, SUBMIT THE JOB
+sbatch bsub.job
+
+
+cd ..
+done

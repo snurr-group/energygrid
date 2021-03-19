@@ -1,0 +1,32 @@
+SimulationType                MonteCarlo
+NumberOfCycles 30000
+NumberOfInitializationCycles 30000
+PrintEvery                    200
+RestartFile                  no
+ContinueAfterCrash            no
+WriteBinaryRestartFileEvery 200
+
+RemoveAtomNumberCodeFromLabel yes
+
+ChargeMethod   None
+CutOffVDW                     12.8
+Forcefield                    UFF
+
+Framework 0
+FrameworkName 11962
+UnitCells 1 1 1
+HeliumVoidFraction 0.5
+ExternalTemperature 298
+ExternalPressure 10
+
+
+Component 0 MoleculeName            butane
+            MoleculeDefinition       TraPPE
+            IdealGasRosenbluthWeight 0.129522
+            TranslationProbability         1.0
+            RotationProbability            1.0
+	    ReinsertionProbability         1.0
+	    CBMCProbability 	           1.0
+	    ReinsertionInPlaceProbability  1.0
+            SwapProbability                1.0
+            CreateNumberOfMolecules  0
