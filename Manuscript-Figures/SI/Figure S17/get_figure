@@ -1,5 +1,0 @@
-#!/bin/bash
-
-currentdir=$(pwd)
-cp ../../../Results/Propane_298K_10Bar_CH3_1A/cm3overcm3/RF-Textural-Energy-Stats_Var_PIncMSE.png Figure_S17.png
-
