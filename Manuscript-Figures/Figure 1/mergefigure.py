@@ -43,3 +43,4 @@ def get_concat_v_cut(im1, im2):
     dst.paste(im2, (0, im1.height))
     return dst
 get_concat_h_cut(imgs[0], imgs[1]).save('Figure_1.png')
+#get_concat_h_cut(imgs[0], imgs[1]).save('Figure_1.ps')
