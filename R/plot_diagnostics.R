@@ -76,6 +76,12 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
                                                  trained_mod$y, method = "spearman", exact = FALSE)$estimate
     results$testing_fit['Spearman'] <- cor.test(y_pred, y_act, method = "spearman", exact = FALSE)$estimate
   }
+  if(Xe_Kr){
+    results$training_fit['MAPE'] <- mean(abs(trained_mod$y - predict(trained_mod$mod, as.matrix(trained_mod$x)))/max(trained_mod$y))*100
+    results$training_fit['RMSPE'] <- sqrt(mean(((trained_mod$y - predict(trained_mod$mod, as.matrix(trained_mod$x)))/max(trained_mod$y))^2))*100
+    results$testing_fit['MAPE'] <- mean(abs(y_act - y_pred)/max(y_act))*100
+    results$testing_fit['RMSPE'] <- sqrt(mean(((y_act - y_pred)/max(y_act))^2))*100
+  }
   # Begin the plots
   results$plots$parity_bw <- parity_plot(y_act, y_pred) +
     xlab(paste0("'Actual' capacity (GCMC, ", plot_units, ")")) +
@@ -368,6 +374,13 @@ label_stats <- function(p, postresample_results, label_q2=NULL, do_label_r2=FALS
       "R\u00B2 = ", format(postresample_results["Rsquared"], digits=2, nsmall=2)
     )
   }
+  if (Xe_Kr){
+    training_stats <- paste0(
+      training_stats, "\n",
+      "MAPE = ", format(postresample_results["MAPE"], digits=1, nsmall=2), "\n",
+      "RMSPE = ", format(postresample_results["RMSPE"], digits=1, nsmall=2)
+    )
+  }
   if (do_label_spearman) {
     training_stats <- paste0(
       training_stats, "\n",
@@ -400,6 +413,12 @@ make_rf_prediction_plots <- function(condition_name, plot_name, rf_model, test_d
   tested <- predict(rf_model, test_data)
   train_rmse <- postResample(pred = rf_model$predicted, obs = rf_model$y)
   test_rmse <- postResample(pred = tested, obs = test_data$y_act)
+  if(Xe_Kr){
+    train_rmse['MAPE'] <- mean(abs(rf_model$y - rf_model$predicted)/max(rf_model$y))*100
+    train_rmse['RMSPE'] <- sqrt(mean(((rf_model$y - rf_model$predicted)/max(rf_model$y))^2))*100
+    test_rmse['MAPE'] <- mean(abs(test_data$y_act - tested)/max(test_data$y_act))*100
+    test_rmse['RMSPE'] <- sqrt(mean(((test_data$y_act - tested)/max(test_data$y_act))^2))*100
+  }
   # consider doing low loading stats
   do_label_low_loading <- FALSE
   low_loading_postresample_train <- NULL
