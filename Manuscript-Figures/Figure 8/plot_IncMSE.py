@@ -8,6 +8,8 @@ import seaborn as sns
 import os
 
 fsize = 15
+edgesize = 200
+
 
 file_dir = os.getcwd() + '/'
 master_dir = file_dir + '/../../Results' # gets master directory
@@ -57,13 +59,13 @@ ax.plot(Ethane_40Bar['midpoints'], Ethane_40Bar['%IncMSE'],
 # highlight circles, top 3
 ax.scatter(Ethane_4Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['midpoints'], 
         Ethane_4Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['%IncMSE'], 
-        edgecolors = 'blue', s = 100, facecolors='none', linewidth = linewidth/2)
+        edgecolors = 'blue', s = edgesize, facecolors='none', linewidth = linewidth/2)
 ax.scatter(Ethane_20Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['midpoints'], 
         Ethane_20Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['%IncMSE'], 
-        edgecolors = 'green', s = 100, facecolors='none', linewidth = linewidth/2)
+        edgecolors = 'green', s = edgesize, facecolors='none', linewidth = linewidth/2)
 ax.scatter(Ethane_40Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['midpoints'], 
         Ethane_40Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['%IncMSE'], 
-        edgecolors = 'red', s = 100, facecolors='none', linewidth = linewidth/2)
+        edgecolors = 'red', s = edgesize, facecolors='none', linewidth = linewidth/2)
 ax.axvline(x = -8.5, linestyle = '--')
 ax.axvline(x = 0.5, linestyle = '--')
 
@@ -99,13 +101,13 @@ axes.plot(Propane_10Bar['midpoints'], Propane_10Bar['%IncMSE'],
 # highlight circles
 axes.scatter(Propane_1Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['midpoints'], 
         Propane_1Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['%IncMSE'], 
-        edgecolors = 'blue', s = 100, facecolors='none', linewidth = linewidth/2)
+        edgecolors = 'blue', s = edgesize, facecolors='none', linewidth = linewidth/2)
 axes.scatter(Propane_5Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['midpoints'], 
         Propane_5Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['%IncMSE'], 
-        edgecolors = 'green', s = 100, facecolors='none', linewidth = linewidth/2)
+        edgecolors = 'green', s = edgesize, facecolors='none', linewidth = linewidth/2)
 axes.scatter(Propane_10Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['midpoints'], 
         Propane_10Bar.sort_values(by = ['%IncMSE'], ascending=False)[0:highlight]['%IncMSE'], 
-        edgecolors = 'red', s = 100, facecolors='none', linewidth = linewidth/2)
+        edgecolors = 'red', s = edgesize, facecolors='none', linewidth = linewidth/2)
 
 axes.axvline(x = -8.5, linestyle = '--')
 axes.axvline(x = 0.5, linestyle = '--')
