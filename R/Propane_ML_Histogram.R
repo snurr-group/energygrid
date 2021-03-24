@@ -23,10 +23,15 @@ if (poster){
 }
 XeKr <<- FALSE # for distinguishing normal fitting from XeKr selectivity fitting
  # define the input files
- molecule_name <- "Xe"
- Temperature <- "273K"
- Pressure <- "10Bar" # use Bar
- previous_plot_lim <- 300
+ molecule_name <- "Hexane"
+ Temperature <- "298K"
+ Pressure <- "0.1Bar" # use Bar
+ previous_plot_lim <- 200 # set maximum loading for plot
+ if(previous_plot_lim > 400){
+   interval <<- 100
+ }else{
+   interval <<- 50
+ }
 # need to distinguish between Xe, Kr, and the alkanes
  if(molecule_name == "Xe" || molecule_name == "Kr"){
    Xe_Kr <<- TRUE # Xe_Kr is indicating Xe or Kr single component, This is a flag used later when plotting and calculating error

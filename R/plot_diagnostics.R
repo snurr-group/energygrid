@@ -124,7 +124,7 @@ eval_test_grid <- function(glmnet_mod, test_grid, binspec, df_with_y_act, db_nam
   pred_list <- c(LASSO_train_pred, results$trained_mod$y, results$pred_df$y_pred, results$pred_df$y_act)
   plot_limit <- c(min(pred_list), max(pred_list))
   #plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],100)+100
-  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],50)+50
+  plot_limit[2] <- plot_limit[2]-mod(plot_limit[2],interval)+interval
   if (previous_plot_lim < plot_limit[2])
   {
     previous_plot_lim <<- plot_limit[2] # use global variable
@@ -328,7 +328,7 @@ rescale_ch4_parity <- function(p, lims=c(0,250)) {
     by_value <- round((lims[2] - lims[1])/5) 
   }else
   {
-    by_value <- 50
+    by_value <- interval
   }
   p +
     scale_x_continuous(limits = c(lims[1],lims[2]), breaks = seq(from = 0, to = lims[2], by = by_value)) +
@@ -341,7 +341,7 @@ rescale_ch4_parity_XeKr <- function(p, lims=c(0,250)) {
     by_value <- round((lims[2] - lims[1])/5) 
   }else
   {
-    by_value <- 50
+    by_value <- interval
   }
   p +
     scale_x_continuous(limits = c(lims[1],lims[2]), breaks = seq(from = 0, to = lims[2], by = by_value)) +
@@ -566,7 +566,7 @@ getVarImp <- function(RFmodel, modelshort = "RF", howmany = 10, condition, model
             plt_rfimp, base_width = 15, base_height = 10, dpi = 600)
 }
 
-make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")"), Errorlabel = "", interval = 50, makeselectivity = FALSE){
+make_rf_prediction_plots_XeKr <- function(condition_name, plot_name, rf_model, test_data, lims = c(0,250), axis_label = paste0("capacity", "(", unit_for_plot, ")"), Errorlabel = "", interval = interval, makeselectivity = FALSE){
 
   # condition names should go like: molecule_temperature_pressure
   new_string <- paste0(condition_name, "_")
